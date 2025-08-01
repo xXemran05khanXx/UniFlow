@@ -1,7 +1,11 @@
 const app = require('./src/app');
 const config = require('./src/config/config');
+const connectDB = require('./src/config/database');
 
 const PORT = config.port || 5000;
+
+// Connect to database
+connectDB();
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

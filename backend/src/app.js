@@ -10,6 +10,7 @@ const errorHandler = require('./middleware/errorHandler');
 const logger = require('./middleware/logger');
 
 // Import routes
+const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 
@@ -57,6 +58,7 @@ app.get('/', (req, res) => {
 
 // Routes
 app.use('/api/health', healthRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 
 // 404 handler

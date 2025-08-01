@@ -8,8 +8,7 @@ const config = {
   database: {
     url: process.env.DATABASE_URL || 'mongodb://localhost:27017/uniflow',
     options: {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      // Removed deprecated options
     }
   },
   
