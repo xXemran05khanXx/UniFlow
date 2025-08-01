@@ -1,31 +1,82 @@
-const app = require('./src/app');
-const config = require('./src/config/config');
-const connectDB = require('./src/config/database');
+const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
 
-const PORT = config.port || 5000;
+// Load environment variables
+dotenv.config();
 
-// Connect to database
-connectDB();
+const app = express();
+const PORT = process.env.PORT || 5000;
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 Environment: ${config.nodeEnv}`);
-  console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+// Middleware
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/uniflow', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => {
+  console.log('Connected to MongoDB');
+})
+.catch((error) => {
+  console.error('MongoDB connection error:', error);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('✅ Process terminated');
+// Basic health check route
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'UniFlow Backend API is running',
+    timestamp: new Date().toISOString()
   });
 });
 
-process.on('SIGINT', () => {
-  console.log('🛑 SIGINT received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('✅ Process terminated');
+// Import routes
+const authRoutes = require('./routes/auth');
+const timetableRoutes = require('./routes/timetable');
+// const userRoutes = require('./routes/users');
+// const subjectRoutes = require('./routes/subjects');
+// const roomRoutes = require('./routes/rooms');
+// const timeSlotRoutes = require('./routes/timeSlots');
+// const timetableRoutes = require('./routes/timetables');
+
+// Use routes
+app.use('/api/auth', authRoutes);
+app.use('/api/timetable', timetableRoutes);
+// app.use('/api/users', userRoutes);
+// app.use('/api/subjects', subjectRoutes);
+// app.use('/api/rooms', roomRoutes);
+// app.use('/api/timeslots', timeSlotRoutes);
+// app.use('/api/timetables', timetableRoutes);
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Route not found'
   });
 });
 
-module.exports = server;
+// Global error handler
+app.use((error, req, res, next) => {
+  console.error('Global error:', error);
+  res.status(error.status || 500).json({
+    success: false,
+    error: error.message || 'Internal server error'
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  console.log(`API Base URL: http://localhost:${PORT}/api`);
+});
+
+module.exports = app;

@@ -1,0 +1,39 @@
+.timetable-calendar-container {
+  height: 600px;
+}
+
+.calendar-event {
+  border-radius: 4px;
+  opacity: 0.8;
+  color: white;
+  border: 0px;
+  display: block;
+}
+
+.calendar-event-lecture {
+  background-color: #3b82f6;
+}
+
+.calendar-event-practical {
+  background-color: #10b981;
+}
+
+.calendar-event-lab {
+  background-color: #8b5cf6;
+}
+
+.calendar-event-default {
+  background-color: #6b7280;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
