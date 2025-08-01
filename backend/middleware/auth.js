@@ -13,7 +13,9 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId);
+    console.log('🔍 Auth Debug - Decoded token:', decoded);
+    
+    const user = await User.findById(decoded.id);
     
     if (!user || !user.isActive) {
       return res.status(401).json({
@@ -22,7 +24,15 @@ const auth = async (req, res, next) => {
       });
     }
 
-    req.user = decoded;
+    req.user = {
+      ...decoded,
+      _id: decoded.id,
+      role: user.role,
+      name: user.name,
+      email: user.email
+    };
+    
+    console.log('🔍 Auth Debug - req.user:', req.user);
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);

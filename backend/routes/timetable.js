@@ -1,5 +1,5 @@
 const express = require('express');
-const auth = require('../middleware/auth');
+const { auth } = require('../src/middleware/auth');
 const TimetableGenerator = require('../src/services/timetable/TimetableGenerator');
 
 const router = express.Router();
@@ -7,6 +7,9 @@ const router = express.Router();
 // Generate timetable
 router.post('/generate', auth, async (req, res) => {
   try {
+    console.log('🎯 Timetable generation request received');
+    console.log('User from auth middleware:', req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'No user');
+    
     const {
       algorithm = 'greedy',
       maxIterations = 1000,
@@ -17,12 +20,11 @@ router.post('/generate', auth, async (req, res) => {
       rooms
     } = req.body;
 
-    console.log('🎯 Timetable generation request received');
     console.log('Algorithm:', algorithm);
-    console.log('User Role:', req.user.role);
+    console.log('User Role:', req.user?.role);
 
     // Check permissions
-    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+    if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'teacher')) {
       return res.status(403).json({
         success: false,
         error: 'Insufficient permissions to generate timetable'
@@ -206,27 +208,43 @@ router.get('/export', auth, async (req, res) => {
       });
     }
 
-    // Generate export data (mock for now)
+    // Generate export data from the timetable generator
+    const generator = new TimetableGenerator();
+    const generatedData = await generator.generateTimetable({
+      semester: semester || 'fall',
+      department: department || 'all',
+      algorithm: 'greedy',
+      constraints: {}
+    });
+
+    // Transform the generated sessions into export format
+    const timetableExportData = generatedData.sessions.map(session => ({
+      courseCode: session.course?.code || '',
+      courseName: session.course?.name || '',
+      teacherName: session.teacher?.name || '',
+      roomNumber: session.room?.number || '',
+      day: session.day || '',
+      time: session.timeSlot || '',
+      startTime: session.startTime || '',
+      endTime: session.endTime || '',
+      department: session.course?.department || '',
+      credits: session.course?.credits || '',
+      duration: session.course?.duration || '',
+      sessionType: session.sessionType || ''
+    }));
+
     const exportData = {
       metadata: {
         exportedAt: new Date().toISOString(),
         exportedBy: req.user.name || req.user.email,
         semester: semester || 'fall',
         department: department || 'all',
-        format
+        format,
+        totalSessions: timetableExportData.length,
+        qualityScore: generatedData.qualityScore || 0,
+        conflicts: generatedData.conflicts || 0
       },
-      timetable: [
-        // Mock timetable data
-        {
-          courseCode: 'CS101',
-          courseName: 'Introduction to Computer Science',
-          teacherName: 'Dr. John Smith',
-          roomNumber: 'CS101',
-          day: 'Monday',
-          time: '8:00 AM - 9:00 AM',
-          department: 'Computer Science'
-        }
-      ]
+      timetable: timetableExportData
     };
 
     if (format === 'csv') {

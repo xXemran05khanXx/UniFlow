@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Clock, BookOpen, Users, MapPin, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, BookOpen, Users, MapPin, AlertCircle, Plus } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { timetablesAPI } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { TimetableEntry, Timetable } from '../../types';
+import TimetableGenerator from '../timetable/TimetableGenerator';
 
 const TeacherDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ const TeacherDashboard: React.FC = () => {
   });
   const [nextClass, setNextClass] = useState<TimetableEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showTimetableGenerator, setShowTimetableGenerator] = useState(false);
 
   const fetchTeacherData = useCallback(async () => {
     try {
@@ -101,6 +103,13 @@ const TeacherDashboard: React.FC = () => {
           <Button variant="outline" className="flex items-center">
             <Calendar className="h-4 w-4 mr-2" />
             View Full Schedule
+          </Button>
+          <Button 
+            className="flex items-center"
+            onClick={() => setShowTimetableGenerator(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Generate Timetable
           </Button>
         </div>
       </div>
@@ -251,6 +260,27 @@ const TeacherDashboard: React.FC = () => {
           </div>
         </Card>
       </div>
+
+      {/* Timetable Generator Modal */}
+      {showTimetableGenerator && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-screen overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Timetable Generator</h2>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowTimetableGenerator(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </Button>
+            </div>
+            <div className="p-6">
+              <TimetableGenerator />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

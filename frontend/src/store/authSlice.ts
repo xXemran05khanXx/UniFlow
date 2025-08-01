@@ -3,7 +3,7 @@ import { authAPI } from '../services/api';
 import { User, AuthState } from '../types';
 
 const initialState: AuthState = {
-  user: null,
+  user: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null,
   token: localStorage.getItem('token'),
   isAuthenticated: !!localStorage.getItem('token'),
   isLoading: false,

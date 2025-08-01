@@ -23,10 +23,16 @@ const auth = asyncHandler(async (req, res, next) => {
 
   try {
     // Verify token
+    console.log('🔍 Auth Debug - Verifying token with JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'NOT SET');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('🔍 Auth Debug - Decoded token:', decoded);
 
-    // Get user from token
-    const user = await User.findById(decoded.id).select('-password');
+    // Get user from token (handle both old 'userId' and new 'id' formats)
+    const userId = decoded.id || decoded.userId;
+    console.log('Auth Debug - Looking for user ID:', userId);
+    
+    const user = await User.findById(userId).select('-password');
+    console.log('Auth Debug - Found user:', user ? { id: user._id, email: user.email, role: user.role, name: user.name } : 'No user found');
     
     if (!user) {
       throw new ApiError('No user found with this token', 401);
@@ -34,13 +40,16 @@ const auth = asyncHandler(async (req, res, next) => {
 
     // Check if user is active
     if (!user.isActive) {
+      console.log('Auth Debug - User is not active');
       throw new ApiError('User account is deactivated', 401);
     }
 
+    console.log('Auth Debug - User authenticated successfully, role:', user.role);
     // Add user to request
     req.user = user;
     next();
   } catch (error) {
+    console.log('🔍 Auth Debug - JWT verification error:', error.message);
     if (error.name === 'JsonWebTokenError') {
       throw new ApiError('Invalid token', 401);
     } else if (error.name === 'TokenExpiredError') {

@@ -1,4 +1,7 @@
-const { Course, Teacher, Room, Timetable } = require('../models');
+const Course = require('../../models/Course');
+const Teacher = require('../../models/Teacher');
+const Room = require('../../models/Room');
+const Timetable = require('../../models/Timetable');
 
 class TimetableGenerator {
   constructor() {

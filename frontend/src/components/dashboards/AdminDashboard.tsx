@@ -4,6 +4,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { usersAPI, timetablesAPI } from '../../services/api';
 import { User, Timetable } from '../../types';
+import TimetableGenerator from '../timetable/TimetableGenerator';
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
@@ -16,6 +17,7 @@ const AdminDashboard: React.FC = () => {
   const [recentUsers, setRecentUsers] = useState<User[]>([]);
   const [recentTimetables, setRecentTimetables] = useState<Timetable[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showTimetableGenerator, setShowTimetableGenerator] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -107,7 +109,10 @@ const AdminDashboard: React.FC = () => {
             <Settings className="h-4 w-4 mr-2" />
             Settings
           </Button>
-          <Button className="flex items-center">
+          <Button 
+            className="flex items-center"
+            onClick={() => setShowTimetableGenerator(true)}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Generate Timetable
           </Button>
@@ -204,7 +209,11 @@ const AdminDashboard: React.FC = () => {
             <Users className="h-5 w-5 mr-2" />
             Manage Users
           </Button>
-          <Button variant="outline" className="flex items-center justify-center p-4 h-auto">
+          <Button 
+            variant="outline" 
+            className="flex items-center justify-center p-4 h-auto"
+            onClick={() => setShowTimetableGenerator(true)}
+          >
             <Calendar className="h-5 w-5 mr-2" />
             Create Timetable
           </Button>
@@ -214,6 +223,27 @@ const AdminDashboard: React.FC = () => {
           </Button>
         </div>
       </Card>
+
+      {/* Timetable Generator Modal/View */}
+      {showTimetableGenerator && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-screen overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Timetable Generator</h2>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowTimetableGenerator(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </Button>
+            </div>
+            <div className="p-6">
+              <TimetableGenerator />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -28,8 +28,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin', 'moderator'],
-    default: 'user'
+    enum: ['student', 'teacher', 'admin'],
+    default: 'student'
   },
   isActive: {
     type: Boolean,
@@ -204,4 +204,4 @@ userSchema.methods.resetLoginAttempts = function() {
   });
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.models.User || mongoose.model('User', userSchema);
