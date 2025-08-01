@@ -217,8 +217,11 @@ router.get('/export', auth, async (req, res) => {
       constraints: {}
     });
 
+    console.log(`📋 Export Debug - Generated ${generatedData.timetable?.length || 0} sessions`);
+    console.log(`📋 Export Debug - Sample session:`, generatedData.timetable?.[0]);
+
     // Transform the generated sessions into export format
-    const timetableExportData = generatedData.sessions.map(session => ({
+    const timetableExportData = (generatedData.timetable || []).map(session => ({
       courseCode: session.course?.code || '',
       courseName: session.course?.name || '',
       teacherName: session.teacher?.name || '',
@@ -233,6 +236,8 @@ router.get('/export', auth, async (req, res) => {
       sessionType: session.sessionType || ''
     }));
 
+    console.log(`📋 Export Debug - Transformed ${timetableExportData.length} entries for export`);
+
     const exportData = {
       metadata: {
         exportedAt: new Date().toISOString(),
@@ -241,8 +246,8 @@ router.get('/export', auth, async (req, res) => {
         department: department || 'all',
         format,
         totalSessions: timetableExportData.length,
-        qualityScore: generatedData.qualityScore || 0,
-        conflicts: generatedData.conflicts || 0
+        qualityScore: generatedData.metrics?.qualityScore || 0,
+        conflicts: generatedData.conflicts?.length || 0
       },
       timetable: timetableExportData
     };

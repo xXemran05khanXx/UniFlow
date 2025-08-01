@@ -1,0 +1,21 @@
+{
+  "name": "uniflow",
+  "version": "1.0.0",
+  "description": "UniFlow Timetable Management System",
+  "main": "index.js",
+  "scripts": {
+    "install-deps": "cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "deploy": "npm run install-deps && npm run build"
+  },
+  "keywords": ["timetable", "university", "management", "scheduling"],
+  "author": "UniFlow Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  }
+}

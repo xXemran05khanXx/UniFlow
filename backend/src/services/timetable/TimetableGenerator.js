@@ -97,6 +97,7 @@ class TimetableGenerator {
     });
 
     for (const course of sortedCourses) {
+      console.log(`🔄 Processing course: ${course.courseCode} (${course.hoursPerWeek || course.credits || 3} sessions needed)`);
       const sessionsNeeded = course.hoursPerWeek || course.credits || 3;
       let sessionsScheduled = 0;
 
@@ -129,15 +130,33 @@ class TimetableGenerator {
                 roomId: availableRoom._id || availableRoom.roomNumber,
                 roomNumber: availableRoom.roomNumber,
                 day,
-                timeSlot,
+                timeSlot: `${timeSlot.startTime} - ${timeSlot.endTime}`,
+                startTime: timeSlot.startTime,
+                endTime: timeSlot.endTime,
                 semester: course.semester,
                 department: course.department,
                 credits: course.credits,
                 maxStudents: course.maxStudents,
-                sessionType: course.sessionType || 'lecture'
+                sessionType: course.sessionType || 'lecture',
+                course: {
+                  code: course.courseCode,
+                  name: course.courseName,
+                  department: course.department,
+                  credits: course.credits,
+                  duration: course.hoursPerWeek
+                },
+                teacher: {
+                  name: availableTeacher.name,
+                  id: availableTeacher._id || availableTeacher.teacherId
+                },
+                room: {
+                  number: availableRoom.roomNumber,
+                  id: availableRoom._id || availableRoom.roomNumber
+                }
               };
 
               timetable.push(session);
+              console.log(`✅ Scheduled: ${session.courseCode} - ${session.day} ${session.timeSlot}`);
               sessionsScheduled++;
               scheduled = true;
               break;
@@ -156,6 +175,7 @@ class TimetableGenerator {
       }
     }
 
+    console.log(`📊 Greedy Algorithm completed: ${timetable.length} total sessions scheduled`);
     return timetable;
   }
 
