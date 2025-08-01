@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: uniflow
+    env: node
+    plan: free
+    buildCommand: |
+      cd frontend && npm install && npm run build
+      cd ../backend && npm install
+      mkdir -p public && cp -r ../frontend/build/* public/
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: uniflow
+          property: port
+    disk:
+      name: uniflow-disk
+      mountPath: /opt/render/project/src
+      sizeGB: 1

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -11,7 +12,22 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:3000',
+      'https://localhost:3000'
+    ].filter(Boolean);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'production') {
+      return callback(null, true);
+    }
+    
+    callback(null, true); // Allow all origins in development
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -56,13 +72,23 @@ app.use('/api/timetable', timetableRoutes);
 // app.use('/api/timeslots', timeSlotRoutes);
 // app.use('/api/timetables', timetableRoutes);
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Route not found'
+// Serve static files from React build (for production)
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'public')));
+  
+  // Handle React routing, return all requests to React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
-});
+} else {
+  // Development fallback
+  app.use('*', (req, res) => {
+    res.status(404).json({
+      success: false,
+      error: 'Route not found'
+    });
+  });
+}
 
 // Global error handler
 app.use((error, req, res, next) => {
