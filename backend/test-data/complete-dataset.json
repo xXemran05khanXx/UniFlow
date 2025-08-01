@@ -1,0 +1,1021 @@
+{
+  "courses": [
+    {
+      "courseCode": "B101",
+      "courseName": "Genetics",
+      "credits": 3,
+      "department": "Biology",
+      "semester": "spring",
+      "prerequisites": [],
+      "description": "Advanced course in biology",
+      "maxStudents": 36,
+      "sessionType": "seminar",
+      "hoursPerWeek": 3,
+      "requiresLab": false,
+      "requiredEquipment": [
+        "Computer",
+        "Audio System",
+        "Whiteboard"
+      ],
+      "isRequired": true,
+      "enrollment": 44
+    },
+    {
+      "courseCode": "P102",
+      "courseName": "Electromagnetism",
+      "credits": 4,
+      "department": "Physics",
+      "semester": "spring",
+      "prerequisites": [],
+      "description": "Advanced course in physics",
+      "maxStudents": 47,
+      "sessionType": "seminar",
+      "hoursPerWeek": 3,
+      "requiresLab": false,
+      "requiredEquipment": [
+        "Whiteboard",
+        "Computer",
+        "Projector",
+        "Lab Equipment"
+      ],
+      "isRequired": false,
+      "enrollment": 35
+    },
+    {
+      "courseCode": "M103",
+      "courseName": "Discrete Mathematics",
+      "credits": 3,
+      "department": "Mathematics",
+      "semester": "summer",
+      "prerequisites": [],
+      "description": "Advanced course in mathematics",
+      "maxStudents": 58,
+      "sessionType": "tutorial",
+      "hoursPerWeek": 2,
+      "requiresLab": false,
+      "requiredEquipment": [
+        "Computer"
+      ],
+      "isRequired": true,
+      "enrollment": 46
+    },
+    {
+      "courseCode": "CS104",
+      "courseName": "Data Structures",
+      "credits": 3,
+      "department": "Computer Science",
+      "semester": "summer",
+      "prerequisites": [],
+      "description": "Advanced course in computer science",
+      "maxStudents": 36,
+      "sessionType": "seminar",
+      "hoursPerWeek": 3,
+      "requiresLab": true,
+      "requiredEquipment": [
+        "Whiteboard"
+      ],
+      "isRequired": false,
+      "enrollment": 37
+    },
+    {
+      "courseCode": "H105",
+      "courseName": "Modern History",
+      "credits": 4,
+      "department": "History",
+      "semester": "spring",
+      "prerequisites": [],
+      "description": "Advanced course in history",
+      "maxStudents": 23,
+      "sessionType": "lecture",
+      "hoursPerWeek": 4,
+      "requiresLab": false,
+      "requiredEquipment": [
+        "Lab Equipment",
+        "Whiteboard"
+      ],
+      "isRequired": true,
+      "enrollment": 21
+    },
+    {
+      "courseCode": "P106",
+      "courseName": "Mechanics",
+      "credits": 2,
+      "department": "Physics",
+      "semester": "summer",
+      "prerequisites": [
+        "P103",
+        "P101"
+      ],
+      "description": "Advanced course in physics",
+      "maxStudents": 28,
+      "sessionType": "seminar",
+      "hoursPerWeek": 3,
+      "requiresLab": true,
+      "requiredEquipment": [
+        "Lab Equipment"
+      ],
+      "isRequired": true,
+      "enrollment": 18
+    },
+    {
+      "courseCode": "M107",
+      "courseName": "Discrete Mathematics",
+      "credits": 4,
+      "department": "Mathematics",
+      "semester": "spring",
+      "prerequisites": [
+        "M104"
+      ],
+      "description": "Advanced course in mathematics",
+      "maxStudents": 27,
+      "sessionType": "tutorial",
+      "hoursPerWeek": 2,
+      "requiresLab": false,
+      "requiredEquipment": [
+        "Computer",
+        "Smart Board",
+        "Audio System",
+        "Projector"
+      ],
+      "isRequired": true,
+      "enrollment": 31
+    },
+    {
+      "courseCode": "B108",
+      "courseName": "Cell Biology",
+      "credits": 3,
+      "department": "Biology",
+      "semester": "spring",
+      "prerequisites": [],
+      "description": "Advanced course in biology",
+      "maxStudents": 48,
+      "sessionType": "tutorial",
+      "hoursPerWeek": 4,
+      "requiresLab": false,
+      "requiredEquipment": [
+        "Computer"
+      ],
+      "isRequired": false,
+      "enrollment": 34
+    },
+    {
+      "courseCode": "CS109",
+      "courseName": "Algorithms",
+      "credits": 3,
+      "department": "Computer Science",
+      "semester": "spring",
+      "prerequisites": [],
+      "description": "Advanced course in computer science",
+      "maxStudents": 36,
+      "sessionType": "lecture",
+      "hoursPerWeek": 3,
+      "requiresLab": true,
+      "requiredEquipment": [
+        "Lab Equipment",
+        "Smart Board",
+        "Projector"
+      ],
+      "isRequired": true,
+      "enrollment": 24
+    },
+    {
+      "courseCode": "P110",
+      "courseName": "Thermodynamics",
+      "credits": 3,
+      "department": "Physics",
+      "semester": "fall",
+      "prerequisites": [],
+      "description": "Advanced course in physics",
+      "maxStudents": 60,
+      "sessionType": "seminar",
+      "hoursPerWeek": 2,
+      "requiresLab": false,
+      "requiredEquipment": [
+        "Audio System",
+        "Smart Board",
+        "Projector"
+      ],
+      "isRequired": true,
+      "enrollment": 31
+    },
+    {
+      "courseCode": "CS111",
+      "courseName": "Algorithms",
+      "credits": 2,
+      "department": "Computer Science",
+      "semester": "spring",
+      "prerequisites": [
+        "CS101",
+        "CS110"
+      ],
+      "description": "Advanced course in computer science",
+      "maxStudents": 52,
+      "sessionType": "lecture",
+      "hoursPerWeek": 2,
+      "requiresLab": false,
+      "requiredEquipment": [
+        "Audio System"
+      ],
+      "isRequired": true,
+      "enrollment": 19
+    },
+    {
+      "courseCode": "E112",
+      "courseName": "Creative Writing",
+      "credits": 3,
+      "department": "English",
+      "semester": "fall",
+      "prerequisites": [
+        "E100",
+        "E103"
+      ],
+      "description": "Advanced course in english",
+      "maxStudents": 46,
+      "sessionType": "seminar",
+      "hoursPerWeek": 2,
+      "requiresLab": true,
+      "requiredEquipment": [
+        "Lab Equipment"
+      ],
+      "isRequired": true,
+      "enrollment": 29
+    },
+    {
+      "courseCode": "H113",
+      "courseName": "Political History",
+      "credits": 4,
+      "department": "History",
+      "semester": "summer",
+      "prerequisites": [
+        "H107",
+        "H107"
+      ],
+      "description": "Advanced course in history",
+      "maxStudents": 35,
+      "sessionType": "tutorial",
+      "hoursPerWeek": 4,
+      "requiresLab": true,
+      "requiredEquipment": [
+        "Computer",
+        "Whiteboard",
+        "Smart Board",
+        "Audio System"
+      ],
+      "isRequired": true,
+      "enrollment": 34
+    },
+    {
+      "courseCode": "M114",
+      "courseName": "Discrete Mathematics",
+      "credits": 2,
+      "department": "Mathematics",
+      "semester": "summer",
+      "prerequisites": [
+        "M108",
+        "M110"
+      ],
+      "description": "Advanced course in mathematics",
+      "maxStudents": 55,
+      "sessionType": "seminar",
+      "hoursPerWeek": 4,
+      "requiresLab": true,
+      "requiredEquipment": [
+        "Audio System",
+        "Whiteboard",
+        "Computer",
+        "Lab Equipment"
+      ],
+      "isRequired": true,
+      "enrollment": 33
+    },
+    {
+      "courseCode": "C115",
+      "courseName": "Biochemistry",
+      "credits": 2,
+      "department": "Chemistry",
+      "semester": "fall",
+      "prerequisites": [
+        "C105"
+      ],
+      "description": "Advanced course in chemistry",
+      "maxStudents": 47,
+      "sessionType": "tutorial",
+      "hoursPerWeek": 2,
+      "requiresLab": true,
+      "requiredEquipment": [
+        "Projector"
+      ],
+      "isRequired": true,
+      "enrollment": 42
+    }
+  ],
+  "teachers": [
+    {
+      "teacherId": "T001",
+      "name": "Mr. James Smith",
+      "department": "Physics",
+      "email": "james.smith@university.edu",
+      "qualification": "PhD",
+      "specialization": [
+        "Quantum Mechanics",
+        "Astrophysics",
+        "Theoretical Physics"
+      ],
+      "maxHours": 21,
+      "experience": 7,
+      "preferences": {
+        "preferredDays": [
+          "friday",
+          "monday",
+          "thursday"
+        ],
+        "preferredTimes": [
+          "10:00",
+          "11:00",
+          "09:00",
+          "13:00"
+        ],
+        "avoidLunchTime": true,
+        "maxConsecutiveHours": 4
+      },
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00"
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        },
+        "friday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        }
+      }
+    },
+    {
+      "teacherId": "T002",
+      "name": "Mrs. Lisa Thomas",
+      "department": "History",
+      "email": "lisa.thomas@university.edu",
+      "qualification": "Bachelor",
+      "specialization": [
+        "Modern History",
+        "Cultural Studies"
+      ],
+      "maxHours": 21,
+      "experience": 4,
+      "preferences": {
+        "preferredDays": [
+          "monday",
+          "thursday"
+        ],
+        "preferredTimes": [
+          "11:00",
+          "10:00",
+          "13:00"
+        ],
+        "avoidLunchTime": true,
+        "maxConsecutiveHours": 4
+      },
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "17:00"
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "17:00"
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "17:00"
+        },
+        "friday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        }
+      }
+    },
+    {
+      "teacherId": "T003",
+      "name": "Mrs. Lisa Miller",
+      "department": "Mathematics",
+      "email": "lisa.miller@university.edu",
+      "qualification": "Bachelor",
+      "specialization": [
+        "Statistics"
+      ],
+      "maxHours": 17,
+      "experience": 19,
+      "preferences": {
+        "preferredDays": [
+          "monday",
+          "thursday",
+          "wednesday"
+        ],
+        "preferredTimes": [
+          "15:00",
+          "11:00",
+          "09:00"
+        ],
+        "avoidLunchTime": true,
+        "maxConsecutiveHours": 5
+      },
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00"
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "17:00"
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        },
+        "thursday": {
+          "available": false,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        },
+        "friday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        }
+      }
+    },
+    {
+      "teacherId": "T004",
+      "name": "Ms. Robert Wilson",
+      "department": "Physics",
+      "email": "robert.wilson@university.edu",
+      "qualification": "Masters",
+      "specialization": [
+        "Experimental Physics"
+      ],
+      "maxHours": 19,
+      "experience": 6,
+      "preferences": {
+        "preferredDays": [
+          "wednesday",
+          "monday",
+          "thursday"
+        ],
+        "preferredTimes": [
+          "10:00",
+          "16:00",
+          "15:00"
+        ],
+        "avoidLunchTime": true,
+        "maxConsecutiveHours": 3
+      },
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00"
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        },
+        "friday": {
+          "available": false,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        }
+      }
+    },
+    {
+      "teacherId": "T005",
+      "name": "Ms. Jane Johnson",
+      "department": "Chemistry",
+      "email": "jane.johnson@university.edu",
+      "qualification": "PhD",
+      "specialization": [
+        "Analytical Chemistry",
+        "Inorganic Chemistry"
+      ],
+      "maxHours": 20,
+      "experience": 20,
+      "preferences": {
+        "preferredDays": [
+          "thursday",
+          "monday",
+          "friday"
+        ],
+        "preferredTimes": [
+          "09:00",
+          "08:00"
+        ],
+        "avoidLunchTime": true,
+        "maxConsecutiveHours": 3
+      },
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "17:00"
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        },
+        "friday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        }
+      }
+    },
+    {
+      "teacherId": "T006",
+      "name": "Dr. Robert Moore",
+      "department": "History",
+      "email": "robert.moore@university.edu",
+      "qualification": "Bachelor",
+      "specialization": [
+        "Modern History"
+      ],
+      "maxHours": 25,
+      "experience": 12,
+      "preferences": {
+        "preferredDays": [
+          "friday",
+          "thursday"
+        ],
+        "preferredTimes": [
+          "11:00",
+          "08:00",
+          "10:00"
+        ],
+        "avoidLunchTime": true,
+        "maxConsecutiveHours": 6
+      },
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "17:00"
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "17:00"
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "09:00",
+          "endTime": "18:00"
+        },
+        "friday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "17:00"
+        }
+      }
+    }
+  ],
+  "rooms": [
+    {
+      "roomNumber": "301",
+      "building": "Main Building",
+      "capacity": 59,
+      "type": "seminar_room",
+      "equipment": [
+        "Computer",
+        "Whiteboard",
+        "Audio System",
+        "Lab Equipment"
+      ],
+      "isLab": true,
+      "floor": 3,
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "friday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        }
+      }
+    },
+    {
+      "roomNumber": "302",
+      "building": "Science Block",
+      "capacity": 55,
+      "type": "lecture_hall",
+      "equipment": [
+        "Lab Equipment"
+      ],
+      "isLab": true,
+      "floor": 3,
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "friday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        }
+      }
+    },
+    {
+      "roomNumber": "303",
+      "building": "Engineering Block",
+      "capacity": 34,
+      "type": "classroom",
+      "equipment": [
+        "Projector",
+        "Smart Board",
+        "Audio System",
+        "Lab Equipment"
+      ],
+      "isLab": true,
+      "floor": 3,
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "friday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        }
+      }
+    },
+    {
+      "roomNumber": "104",
+      "building": "Main Building",
+      "capacity": 25,
+      "type": "lab",
+      "equipment": [
+        "Smart Board",
+        "Lab Equipment"
+      ],
+      "isLab": false,
+      "floor": 1,
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "friday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        }
+      }
+    },
+    {
+      "roomNumber": "305",
+      "building": "Science Block",
+      "capacity": 32,
+      "type": "lab",
+      "equipment": [
+        "Smart Board",
+        "Lab Equipment"
+      ],
+      "isLab": false,
+      "floor": 3,
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "friday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        }
+      }
+    },
+    {
+      "roomNumber": "106",
+      "building": "Main Building",
+      "capacity": 69,
+      "type": "lecture_hall",
+      "equipment": [
+        "Whiteboard",
+        "Smart Board",
+        "Audio System"
+      ],
+      "isLab": true,
+      "floor": 1,
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "friday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        }
+      }
+    },
+    {
+      "roomNumber": "207",
+      "building": "Main Building",
+      "capacity": 33,
+      "type": "seminar_room",
+      "equipment": [
+        "Computer",
+        "Lab Equipment",
+        "Projector"
+      ],
+      "isLab": true,
+      "floor": 2,
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "friday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        }
+      }
+    },
+    {
+      "roomNumber": "308",
+      "building": "Engineering Block",
+      "capacity": 64,
+      "type": "classroom",
+      "equipment": [
+        "Projector"
+      ],
+      "isLab": false,
+      "floor": 3,
+      "availability": {
+        "monday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "tuesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "wednesday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "thursday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        },
+        "friday": {
+          "available": true,
+          "startTime": "08:00",
+          "endTime": "18:00",
+          "maintenance": false
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "generatedAt": "2025-08-01T07:07:15.810Z",
+    "counts": {
+      "courses": 15,
+      "teachers": 6,
+      "rooms": 8
+    },
+    "summary": {
+      "departments": [
+        "Biology",
+        "Physics",
+        "Mathematics",
+        "Computer Science",
+        "History",
+        "English",
+        "Chemistry"
+      ],
+      "buildings": [
+        "Main Building",
+        "Science Block",
+        "Engineering Block"
+      ],
+      "courseTypes": [
+        "seminar",
+        "tutorial",
+        "lecture"
+      ]
+    }
+  }
+}

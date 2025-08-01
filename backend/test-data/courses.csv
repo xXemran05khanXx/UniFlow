@@ -1,0 +1,16 @@
+courseCode,courseName,credits,department,semester,prerequisites,description,maxStudents,sessionType,hoursPerWeek,requiresLab,requiredEquipment,isRequired,enrollment
+B101,Genetics,3,Biology,spring,,Advanced course in biology,36,seminar,3,,Computer;Audio System;Whiteboard,true,44
+P102,Electromagnetism,4,Physics,spring,,Advanced course in physics,47,seminar,3,,Whiteboard;Computer;Projector;Lab Equipment,,35
+M103,Discrete Mathematics,3,Mathematics,summer,,Advanced course in mathematics,58,tutorial,2,,Computer,true,46
+CS104,Data Structures,3,Computer Science,summer,,Advanced course in computer science,36,seminar,3,true,Whiteboard,,37
+H105,Modern History,4,History,spring,,Advanced course in history,23,lecture,4,,Lab Equipment;Whiteboard,true,21
+P106,Mechanics,2,Physics,summer,P103;P101,Advanced course in physics,28,seminar,3,true,Lab Equipment,true,18
+M107,Discrete Mathematics,4,Mathematics,spring,M104,Advanced course in mathematics,27,tutorial,2,,Computer;Smart Board;Audio System;Projector,true,31
+B108,Cell Biology,3,Biology,spring,,Advanced course in biology,48,tutorial,4,,Computer,,34
+CS109,Algorithms,3,Computer Science,spring,,Advanced course in computer science,36,lecture,3,true,Lab Equipment;Smart Board;Projector,true,24
+P110,Thermodynamics,3,Physics,fall,,Advanced course in physics,60,seminar,2,,Audio System;Smart Board;Projector,true,31
+CS111,Algorithms,2,Computer Science,spring,CS101;CS110,Advanced course in computer science,52,lecture,2,,Audio System,true,19
+E112,Creative Writing,3,English,fall,E100;E103,Advanced course in english,46,seminar,2,true,Lab Equipment,true,29
+H113,Political History,4,History,summer,H107;H107,Advanced course in history,35,tutorial,4,true,Computer;Whiteboard;Smart Board;Audio System,true,34
+M114,Discrete Mathematics,2,Mathematics,summer,M108;M110,Advanced course in mathematics,55,seminar,4,true,Audio System;Whiteboard;Computer;Lab Equipment,true,33
+C115,Biochemistry,2,Chemistry,fall,C105,Advanced course in chemistry,47,tutorial,2,true,Projector,true,42

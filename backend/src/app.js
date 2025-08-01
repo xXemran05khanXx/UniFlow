@@ -13,6 +13,7 @@ const logger = require('./middleware/logger');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const timetableRoutes = require('./routes/timetable');
 
 // Import config
 const config = require('./config/config');
@@ -60,6 +61,7 @@ app.get('/', (req, res) => {
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/timetable', timetableRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
