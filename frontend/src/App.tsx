@@ -12,6 +12,7 @@ import TimetablePage from './pages/TimetablePage';
 import DataManagementPage from './pages/DataManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
 import SubjectManagementPage from './pages/SubjectManagementPage';
+import RoomManagementPage from './pages/RoomManagementPage';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 
 // Protected Route Component
@@ -97,6 +98,16 @@ const AppContent: React.FC = () => {
             <ProtectedRoute>
               <Layout>
                 <SubjectManagementPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/room-management"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <RoomManagementPage />
               </Layout>
             </ProtectedRoute>
           }

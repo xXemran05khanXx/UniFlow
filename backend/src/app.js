@@ -14,6 +14,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const timetableRoutes = require('./routes/timetable');
+const roomRoutes = require('./routes/roomRoutes');
 const dataManagementRoutes = require('../routes/dataManagement');
 
 // Import config
@@ -63,6 +64,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/timetable', timetableRoutes);
+app.use('/api/rooms', roomRoutes);
 app.use('/api/data', dataManagementRoutes);
 app.use('/api/data', dataManagementRoutes);
 
