@@ -57,8 +57,9 @@ app.get('/api/health', (req, res) => {
 // Import routes
 const authRoutes = require('./routes/auth');
 const timetableRoutes = require('./routes/timetable');
-// const userRoutes = require('./routes/users');
-// const subjectRoutes = require('./routes/subjects');
+const dataManagementRoutes = require('./routes/dataManagement');
+const userRoutes = require('./src/routes/userRoutes');
+const subjectRoutes = require('./src/routes/subjectRoutes');
 // const roomRoutes = require('./routes/rooms');
 // const timeSlotRoutes = require('./routes/timeSlots');
 // const timetableRoutes = require('./routes/timetables');
@@ -66,8 +67,9 @@ const timetableRoutes = require('./routes/timetable');
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/timetable', timetableRoutes);
-// app.use('/api/users', userRoutes);
-// app.use('/api/subjects', subjectRoutes);
+app.use('/api/data', dataManagementRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/subjects', subjectRoutes);
 // app.use('/api/rooms', roomRoutes);
 // app.use('/api/timeslots', timeSlotRoutes);
 // app.use('/api/timetables', timetableRoutes);

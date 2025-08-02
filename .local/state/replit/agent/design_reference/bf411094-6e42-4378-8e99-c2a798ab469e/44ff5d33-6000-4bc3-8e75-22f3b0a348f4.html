@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uniflow - Campus Productivity Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['Roboto Mono', 'monospace']
+                    },
+                    colors: {
+                        'primary': '#1976D2',
+                        'secondary': '#388E3C',
+                        'admin': '#E65100',
+                        'teacher': '#7B1FA2',
+                        'student': '#0288D1',
+                        'warning': '#F57C00',
+                        'error': '#D32F2F',
+                        'surface': '#FAFAFA'
+                    },
+                    boxShadow: {
+                        'material': '0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.1)',
+                        'material-lg': '0 4px 8px rgba(0,0,0,0.12), 0 16px 32px rgba(0,0,0,0.12)'
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="font-sans bg-surface">
+    <!-- Top Navigation Bar -->
+    <nav class="bg-white shadow-md fixed top-0 left-0 right-0 z-50 h-16">
+        <div class="flex items-center justify-between h-full px-6">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                        <span class="material-icons text-white text-lg">school</span>
+                    </div>
+                    <h1 class="text-xl font-bold text-gray-900">Uniflow</h1>
+                </div>
+                <span class="text-gray-400">|</span>
+                <span class="text-sm text-gray-600">Campus Productivity Platform</span>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <!-- Role Selector (Demo purposes) -->
+                <div class="flex bg-gray-100 rounded-lg p-1">
+                    <button id="adminTab" class="px-3 py-2 text-sm font-medium rounded-md bg-admin text-white transition-colors">
+                        Admin
+                    </button>
+                    <button id="teacherTab" class="px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-200 transition-colors">
+                        Teacher
+                    </button>
+                    <button id="studentTab" class="px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-200 transition-colors">
+                        Student
+                    </button>
+                </div>
+                
+                <!-- Notifications -->
+                <div class="relative">
+                    <button class="p-2 text-gray-600 hover:text-gray-900 relative">
+                        <span class="material-icons">notifications</span>
+                        <span class="absolute -top-1 -right-1 w-5 h-5 bg-error text-white text-xs rounded-full flex items-center justify-center">3</span>
+                    </button>
+                </div>
+                
+                <!-- User Profile -->
+                <div class="flex items-center space-x-2">
+                    <!-- Profile image with proper aspect ratio handling -->
+                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=150&h=150" 
+                         alt="User profile photo" 
+                         class="w-8 h-8 rounded-full object-cover border-2 border-gray-200" />
+                    <span class="text-sm font-medium text-gray-900">Dr. Sarah Johnson</span>
+                    <span class="material-icons text-gray-600 text-lg">expand_more</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="pt-16 flex min-h-screen">
+        
+        <!-- Admin Dashboard -->
+        <div id="adminDashboard" class="w-full">
+            <!-- Admin Sidebar -->
+            <aside class="fixed left-0 top-16 bottom-0 w-64 bg-white shadow-md border-r border-gray-200 overflow-y-auto">
+                <div class="p-4 border-b border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-admin rounded-full"></div>
+                        <span class="font-semibold text-gray-900">Admin Dashboard</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">Department of Computer Science</p>
+                </div>
+                
+                <nav class="p-4 space-y-2">
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg bg-admin/10 text-admin font-medium">
+                        <span class="material-icons">dashboard</span>
+                        <span>Overview</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">schedule</span>
+                        <span>Timetable Management</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">meeting_room</span>
+                        <span>Meeting Scheduler</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">room</span>
+                        <span>Room Management</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">people</span>
+                        <span>Faculty Management</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">analytics</span>
+                        <span>Reports</span>
+                    </a>
+                </nav>
+            </aside>
+
+            <!-- Admin Main Content -->
+            <main class="ml-64 p-6">
+                <!-- Quick Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-material p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Faculty</p>
+                                <p class="text-3xl font-bold text-gray-900">24</p>
+                            </div>
+                            <div class="w-12 h-12 bg-teacher/10 rounded-xl flex items-center justify-center">
+                                <span class="material-icons text-teacher">person</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-material p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Active Classes</p>
+                                <p class="text-3xl font-bold text-gray-900">156</p>
+                            </div>
+                            <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                                <span class="material-icons text-primary">class</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-material p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Available Rooms</p>
+                                <p class="text-3xl font-bold text-gray-900">8</p>
+                            </div>
+                            <div class="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center">
+                                <span class="material-icons text-secondary">meeting_room</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-material p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Pending Requests</p>
+                                <p class="text-3xl font-bold text-gray-900">5</p>
+                            </div>
+                            <div class="w-12 h-12 bg-warning/10 rounded-xl flex items-center justify-center">
+                                <span class="material-icons text-warning">pending_actions</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timetable Creation Section -->
+                <div class="bg-white rounded-xl shadow-material p-6 mb-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-gray-900">Department Timetable Management</h2>
+                        <button class="bg-admin text-white px-4 py-2 rounded-lg font-medium hover:bg-admin/90 transition-colors flex items-center space-x-2">
+                            <span class="material-icons">add</span>
+                            <span>Create New Timetable</span>
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Semester/Year Selection -->
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
+                                <select class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-admin focus:border-transparent">
+                                    <option>2024-2025</option>
+                                    <option>2023-2024</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Semester</label>
+                                <select class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-admin focus:border-transparent">
+                                    <option>Semester 1</option>
+                                    <option>Semester 2</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Year/Division</label>
+                                <select class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-admin focus:border-transparent">
+                                    <option>FE Computer Science - Division A</option>
+                                    <option>FE Computer Science - Division B</option>
+                                    <option>SE Computer Science - Division A</option>
+                                    <option>TE Computer Science - Division A</option>
+                                    <option>BE Computer Science - Division A</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Timetable Preview -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <h3 class="font-semibold text-gray-900 mb-3">Current Week Overview</h3>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                    <span class="text-sm font-medium">Monday</span>
+                                    <span class="text-sm text-gray-600">8 lectures scheduled</span>
+                                </div>
+                                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                    <span class="text-sm font-medium">Tuesday</span>
+                                    <span class="text-sm text-gray-600">7 lectures scheduled</span>
+                                </div>
+                                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                    <span class="text-sm font-medium">Wednesday</span>
+                                    <span class="text-sm text-gray-600">6 lectures scheduled</span>
+                                </div>
+                                <div class="flex justify-between items-center p-2 bg-yellow-50 rounded border border-yellow-200">
+                                    <span class="text-sm font-medium">Thursday</span>
+                                    <span class="text-sm text-warning">2 conflicts detected</span>
+                                </div>
+                                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                    <span class="text-sm font-medium">Friday</span>
+                                    <span class="text-sm text-gray-600">5 lectures scheduled</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Meeting Scheduler Section -->
+                <div class="bg-white rounded-xl shadow-material p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-gray-900">Faculty Meeting Scheduler</h2>
+                        <button class="bg-primary text-white px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors flex items-center space-x-2">
+                            <span class="material-icons">event</span>
+                            <span>Schedule Meeting</span>
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Faculty Selection -->
+                        <div class="lg:col-span-1">
+                            <h3 class="font-semibold text-gray-900 mb-3">Select Faculty Members</h3>
+                            <div class="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                                <!-- @MAP: faculty.map(member => ( -->
+                                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                    <input type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                    <div class="flex items-center space-x-2 flex-1">
+                                        <!-- Professional headshot of a computer science professor -->
+                                        <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=50&h=50" 
+                                             alt="Dr. Michael Chen profile" 
+                                             class="w-8 h-8 rounded-full object-cover">
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900">Dr. Michael Chen</p>
+                                            <p class="text-xs text-gray-600">Database Systems</p>
+                                        </div>
+                                    </div>
+                                    <div class="w-3 h-3 bg-secondary rounded-full" title="Available"></div>
+                                </label>
+                                <!-- @END_MAP )) -->
+                                
+                                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                    <input type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                    <div class="flex items-center space-x-2 flex-1">
+                                        <!-- Professional headshot of a female computer science professor -->
+                                        <img src="https://pixabay.com/get/g8c617b28a1a2229e3b5e1e65bf00dcc1efb84577213e2b780296620a9f886ffe601ad51e9c6cf426801e2776b16f99e3bfc798483c69bc5f29e866cb66503254_1280.jpg" 
+                                             alt="Prof. Lisa Rodriguez profile" 
+                                             class="w-8 h-8 rounded-full object-cover">
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900">Prof. Lisa Rodriguez</p>
+                                            <p class="text-xs text-gray-600">Machine Learning</p>
+                                        </div>
+                                    </div>
+                                    <div class="w-3 h-3 bg-secondary rounded-full" title="Available"></div>
+                                </label>
+                                
+                                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                    <input type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                    <div class="flex items-center space-x-2 flex-1">
+                                        <!-- Professional headshot of a computer science professor -->
+                                        <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=50&h=50" 
+                                             alt="Dr. James Wilson profile" 
+                                             class="w-8 h-8 rounded-full object-cover">
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900">Dr. James Wilson</p>
+                                            <p class="text-xs text-gray-600">Software Engineering</p>
+                                        </div>
+                                    </div>
+                                    <div class="w-3 h-3 bg-error rounded-full" title="Busy"></div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Available Time Slots -->
+                        <div class="lg:col-span-2">
+                            <h3 class="font-semibold text-gray-900 mb-3">Available Time Slots</h3>
+                            <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="grid grid-cols-7 gap-1 mb-4">
+                                    <div class="text-center text-sm font-medium text-gray-600 p-2">Time</div>
+                                    <div class="text-center text-sm font-medium text-gray-600 p-2">Mon</div>
+                                    <div class="text-center text-sm font-medium text-gray-600 p-2">Tue</div>
+                                    <div class="text-center text-sm font-medium text-gray-600 p-2">Wed</div>
+                                    <div class="text-center text-sm font-medium text-gray-600 p-2">Thu</div>
+                                    <div class="text-center text-sm font-medium text-gray-600 p-2">Fri</div>
+                                    <div class="text-center text-sm font-medium text-gray-600 p-2">Sat</div>
+                                    
+                                    <!-- Time slots grid -->
+                                    <div class="text-xs text-gray-600 p-2 font-mono">9:00</div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-gray-200 rounded" title="Occupied"></div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-error/20 rounded" title="Conflict"></div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-gray-200 rounded" title="Occupied"></div>
+                                    
+                                    <div class="text-xs text-gray-600 p-2 font-mono">10:00</div>
+                                    <div class="p-2 bg-gray-200 rounded" title="Occupied"></div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-gray-200 rounded" title="Occupied"></div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    
+                                    <div class="text-xs text-gray-600 p-2 font-mono">11:00</div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-gray-200 rounded" title="Occupied"></div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-secondary/20 rounded cursor-pointer hover:bg-secondary/30 transition-colors" title="Available"></div>
+                                    <div class="p-2 bg-gray-200 rounded" title="Occupied"></div>
+                                </div>
+                                
+                                <div class="flex items-center space-x-4 text-xs">
+                                    <div class="flex items-center space-x-1">
+                                        <div class="w-3 h-3 bg-secondary/20 rounded"></div>
+                                        <span>Available</span>
+                                    </div>
+                                    <div class="flex items-center space-x-1">
+                                        <div class="w-3 h-3 bg-gray-200 rounded"></div>
+                                        <span>Occupied</span>
+                                    </div>
+                                    <div class="flex items-center space-x-1">
+                                        <div class="w-3 h-3 bg-error/20 rounded"></div>
+                                        <span>Conflict</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Teacher Dashboard -->
+        <div id="teacherDashboard" class="w-full hidden">
+            <!-- Teacher Sidebar -->
+            <aside class="fixed left-0 top-16 bottom-0 w-64 bg-white shadow-md border-r border-gray-200 overflow-y-auto">
+                <div class="p-4 border-b border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-teacher rounded-full"></div>
+                        <span class="font-semibold text-gray-900">Teacher Dashboard</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">Prof. Sarah Johnson</p>
+                </div>
+                
+                <nav class="p-4 space-y-2">
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg bg-teacher/10 text-teacher font-medium">
+                        <span class="material-icons">dashboard</span>
+                        <span>Overview</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">schedule</span>
+                        <span>My Timetable</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">meeting_room</span>
+                        <span>Meeting Invites</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">swap_horiz</span>
+                        <span>Lecture Swaps</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">settings</span>
+                        <span>Availability</span>
+                    </a>
+                </nav>
+            </aside>
+
+            <!-- Teacher Main Content -->
+            <main class="ml-64 p-6">
+                <!-- Availability Toggle -->
+                <div class="bg-white rounded-xl shadow-material p-6 mb-8">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">Availability Status</h2>
+                            <p class="text-gray-600">Toggle your availability for meetings and appointments</p>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm font-medium text-gray-900">Available for Meetings</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-secondary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Today's Schedule -->
+                <div class="bg-white rounded-xl shadow-material p-6 mb-8">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">Today's Schedule</h2>
+                    <div class="space-y-4">
+                        <!-- @MAP: todayClasses.map(class => ( -->
+                        <div class="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-900">9:00 AM</p>
+                                <p class="text-xs text-gray-600">1 hour</p>
+                            </div>
+                            <div class="w-1 h-12 bg-teacher rounded-full"></div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900">Data Structures & Algorithms</h3>
+                                <p class="text-sm text-gray-600">SE Computer Science - Division A</p>
+                                <p class="text-sm text-gray-600">Room: CS-204</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <span class="px-2 py-1 bg-secondary/10 text-secondary text-xs font-medium rounded">Active</span>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                        
+                        <div class="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-900">11:00 AM</p>
+                                <p class="text-xs text-gray-600">1 hour</p>
+                            </div>
+                            <div class="w-1 h-12 bg-teacher rounded-full"></div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900">Database Management Systems</h3>
+                                <p class="text-sm text-gray-600">TE Computer Science - Division A</p>
+                                <p class="text-sm text-gray-600">Room: CS-301</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded">Upcoming</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-900">2:00 PM</p>
+                                <p class="text-xs text-gray-600">1.5 hours</p>
+                            </div>
+                            <div class="w-1 h-12 bg-teacher rounded-full"></div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900">Database Lab Session</h3>
+                                <p class="text-sm text-gray-600">TE Computer Science - Division A</p>
+                                <p class="text-sm text-gray-600">Room: CS-Lab-2</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded">Lab</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Meeting Invites -->
+                <div class="bg-white rounded-xl shadow-material p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-gray-900">Meeting Invites</h2>
+                        <span class="px-3 py-1 bg-warning/10 text-warning text-sm font-medium rounded-full">2 Pending</span>
+                    </div>
+                    <div class="space-y-4">
+                        <!-- @MAP: meetingInvites.map(invite => ( -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <h3 class="font-semibold text-gray-900">Curriculum Review Meeting</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Requested by: Dr. Sarah Johnson (HOD)</p>
+                                    <p class="text-sm text-gray-600">Date: Tomorrow, March 15, 2024</p>
+                                    <p class="text-sm text-gray-600">Time: 10:00 AM - 11:00 AM</p>
+                                    <p class="text-sm text-gray-600">Room: Admin-Conference-1</p>
+                                    <p class="text-sm text-gray-700 mt-2">Discussion on updating course curriculum for next semester.</p>
+                                </div>
+                                <div class="flex space-x-2 ml-4">
+                                    <button class="px-3 py-1 bg-secondary text-white text-sm font-medium rounded hover:bg-secondary/90 transition-colors">
+                                        Accept
+                                    </button>
+                                    <button class="px-3 py-1 bg-gray-200 text-gray-700 text-sm font-medium rounded hover:bg-gray-300 transition-colors">
+                                        Decline
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                        
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <h3 class="font-semibold text-gray-900">Faculty Development Program Planning</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Requested by: Principal Office</p>
+                                    <p class="text-sm text-gray-600">Date: Friday, March 17, 2024</p>
+                                    <p class="text-sm text-gray-600">Time: 3:00 PM - 4:00 PM</p>
+                                    <p class="text-sm text-gray-600">Room: Principal-Office</p>
+                                    <p class="text-sm text-gray-700 mt-2">Planning session for upcoming faculty development initiatives.</p>
+                                </div>
+                                <div class="flex space-x-2 ml-4">
+                                    <button class="px-3 py-1 bg-secondary text-white text-sm font-medium rounded hover:bg-secondary/90 transition-colors">
+                                        Accept
+                                    </button>
+                                    <button class="px-3 py-1 bg-gray-200 text-gray-700 text-sm font-medium rounded hover:bg-gray-300 transition-colors">
+                                        Decline
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Student Dashboard -->
+        <div id="studentDashboard" class="w-full hidden">
+            <!-- Student Sidebar -->
+            <aside class="fixed left-0 top-16 bottom-0 w-64 bg-white shadow-md border-r border-gray-200 overflow-y-auto">
+                <div class="p-4 border-b border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-student rounded-full"></div>
+                        <span class="font-semibold text-gray-900">Student Dashboard</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">Alex Chen - SE Computer Science A</p>
+                </div>
+                
+                <nav class="p-4 space-y-2">
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg bg-student/10 text-student font-medium">
+                        <span class="material-icons">dashboard</span>
+                        <span>Overview</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">schedule</span>
+                        <span>My Timetable</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">notifications</span>
+                        <span>Notifications</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">assignment</span>
+                        <span>Assignments</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                        <span class="material-icons">grade</span>
+                        <span>Grades</span>
+                    </a>
+                </nav>
+            </aside>
+
+            <!-- Student Main Content -->
+            <main class="ml-64 p-6">
+                <!-- Quick Notifications -->
+                <div class="bg-white rounded-xl shadow-material p-6 mb-8">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Recent Notifications</h2>
+                    <div class="space-y-3">
+                        <!-- @MAP: notifications.map(notification => ( -->
+                        <div class="flex items-start space-x-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <span class="material-icons text-warning mt-1">schedule</span>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-gray-900">Class Rescheduled</p>
+                                <p class="text-sm text-gray-600">Database Management Systems moved from CS-301 to CS-204 for today's class.</p>
+                                <p class="text-xs text-gray-500 mt-1">2 minutes ago</p>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                        
+                        <div class="flex items-start space-x-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <span class="material-icons text-primary mt-1">assignment</span>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-gray-900">New Assignment Posted</p>
+                                <p class="text-sm text-gray-600">Data Structures Assignment 3 has been posted. Due date: March 20, 2024.</p>
+                                <p class="text-xs text-gray-500 mt-1">1 hour ago</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start space-x-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <span class="material-icons text-secondary mt-1">info</span>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-gray-900">Lab Session Update</p>
+                                <p class="text-sm text-gray-600">Additional lab hours available this Saturday from 9 AM to 12 PM in CS-Lab-1.</p>
+                                <p class="text-xs text-gray-500 mt-1">3 hours ago</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Today's Classes -->
+                <div class="bg-white rounded-xl shadow-material p-6 mb-8">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">Today's Classes</h2>
+                    <div class="space-y-4">
+                        <!-- @MAP: todayClasses.map(class => ( -->
+                        <div class="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-900">9:00 AM</p>
+                                <p class="text-xs text-gray-600">1 hour</p>
+                            </div>
+                            <div class="w-1 h-12 bg-student rounded-full"></div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900">Data Structures & Algorithms</h3>
+                                <p class="text-sm text-gray-600">Prof. Sarah Johnson</p>
+                                <p class="text-sm text-gray-600">Room: CS-204</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <span class="px-2 py-1 bg-secondary/10 text-secondary text-xs font-medium rounded">Current</span>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                        
+                        <div class="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-900">10:00 AM</p>
+                                <p class="text-xs text-gray-600">1 hour</p>
+                            </div>
+                            <div class="w-1 h-12 bg-student rounded-full"></div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900">Software Engineering</h3>
+                                <p class="text-sm text-gray-600">Dr. James Wilson</p>
+                                <p class="text-sm text-gray-600">Room: CS-205</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded">Next</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-900">11:00 AM</p>
+                                <p class="text-xs text-gray-600">1 hour</p>
+                            </div>
+                            <div class="w-1 h-12 bg-student rounded-full"></div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900">Database Management Systems</h3>
+                                <p class="text-sm text-gray-600">Prof. Sarah Johnson</p>
+                                <p class="text-sm text-gray-600">Room: CS-204</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded">Later</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-900">2:00 PM</p>
+                                <p class="text-xs text-gray-600">2 hours</p>
+                            </div>
+                            <div class="w-1 h-12 bg-student rounded-full"></div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900">Programming Lab</h3>
+                                <p class="text-sm text-gray-600">Prof. Lisa Rodriguez</p>
+                                <p class="text-sm text-gray-600">Room: CS-Lab-1</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <span class="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded">Lab</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weekly Timetable Overview -->
+                <div class="bg-white rounded-xl shadow-material p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">This Week's Timetable</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left p-3 text-sm font-medium text-gray-600">Time</th>
+                                    <th class="text-left p-3 text-sm font-medium text-gray-600">Monday</th>
+                                    <th class="text-left p-3 text-sm font-medium text-gray-600">Tuesday</th>
+                                    <th class="text-left p-3 text-sm font-medium text-gray-600">Wednesday</th>
+                                    <th class="text-left p-3 text-sm font-medium text-gray-600">Thursday</th>
+                                    <th class="text-left p-3 text-sm font-medium text-gray-600">Friday</th>
+                                    <th class="text-left p-3 text-sm font-medium text-gray-600">Saturday</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- @MAP: timeSlots.map(slot => ( -->
+                                <tr class="border-b border-gray-100">
+                                    <td class="p-3 text-sm font-mono text-gray-600">9:00-10:00</td>
+                                    <td class="p-3">
+                                        <div class="bg-student/10 border border-student/20 rounded p-2">
+                                            <p class="text-sm font-medium text-gray-900">DSA</p>
+                                            <p class="text-xs text-gray-600">CS-204</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-teacher/10 border border-teacher/20 rounded p-2">
+                                            <p class="text-sm font-medium text-gray-900">SE</p>
+                                            <p class="text-xs text-gray-600">CS-205</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-primary/10 border border-primary/20 rounded p-2">
+                                            <p class="text-sm font-medium text-gray-900">DBMS</p>
+                                            <p class="text-xs text-gray-600">CS-301</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-gray-50 border border-gray-200 rounded p-2">
+                                            <p class="text-sm text-gray-500">Free</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-student/10 border border-student/20 rounded p-2">
+                                            <p class="text-sm font-medium text-gray-900">DSA</p>
+                                            <p class="text-xs text-gray-600">CS-204</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-gray-50 border border-gray-200 rounded p-2">
+                                            <p class="text-sm text-gray-500">Free</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- @END_MAP )) -->
+                                
+                                <tr class="border-b border-gray-100">
+                                    <td class="p-3 text-sm font-mono text-gray-600">10:00-11:00</td>
+                                    <td class="p-3">
+                                        <div class="bg-teacher/10 border border-teacher/20 rounded p-2">
+                                            <p class="text-sm font-medium text-gray-900">SE</p>
+                                            <p class="text-xs text-gray-600">CS-205</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-primary/10 border border-primary/20 rounded p-2">
+                                            <p class="text-sm font-medium text-gray-900">DBMS</p>
+                                            <p class="text-xs text-gray-600">CS-301</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-gray-50 border border-gray-200 rounded p-2">
+                                            <p class="text-sm text-gray-500">Break</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-student/10 border border-student/20 rounded p-2">
+                                            <p class="text-sm font-medium text-gray-900">DSA</p>
+                                            <p class="text-xs text-gray-600">CS-204</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-teacher/10 border border-teacher/20 rounded p-2">
+                                            <p class="text-sm font-medium text-gray-900">SE</p>
+                                            <p class="text-xs text-gray-600">CS-205</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="bg-gray-50 border border-gray-200 rounded p-2">
+                                            <p class="text-sm text-gray-500">Free</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // Role switching functionality for demo purposes
+            const adminTab = document.getElementById('adminTab');
+            const teacherTab = document.getElementById('teacherTab');
+            const studentTab = document.getElementById('studentTab');
+            
+            const adminDashboard = document.getElementById('adminDashboard');
+            const teacherDashboard = document.getElementById('teacherDashboard');
+            const studentDashboard = document.getElementById('studentDashboard');
+            
+            function switchToRole(role) {
+                // Reset all tabs
+                [adminTab, teacherTab, studentTab].forEach(tab => {
+                    tab.classList.remove('bg-admin', 'bg-teacher', 'bg-student', 'text-white');
+                    tab.classList.add('text-gray-600', 'hover:bg-gray-200');
+                });
+                
+                // Hide all dashboards
+                [adminDashboard, teacherDashboard, studentDashboard].forEach(dashboard => {
+                    dashboard.classList.add('hidden');
+                });
+                
+                // Show selected role
+                switch(role) {
+                    case 'admin':
+                        adminTab.classList.remove('text-gray-600', 'hover:bg-gray-200');
+                        adminTab.classList.add('bg-admin', 'text-white');
+                        adminDashboard.classList.remove('hidden');
+                        break;
+                    case 'teacher':
+                        teacherTab.classList.remove('text-gray-600', 'hover:bg-gray-200');
+                        teacherTab.classList.add('bg-teacher', 'text-white');
+                        teacherDashboard.classList.remove('hidden');
+                        break;
+                    case 'student':
+                        studentTab.classList.remove('text-gray-600', 'hover:bg-gray-200');
+                        studentTab.classList.add('bg-student', 'text-white');
+                        studentDashboard.classList.remove('hidden');
+                        break;
+                }
+            }
+            
+            adminTab.addEventListener('click', () => switchToRole('admin'));
+            teacherTab.addEventListener('click', () => switchToRole('teacher'));
+            studentTab.addEventListener('click', () => switchToRole('student'));
+        })();
+
+        // TODO: Implement real-time notifications system
+        // TODO: Implement timetable CRUD operations
+        // TODO: Implement meeting scheduling logic with conflict detection
+        // TODO: Implement room availability checking
+        // TODO: Implement lecture swap functionality for teachers
+        // TODO: Implement proper authentication and authorization
+        // TODO: Connect to backend API endpoints
+        // TODO: Implement state management for dynamic content updates
+    </script>
+</body>
+</html>

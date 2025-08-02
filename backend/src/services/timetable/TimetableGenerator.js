@@ -256,7 +256,6 @@ class TimetableGenerator {
   }
 
   async fetchCourses() {
-    // Mock course data for now - in real implementation, fetch from database
     return [
       {
         courseCode: 'CS101',

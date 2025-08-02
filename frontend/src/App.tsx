@@ -9,6 +9,9 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import TimetablePage from './pages/TimetablePage';
+import DataManagementPage from './pages/DataManagementPage';
+import UserManagementPage from './pages/UserManagementPage';
+import SubjectManagementPage from './pages/SubjectManagementPage';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 
 // Protected Route Component
@@ -64,6 +67,36 @@ const AppContent: React.FC = () => {
             <ProtectedRoute>
               <Layout>
                 <TimetablePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/data-management"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <DataManagementPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user-management"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <UserManagementPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/subject-management"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <SubjectManagementPage />
               </Layout>
             </ProtectedRoute>
           }

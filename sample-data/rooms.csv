@@ -1,0 +1,6 @@
+name,type,capacity,equipment,availability
+Room 101,Lecture Hall,100,"Projector,Microphone,Whiteboard","Monday:8-18,Tuesday:8-18,Wednesday:8-18,Thursday:8-18,Friday:8-18"
+Lab A,Computer Lab,30,"Computers,Projector,Whiteboard","Monday:9-17,Tuesday:9-17,Wednesday:9-17,Thursday:9-17,Friday:9-17"
+Room 205,Classroom,40,"Projector,Whiteboard","Monday:8-18,Tuesday:8-18,Wednesday:8-18,Thursday:8-18,Friday:8-18"
+Lab B,Science Lab,25,"Lab Equipment,Projector,Safety Equipment","Monday:10-16,Tuesday:10-16,Wednesday:10-16,Thursday:10-16,Friday:10-16"
+Auditorium,Large Hall,200,"Audio System,Projector,Stage","Monday:9-21,Tuesday:9-21,Wednesday:9-21,Thursday:9-21,Friday:9-21"
