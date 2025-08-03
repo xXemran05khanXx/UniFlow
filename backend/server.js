@@ -39,10 +39,10 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/uniflow',
   useUnifiedTopology: true,
 })
 .then(() => {
-  console.log('Connected to MongoDB');
+  console.log('✅ Connected to MongoDB');
 })
 .catch((error) => {
-  console.error('MongoDB connection error:', error);
+  console.error('❌ MongoDB connection error:', error.message);
 });
 
 // Basic health check route
@@ -60,9 +60,6 @@ const timetableRoutes = require('./routes/timetable');
 const dataManagementRoutes = require('./routes/dataManagement');
 const userRoutes = require('./src/routes/userRoutes');
 const subjectRoutes = require('./src/routes/subjectRoutes');
-// const roomRoutes = require('./routes/rooms');
-// const timeSlotRoutes = require('./routes/timeSlots');
-// const timetableRoutes = require('./routes/timetables');
 
 // Use routes
 app.use('/api/auth', authRoutes);

@@ -23,7 +23,7 @@ const {
   getDepartments
 } = require('../controllers/subjectController');
 
-const { protect, authorize } = require('../middleware/auth');
+const { auth, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -44,7 +44,7 @@ const upload = multer({
 });
 
 // Apply authentication to all routes
-router.use(protect);
+router.use(auth);
 
 // Public routes (for authenticated users)
 router.get('/departments', getDepartments);
