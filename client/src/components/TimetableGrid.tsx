@@ -1,6 +1,5 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "./ui/Card";
 import { Clock, MapPin, Users } from "lucide-react";
 
 interface TimetableEntry {
@@ -52,63 +51,58 @@ export default function TimetableGrid({ timetables, title, showStudentInfo = fal
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <div className="grid grid-cols-6 gap-2 min-w-[800px]">
-            {/* Header */}
-            <div className="font-semibold text-gray-600 p-3 text-center">Time</div>
-            {days.map(day => (
-              <div key={day} className="font-semibold text-gray-600 p-3 text-center">
-                {day}
-              </div>
-            ))}
+    <Card title={title}>
+      <div className="overflow-x-auto">
+        <div className="grid grid-cols-6 gap-2 min-w-[800px]">
+          {/* Header */}
+          <div className="font-semibold text-gray-600 p-3 text-center">Time</div>
+          {days.map(day => (
+            <div key={day} className="font-semibold text-gray-600 p-3 text-center">
+              {day}
+            </div>
+          ))}
 
-            {/* Time slots */}
-            {timeSlots.map((timeSlot, timeIndex) => (
-              <React.Fragment key={`timeslot-${timeIndex}`}>
-                <div className="p-3 bg-gray-50 rounded-lg text-center text-sm font-medium text-gray-700">
-                  {timeSlot}
-                </div>
-                {days.map(day => {
-                  const entry = getTimetableForSlot(day, timeSlot);
-                  return (
-                    <div key={`${day}-${timeSlot}`} className="p-2">
-                      {entry ? (
-                        <div className={`p-3 rounded-lg border-2 ${getSubjectColor(entry.subject)} transition-all duration-200 hover:shadow-md`}>
-                          <div className="font-semibold text-sm mb-1">{entry.subject}</div>
-                          <div className="flex items-center text-xs mb-1">
-                            <MapPin size={12} className="mr-1" />
-                            {entry.room}
-                          </div>
-                          <div className="flex items-center text-xs mb-1">
-                            <Clock size={12} className="mr-1" />
-                            {entry.startTime} - {entry.endTime}
-                          </div>
-                          {showStudentInfo && entry.year && entry.division && (
-                            <div className="flex items-center text-xs">
-                              <Users size={12} className="mr-1" />
-                              {entry.year} Div {entry.division}
-                            </div>
-                          )}
-                          <Badge variant="secondary" className="text-xs mt-1">
-                            {entry.department}
-                          </Badge>
+          {/* Time slots */}
+          {timeSlots.map((timeSlot, timeIndex) => (
+            <React.Fragment key={`timeslot-${timeIndex}`}>
+              <div className="p-3 bg-gray-50 rounded-lg text-center text-sm font-medium text-gray-700">
+                {timeSlot}
+              </div>
+              {days.map(day => {
+                const entry = getTimetableForSlot(day, timeSlot);
+                return (
+                  <div key={`${day}-${timeSlot}`} className="p-2">
+                    {entry ? (
+                      <div className={`p-3 rounded-lg border-2 ${getSubjectColor(entry.subject)} transition-all duration-200 hover:shadow-md`}>
+                        <div className="font-semibold text-sm mb-1">{entry.subject}</div>
+                        <div className="flex items-center text-xs mb-1">
+                          <MapPin size={12} className="mr-1" />
+                          {entry.room}
                         </div>
-                      ) : (
-                        <div className="p-3 h-20 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200"></div>
-                      )}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
+                        <div className="flex items-center text-xs mb-1">
+                          <Clock size={12} className="mr-1" />
+                          {entry.startTime} - {entry.endTime}
+                        </div>
+                        {showStudentInfo && entry.year && entry.division && (
+                          <div className="flex items-center text-xs">
+                            <Users size={12} className="mr-1" />
+                            {entry.year} Div {entry.division}
+                          </div>
+                        )}
+                        <span className="inline-block bg-secondary-100 text-secondary-800 text-xs px-2 py-1 rounded mt-1">
+                          {entry.department}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="p-3 h-20 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200"></div>
+                    )}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }
