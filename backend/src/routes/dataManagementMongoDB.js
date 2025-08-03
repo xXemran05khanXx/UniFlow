@@ -3,13 +3,13 @@ const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
-const { auth } = require('../src/middleware/auth');
+const { auth } = require('../middleware/auth');
 
 // Import MongoDB models
-const Teacher = require('../src/models/Teacher');
-const Course = require('../src/models/Course');
-const Room = require('../src/models/Room');
-const User = require('../src/models/User');
+const Teacher = require('../models/Teacher');
+const Course = require('../models/Course');
+const Room = require('../models/Room');
+const User = require('../models/User');
 
 const router = express.Router();
 
