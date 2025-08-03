@@ -40,7 +40,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'User Management', href: '/user-management', icon: Users, show: isAdmin },
     { name: 'Subject Management', href: '/subject-management', icon: BookOpen, show: isAdmin },
     { name: 'Room Management', href: '/room-management', icon: Building, show: isAdmin },
-    { name: 'Time Slots', href: '/timeslots', icon: Clock, show: isAdmin },
+    { name: 'Time Slots', href: '/time-slots', icon: Clock, show: isAdmin },
     { name: 'Settings', href: '/settings', icon: Settings, show: true },
   ].filter(item => item.show);
 

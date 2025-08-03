@@ -1,7 +1,11 @@
 import React, { useState } from "react";
-import Modal from "./ui/Modal";
-import Button from "./ui/Button";
-import Input from "./ui/Input";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Calendar } from "lucide-react";
 
 interface CreateTimetableModalProps {
   isOpen: boolean;
@@ -98,7 +102,7 @@ export default function CreateTimetableModal({ isOpen, onClose, onSuccess }: Cre
                   <Input
                     id="subject"
                     value={formData.subject}
-                    onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
                     placeholder="e.g. Calculus I"
                     required
                   />
@@ -108,7 +112,7 @@ export default function CreateTimetableModal({ isOpen, onClose, onSuccess }: Cre
                   <Input
                     id="room"
                     value={formData.room}
-                    onChange={(e) => setFormData(prev => ({ ...prev, room: e.target.value }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, room: e.target.value }))}
                     placeholder="e.g. Math-105"
                     required
                   />
@@ -122,7 +126,7 @@ export default function CreateTimetableModal({ isOpen, onClose, onSuccess }: Cre
                     id="startTime"
                     type="time"
                     value={formData.startTime}
-                    onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
                     required
                   />
                 </div>
@@ -132,7 +136,7 @@ export default function CreateTimetableModal({ isOpen, onClose, onSuccess }: Cre
                     id="endTime"
                     type="time"
                     value={formData.endTime}
-                    onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
                     required
                   />
                 </div>
@@ -140,7 +144,7 @@ export default function CreateTimetableModal({ isOpen, onClose, onSuccess }: Cre
 
               <div>
                 <Label htmlFor="dayOfWeek">Day of Week</Label>
-                <Select value={formData.dayOfWeek} onValueChange={(value) => setFormData(prev => ({ ...prev, dayOfWeek: value }))}>
+                <Select value={formData.dayOfWeek} onValueChange={(value: string) => setFormData(prev => ({ ...prev, dayOfWeek: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select day" />
                   </SelectTrigger>
@@ -154,7 +158,7 @@ export default function CreateTimetableModal({ isOpen, onClose, onSuccess }: Cre
 
               <div>
                 <Label htmlFor="department">Department</Label>
-                <Select value={formData.department} onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))}>
+                <Select value={formData.department} onValueChange={(value: string) => setFormData(prev => ({ ...prev, department: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
@@ -169,7 +173,7 @@ export default function CreateTimetableModal({ isOpen, onClose, onSuccess }: Cre
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="year">Year</Label>
-                  <Select value={formData.year} onValueChange={(value) => setFormData(prev => ({ ...prev, year: value }))}>
+                  <Select value={formData.year} onValueChange={(value: string) => setFormData(prev => ({ ...prev, year: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select year" />
                     </SelectTrigger>
@@ -182,7 +186,7 @@ export default function CreateTimetableModal({ isOpen, onClose, onSuccess }: Cre
                 </div>
                 <div>
                   <Label htmlFor="division">Division</Label>
-                  <Select value={formData.division} onValueChange={(value) => setFormData(prev => ({ ...prev, division: value }))}>
+                  <Select value={formData.division} onValueChange={(value: string) => setFormData(prev => ({ ...prev, division: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select division" />
                     </SelectTrigger>
@@ -211,9 +215,8 @@ export default function CreateTimetableModal({ isOpen, onClose, onSuccess }: Cre
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
                   onClick={onClose}
-                  className="flex-1"
+                  className="flex-1 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </Button>

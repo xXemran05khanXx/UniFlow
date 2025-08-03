@@ -260,7 +260,7 @@ export default function AutoTimetableGenerator({ isOpen, onClose, onSuccess }: A
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="department">Department</Label>
-                  <Select value={formData.department} onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))}>
+                  <Select value={formData.department} onValueChange={(value: string) => setFormData(prev => ({ ...prev, department: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
@@ -273,7 +273,7 @@ export default function AutoTimetableGenerator({ isOpen, onClose, onSuccess }: A
                 </div>
                 <div>
                   <Label htmlFor="year">Year</Label>
-                  <Select value={formData.year} onValueChange={(value) => setFormData(prev => ({ ...prev, year: value }))}>
+                  <Select value={formData.year} onValueChange={(value: string) => setFormData(prev => ({ ...prev, year: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select year" />
                     </SelectTrigger>
@@ -286,7 +286,7 @@ export default function AutoTimetableGenerator({ isOpen, onClose, onSuccess }: A
                 </div>
                 <div>
                   <Label htmlFor="division">Division</Label>
-                  <Select value={formData.division} onValueChange={(value) => setFormData(prev => ({ ...prev, division: value }))}>
+                  <Select value={formData.division} onValueChange={(value: string) => setFormData(prev => ({ ...prev, division: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select division" />
                     </SelectTrigger>
@@ -309,6 +309,7 @@ export default function AutoTimetableGenerator({ isOpen, onClose, onSuccess }: A
                     onChange={handleFileUpload}
                     className="hidden"
                     id="syllabus"
+                    title="Upload syllabus PDF file"
                   />
                   <Button
                     type="button"

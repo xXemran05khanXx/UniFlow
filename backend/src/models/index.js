@@ -4,11 +4,13 @@ const Course = require('./Course');
 const Teacher = require('./Teacher');
 const Room = require('./Room');
 const Timetable = require('./Timetable');
+const TimeSlot = require('./TimeSlot');
 
 module.exports = {
   User,
   Course,
   Teacher,
   Room,
-  Timetable
+  Timetable,
+  TimeSlot
 };
