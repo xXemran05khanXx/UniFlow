@@ -82,14 +82,11 @@ export default function MeetingScheduler({ currentUserId }: MeetingSchedulerProp
   // Create meeting mutation
   const createMeetingMutation = useMutation({
     mutationFn: async (data: MeetingFormData) => {
-      return apiRequest("/api/meetings", {
-        method: "POST",
-        body: JSON.stringify({
-          ...data,
-          organizerId: currentUserId,
-          startTime: new Date(data.startTime).toISOString(),
-          endTime: new Date(data.endTime).toISOString(),
-        }),
+      return apiRequest("POST", "/api/meetings", {
+        ...data,
+        organizerId: currentUserId,
+        startTime: new Date(data.startTime).toISOString(),
+        endTime: new Date(data.endTime).toISOString(),
       });
     },
     onSuccess: () => {
@@ -103,10 +100,7 @@ export default function MeetingScheduler({ currentUserId }: MeetingSchedulerProp
   // Update meeting status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ meetingId, status }: { meetingId: string; status: string }) => {
-      return apiRequest(`/api/meetings/${meetingId}/status`, {
-        method: "PUT",
-        body: JSON.stringify({ status }),
-      });
+      return apiRequest("PUT", `/api/meetings/${meetingId}/status`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/meetings`] });

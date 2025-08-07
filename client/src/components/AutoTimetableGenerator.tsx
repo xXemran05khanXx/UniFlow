@@ -25,12 +25,23 @@ interface ExtractedSubject {
 }
 
 interface GeneratedTimetableEntry {
-  userId?: string;
-  subject: string;
-  room: string;
-  startTime: string;
-  endTime: string;
-  dayOfWeek: string;
+  id: string;
+  subject: {
+    name: string;
+    code: string;
+  };
+  teacher: {
+    name: string;
+  };
+  room: {
+    number: string;
+  };
+  timeSlot: {
+    day: string;
+    startTime: string;
+    endTime: string;
+  };
+  type: string;
   department: string;
   year: string;
   division: string;
@@ -481,7 +492,17 @@ export default function AutoTimetableGenerator({ isOpen, onClose, onSuccess }: A
             </Card>
 
             <TimetableGrid 
-              timetables={generatedTimetable} 
+              timetables={generatedTimetable.map(entry => ({
+                id: entry.id,
+                subject: entry.subject.name,
+                room: entry.room.number,
+                startTime: entry.timeSlot.startTime,
+                endTime: entry.timeSlot.endTime,
+                dayOfWeek: entry.timeSlot.day,
+                department: entry.department,
+                year: entry.year,
+                division: entry.division
+              }))} 
               title={`Generated Timetable - ${formData.department} ${formData.year} Div ${formData.division}`}
               showStudentInfo={true}
             />

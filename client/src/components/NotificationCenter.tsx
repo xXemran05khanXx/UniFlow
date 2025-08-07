@@ -34,9 +34,7 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
   // Mark notification as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      return apiRequest(`/api/notifications/${notificationId}/read`, {
-        method: "PUT",
-      });
+      return apiRequest("PUT", `/api/notifications/${notificationId}/read`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/notifications`] });
@@ -46,10 +44,7 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
   // Mark all notifications as read mutation
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("/api/notifications/mark-all-read", {
-        method: "PUT",
-        body: JSON.stringify({ userId }),
-      });
+      return apiRequest("PUT", "/api/notifications/mark-all-read", { userId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/notifications`] });

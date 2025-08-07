@@ -7,6 +7,7 @@ import CreateTimetableModal from "@/components/CreateTimetableModal";
 import AutoTimetableGenerator from "@/components/AutoTimetableGenerator";
 import NotificationCenter from "@/components/NotificationCenter";
 import MeetingScheduler from "@/components/MeetingScheduler";
+import { Link } from "wouter";
 import { 
   GraduationCap, 
   UserCheck, 
@@ -20,7 +21,8 @@ import {
   Building,
   DoorOpen,
   CalendarPlus,
-  UserPlus
+  UserPlus,
+  Eye
 } from "lucide-react";
 
 export default function AdminDashboard() {

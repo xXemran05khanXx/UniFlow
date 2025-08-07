@@ -25,7 +25,7 @@ import {
   type InsertNotification
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, or } from "drizzle-orm";
+import { eq, or, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -202,7 +202,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTimetable(id: string): Promise<boolean> {
     const result = await db.delete(timetables).where(eq(timetables.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async seedDefaultTimetables(): Promise<void> {
@@ -303,16 +303,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSubjectsByDepartment(department: string, year?: string, division?: string): Promise<Subject[]> {
-    let query = db.select().from(subjects).where(eq(subjects.department, department));
+    const conditions = [eq(subjects.department, department)];
     
     if (year) {
-      query = query.where(eq(subjects.year, year));
+      conditions.push(eq(subjects.year, year));
     }
     if (division) {
-      query = query.where(eq(subjects.division, division));
+      conditions.push(eq(subjects.division, division));
     }
     
-    return await query;
+    return await db.select().from(subjects).where(and(...conditions));
   }
 
   async getAllSubjects(): Promise<Subject[]> {
@@ -330,7 +330,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSubject(id: string): Promise<boolean> {
     const result = await db.delete(subjects).where(eq(subjects.id, id));
-    return result.rowCount > 0;
+    return(result.rowCount ?? 0) > 0;
   }
 
   // Room operations
@@ -361,7 +361,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRoom(id: string): Promise<boolean> {
     const result = await db.delete(rooms).where(eq(rooms.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Meeting operations
@@ -489,16 +489,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGeneratedTimetables(department: string, year?: string, division?: string): Promise<GeneratedTimetable[]> {
-    let query = db.select().from(generatedTimetables).where(eq(generatedTimetables.department, department));
+    const conditions = [eq(generatedTimetables.department, department)];
     
     if (year) {
-      query = query.where(eq(generatedTimetables.year, year));
+      conditions.push(eq(generatedTimetables.year, year));
     }
     if (division) {
-      query = query.where(eq(generatedTimetables.division, division));
+      conditions.push(eq(generatedTimetables.division, division));
     }
     
-    return await query;
+    return await db.select().from(generatedTimetables).where(and(...conditions));
   }
 
   async updateGeneratedTimetableStatus(id: string, status: string): Promise<GeneratedTimetable | undefined> {
@@ -520,13 +520,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSyllabusUploads(department: string, year?: string): Promise<SyllabusUpload[]> {
-    let query = db.select().from(syllabusUploads).where(eq(syllabusUploads.department, department));
+    const conditions = [eq(syllabusUploads.department, department)];
     
     if (year) {
-      query = query.where(eq(syllabusUploads.year, year));
+      conditions.push(eq(syllabusUploads.year, year));
     }
     
-    return await query;
+    return await db.select().from(syllabusUploads).where(and(...conditions));
   }
 }
 

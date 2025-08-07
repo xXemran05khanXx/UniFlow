@@ -237,7 +237,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ] : [];
 
       // Prepare subjects for GA
-      const gaSubjects = subjects.map(s => ({
+      interface Subject {
+        id?: string;
+        name: string;
+        lectureHours?: number;
+        labHours?: number;
+        isLab?: boolean;
+      }
+
+      const gaSubjects = subjects.map((s: Subject) => ({
         id: s.id || `subj-${Date.now()}-${Math.random()}`,
         name: s.name,
         lectureHours: s.lectureHours || 3,
@@ -260,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Convert GA result to database format
       const timetableEntries = result.bestTimetable.map(assignment => {
-        const subject = gaSubjects.find(s => s.id === assignment.subjectId);
+        const subject = gaSubjects.find((s: { id: string }) => s.id === assignment.subjectId);
         const room = gaRooms.find(r => r.id === assignment.roomId);
         
         return {

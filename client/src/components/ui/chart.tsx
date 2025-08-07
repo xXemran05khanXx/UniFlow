@@ -104,19 +104,32 @@ const ChartTooltip = RechartsPrimitive.Tooltip
 
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-    React.ComponentProps<"div"> & {
-      hideLabel?: boolean
-      hideIndicator?: boolean
-      indicator?: "line" | "dot" | "dashed"
-      nameKey?: string
-      labelKey?: string
-    }
+  React.ComponentProps<"div"> & {
+    active?: boolean
+    payload?: Array<{
+      value?: number
+      name?: string
+      dataKey?: string
+      payload?: any
+      color?: string
+      fill?: string
+    }>
+    hideLabel?: boolean
+    hideIndicator?: boolean
+    indicator?: "line" | "dot" | "dashed"
+    nameKey?: string
+    labelKey?: string
+    label?: string | number
+    labelFormatter?: (label: any, payload: any[]) => React.ReactNode
+    labelClassName?: string
+    formatter?: (value: any, name: string, item: any, index: number, payload: any) => React.ReactNode
+    color?: string
+  }
 >(
   (
     {
       active,
-      payload,
+      payload = [],
       className,
       indicator = "dot",
       hideLabel = false,
@@ -188,11 +201,11 @@ const ChartTooltipContent = React.forwardRef<
           {payload.map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
+            const indicatorColor = color || item.payload?.fill || item.color || item.fill
 
             return (
               <div
-                key={item.dataKey}
+                key={item.dataKey || index}
                 className={cn(
                   "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
                   indicator === "dot" && "items-center"
@@ -238,9 +251,9 @@ const ChartTooltipContent = React.forwardRef<
                           {itemConfig?.label || item.name}
                         </span>
                       </div>
-                      {item.value && (
+                      {item.value !== undefined && (
                         <span className="font-mono font-medium tabular-nums text-foreground">
-                          {item.value.toLocaleString()}
+                          {typeof item.value === 'number' ? item.value.toLocaleString() : String(item.value)}
                         </span>
                       )}
                     </div>
@@ -260,14 +273,21 @@ const ChartLegend = RechartsPrimitive.Legend
 
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-      hideIcon?: boolean
-      nameKey?: string
-    }
+  React.ComponentProps<"div"> & {
+    payload?: Array<{
+      value?: string
+      type?: string
+      id?: string
+      color?: string
+      dataKey?: string
+    }>
+    verticalAlign?: "top" | "middle" | "bottom"
+    hideIcon?: boolean
+    nameKey?: string
+  }
 >(
   (
-    { className, hideIcon = false, payload, verticalAlign = "bottom", nameKey },
+    { className, hideIcon = false, payload = [], verticalAlign = "bottom", nameKey },
     ref
   ) => {
     const { config } = useChart()
@@ -285,13 +305,13 @@ const ChartLegendContent = React.forwardRef<
           className
         )}
       >
-        {payload.map((item) => {
+        {payload.map((item, index) => {
           const key = `${nameKey || item.dataKey || "value"}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
 
           return (
             <div
-              key={item.value}
+              key={item.value || index}
               className={cn(
                 "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
               )}
@@ -306,7 +326,7 @@ const ChartLegendContent = React.forwardRef<
                   }}
                 />
               )}
-              {itemConfig?.label}
+              {itemConfig?.label || item.value}
             </div>
           )
         })}

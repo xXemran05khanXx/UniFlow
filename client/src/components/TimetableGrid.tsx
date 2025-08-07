@@ -1,5 +1,5 @@
 import React from "react";
-import { Card } from "./ui/Card";
+import { Card } from "@/components/ui/card";
 import { Clock, MapPin, Users } from "lucide-react";
 
 interface TimetableEntry {
