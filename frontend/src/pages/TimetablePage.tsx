@@ -48,10 +48,10 @@ const TimetablePage: React.FC = () => {
   
   const years = ['1', '2', '3', '4'];
   const semesters = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday'];
   const timeSlots = [
-    '8:00-9:00', '9:00-10:00', '10:00-11:00', '11:00-12:00',
-    '12:00-13:00', '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00'
+    '8:00AM-9:00AM', '9:00AM-10:00AM', '10:00AM-11:00AM', '11:00AM-12:00PM',
+    '12:00PM-1:00PM', '1:00PM-2:00PM', '2:00PM-3:00PM', '3:00PM-4:00PM', '4:00PM-5:00PM'
   ];
 
   // Mock timetable data - this would come from API
@@ -69,7 +69,7 @@ const TimetablePage: React.FC = () => {
             subjectCode: 'CS301',
             teacher: 'Dr. Sarah Johnson',
             room: 'Lab-CS-1',
-            timeSlot: '9:00-10:00',
+            timeSlot: '9:00AM-10:00AM',
             day: 'Monday',
             type: 'lecture',
             duration: 60,
@@ -83,7 +83,7 @@ const TimetablePage: React.FC = () => {
             subjectCode: 'CS302',
             teacher: 'Prof. Mike Chen',
             room: 'Room-301',
-            timeSlot: '10:00-11:00',
+            timeSlot: '10:00AM-11:00AM',
             day: 'Monday',
             type: 'lecture',
             duration: 60,
@@ -97,10 +97,38 @@ const TimetablePage: React.FC = () => {
             subjectCode: 'CS303L',
             teacher: 'Dr. Emily Watson',
             room: 'Lab-CS-2',
-            timeSlot: '14:00-16:00',
+            timeSlot: '2:00PM-3:00PM',
             day: 'Tuesday',
             type: 'lab',
             duration: 120,
+            department: 'cs',
+            year: 3,
+            semester: 'V'
+          },
+          {
+            id: '4',
+            subject: 'Mathematics',
+            subjectCode: 'MATH201',
+            teacher: 'Dr. Alex Brown',
+            room: 'Room-201',
+            timeSlot: '8:00AM-9:00AM',
+            day: 'Wednesday',
+            type: 'lecture',
+            duration: 60,
+            department: 'cs',
+            year: 3,
+            semester: 'V'
+          },
+          {
+            id: '5',
+            subject: 'Physics',
+            subjectCode: 'PHY101',
+            teacher: 'Prof. Lisa Davis',
+            room: 'Lab-PHY-1',
+            timeSlot: '11:00AM-12:00PM',
+            day: 'Thursday',
+            type: 'lab',
+            duration: 60,
             department: 'cs',
             year: 3,
             semester: 'V'
@@ -146,6 +174,66 @@ const TimetablePage: React.FC = () => {
       case 'tutorial': return 'bg-purple-100 text-purple-800 border-purple-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const getSubjectColor = (subject: string) => {
+    const colors = {
+      'Data Structures & Algorithms': {
+        bg: 'from-blue-100 to-blue-200',
+        hoverBg: 'hover:from-blue-200 hover:to-blue-300',
+        border: 'border-blue-400',
+        text: 'text-blue-900'
+      },
+      'Database Management Systems': {
+        bg: 'from-green-100 to-green-200',
+        hoverBg: 'hover:from-green-200 hover:to-green-300',
+        border: 'border-green-400',
+        text: 'text-green-900'
+      },
+      'Computer Networks Lab': {
+        bg: 'from-purple-100 to-purple-200',
+        hoverBg: 'hover:from-purple-200 hover:to-purple-300',
+        border: 'border-purple-400',
+        text: 'text-purple-900'
+      },
+      'Mathematics': {
+        bg: 'from-orange-100 to-orange-200',
+        hoverBg: 'hover:from-orange-200 hover:to-orange-300',
+        border: 'border-orange-400',
+        text: 'text-orange-900'
+      },
+      'Physics': {
+        bg: 'from-red-100 to-red-200',
+        hoverBg: 'hover:from-red-200 hover:to-red-300',
+        border: 'border-red-400',
+        text: 'text-red-900'
+      },
+      'Chemistry': {
+        bg: 'from-teal-100 to-teal-200',
+        hoverBg: 'hover:from-teal-200 hover:to-teal-300',
+        border: 'border-teal-400',
+        text: 'text-teal-900'
+      },
+      'Software Engineering': {
+        bg: 'from-indigo-100 to-indigo-200',
+        hoverBg: 'hover:from-indigo-200 hover:to-indigo-300',
+        border: 'border-indigo-400',
+        text: 'text-indigo-900'
+      },
+      'Operating Systems': {
+        bg: 'from-pink-100 to-pink-200',
+        hoverBg: 'hover:from-pink-200 hover:to-pink-300',
+        border: 'border-pink-400',
+        text: 'text-pink-900'
+      }
+    };
+
+    return colors[subject as keyof typeof colors] || {
+      bg: 'from-gray-100 to-gray-200',
+      hoverBg: 'hover:from-gray-200 hover:to-gray-300',
+      border: 'border-gray-400',
+      text: 'text-gray-900'
+    };
   };
 
   const renderFilters = () => (
@@ -296,60 +384,81 @@ const TimetablePage: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
+            <table className="w-full min-w-[700px] border-separate border-spacing-0 rounded-2xl overflow-hidden shadow-lg">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-4 px-4 font-semibold text-gray-900 bg-gray-50 rounded-tl-xl">Time</th>
-                  {days.map(day => (
-                    <th key={day} className="text-center py-4 px-4 font-semibold text-gray-900 bg-gray-50 min-w-[180px]">
-                      {day}
+                <tr className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600">
+                  <th className="text-left py-3 px-4 font-bold text-white rounded-tl-2xl border-r border-white/20">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-5 w-5" />
+                      <span>Day</span>
+                    </div>
+                  </th>
+                  {timeSlots.map((slot, index) => (
+                    <th key={slot} className={`text-center py-3 px-3 font-semibold text-white border-r border-white/20 min-w-[90px] ${
+                      index === timeSlots.length - 1 ? 'rounded-tr-2xl border-r-0' : ''
+                    }`}>
+                      <div className="text-xs leading-tight">
+                        {slot}
+                      </div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {timeSlots.map((slot, slotIndex) => (
-                  <tr key={slot} className={slotIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                    <td className="py-4 px-4 font-medium text-gray-900 border-r border-gray-200">
-                      {slot}
+                {days.map((day, dayIndex) => (
+                  <tr key={day} className={`group transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 ${
+                    dayIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                  }`}>
+                    <td className={`py-4 px-4 font-bold text-gray-800 border-r border-gray-200 bg-gradient-to-r from-gray-100 to-gray-50 ${
+                      dayIndex === days.length - 1 ? 'rounded-bl-2xl' : ''
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          dayIndex === 0 ? 'bg-blue-500' :
+                          dayIndex === 1 ? 'bg-green-500' :
+                          dayIndex === 2 ? 'bg-purple-500' :
+                          'bg-orange-500'
+                        }`}></div>
+                        <span className="text-sm">{day}</span>
+                      </div>
                     </td>
-                    {days.map(day => {
+                    {timeSlots.map((slot, slotIndex) => {
                       const entry = filteredTimetables.find(
                         e => e.day === day && e.timeSlot === slot
                       );
                       return (
-                        <td key={`${day}-${slot}`} className="py-2 px-2 border-r border-gray-100">
+                        <td key={`${day}-${slot}`} className={`py-2 px-1 border-r border-gray-100 relative group-hover:border-blue-200 transition-colors ${
+                          dayIndex === days.length - 1 && slotIndex === timeSlots.length - 1 ? 'rounded-br-2xl border-r-0' : ''
+                        }`}>
                           {entry ? (
-                            <div className={`p-3 rounded-lg border-l-4 ${
-                              entry.type === 'lecture' ? 'border-blue-500 bg-blue-50' :
-                              entry.type === 'lab' ? 'border-green-500 bg-green-50' :
-                              'border-purple-500 bg-purple-50'
-                            } hover:shadow-md transition-shadow cursor-pointer group`}>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${getTypeColor(entry.type)}`}>
-                                  {getTypeIcon(entry.type)}
-                                  <span className="ml-1 capitalize">{entry.type}</span>
-                                </span>
-                                <Button size="sm" variant="outline" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Eye className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <h4 className="font-semibold text-sm text-gray-900 mb-1 line-clamp-2">
-                                {entry.subject}
-                              </h4>
-                              <p className="text-xs text-gray-600 mb-1">{entry.subjectCode}</p>
-                              <div className="flex items-center text-xs text-gray-500 mb-1">
-                                <Users className="h-3 w-3 mr-1" />
-                                {entry.teacher}
-                              </div>
-                              <div className="flex items-center text-xs text-gray-500">
-                                <MapPin className="h-3 w-3 mr-1" />
-                                {entry.room}
-                              </div>
-                            </div>
+                            (() => {
+                              const subjectColors = getSubjectColor(entry.subject);
+                              return (
+                                <div className={`p-2 rounded-xl border-l-4 transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer group/card bg-gradient-to-br ${subjectColors.bg} ${subjectColors.hoverBg} ${subjectColors.border}`}>
+                                  <div className="mb-1">
+                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-bold border shadow-sm ${getTypeColor(entry.type)}`}>
+                                      {getTypeIcon(entry.type)}
+                                      <span className="ml-1 capitalize">{entry.type}</span>
+                                    </span>
+                                  </div>
+                                  <h4 className={`font-bold text-xs mb-1 line-clamp-2 leading-tight ${subjectColors.text}`}>
+                                    {entry.subject}
+                                  </h4>
+                                  <p className={`text-xs mb-1 font-medium ${subjectColors.text} opacity-80`}>{entry.subjectCode}</p>
+                                  <div className={`flex items-center text-xs mb-1 ${subjectColors.text} opacity-70`}>
+                                    <Users className="h-3 w-3 mr-1 flex-shrink-0" />
+                                    <span className="truncate">{entry.teacher}</span>
+                                  </div>
+                                  <div className={`flex items-center text-xs ${subjectColors.text} opacity-70`}>
+                                    <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                                    <span className="truncate">{entry.room}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()
                           ) : (
-                            <div className="h-24 flex items-center justify-center text-gray-300 hover:bg-gray-100 rounded-lg transition-colors">
-                              <Clock className="h-5 w-5" />
+                            <div className="h-20 flex items-center justify-center text-gray-300 hover:bg-gradient-to-br hover:from-gray-50 hover:to-gray-100 rounded-lg transition-all duration-200 group">
+                              <Clock className="h-4 w-4 group-hover:scale-110 transition-transform" />
                             </div>
                           )}
                         </td>
