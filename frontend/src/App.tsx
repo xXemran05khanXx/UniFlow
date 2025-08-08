@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import TimetablePage from './pages/TimetablePage';
+import TeacherTimetablePage from './pages/TeacherTimetablePage';
 import GeneratePage from './pages/GeneratePage';
 import DataManagementPage from './pages/DataManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
@@ -71,6 +72,16 @@ const AppContent: React.FC = () => {
             <ProtectedRoute>
               <Layout>
                 <TimetablePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher-timetable"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <TeacherTimetablePage />
               </Layout>
             </ProtectedRoute>
           }

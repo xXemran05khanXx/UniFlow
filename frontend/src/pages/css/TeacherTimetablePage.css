@@ -1,0 +1,368 @@
+/* Teacher Timetable Page Styles */
+
+.teacher-timetable-grid {
+  display: grid;
+  grid-template-columns: 128px repeat(auto-fit, minmax(176px, 1fr));
+  gap: 8px;
+  min-width: 1200px;
+}
+
+.teacher-timetable-cell {
+  min-height: 112px;
+  max-height: 112px;
+  height: 112px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.teacher-timetable-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Consistent slot sizing */
+.timetable-scroll table {
+  table-layout: fixed;
+}
+
+.timetable-scroll table th:first-child,
+.timetable-scroll table td:first-child {
+  width: 128px;
+  min-width: 128px;
+  max-width: 128px;
+}
+
+.timetable-scroll table th:not(:first-child),
+.timetable-scroll table td:not(:first-child) {
+  width: 176px;
+  min-width: 176px;
+  max-width: 176px;
+  height: 112px;
+  vertical-align: top;
+}
+
+.timetable-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Ensure consistent cell heights */
+.timetable-scroll tbody tr {
+  height: 112px;
+}
+
+.timetable-scroll tbody td {
+  height: 112px;
+  padding: 8px;
+  vertical-align: top;
+}
+
+.class-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.class-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: inherit;
+  z-index: -1;
+}
+
+.class-card-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 8px;
+}
+
+.class-card:hover .class-card-hover-overlay {
+  opacity: 1;
+}
+
+.status-indicator {
+  position: relative;
+}
+
+.status-scheduled {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.status-completed {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.status-cancelled {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.status-swapped {
+  background-color: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #ddd6fe;
+}
+
+.type-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.type-lecture {
+  background-color: #3b82f6;
+}
+
+.type-practical {
+  background-color: #10b981;
+}
+
+.type-tutorial {
+  background-color: #8b5cf6;
+}
+
+.subject-gradient-blue {
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+}
+
+.subject-gradient-green {
+  background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
+}
+
+.subject-gradient-purple {
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+}
+
+.subject-gradient-orange {
+  background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
+}
+
+.timetable-empty-slot {
+  border: 2px dashed #d1d5db;
+  background-color: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.timetable-empty-slot:hover {
+  border-color: #6b7280;
+  background-color: #f3f4f6;
+}
+
+.filters-panel {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.stats-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.6) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.list-view-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.list-view-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .teacher-timetable-grid {
+    grid-template-columns: 80px repeat(5, 1fr);
+    gap: 4px;
+    min-width: 600px;
+  }
+  
+  .teacher-timetable-cell {
+    min-height: 60px;
+  }
+  
+  .class-card {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .teacher-timetable-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    min-width: auto;
+  }
+  
+  .timetable-responsive-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 8px;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+}
+
+/* Animation classes */
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Custom scrollbar for horizontal scroll */
+.timetable-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.timetable-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.timetable-scroll::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.timetable-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Enhanced hover effects for grid cards */
+.group\/card {
+  position: relative;
+  overflow: hidden;
+}
+
+.group\/card:hover .hover-actions {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.hover-actions {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: scale(0.95);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  z-index: 10;
+}
+
+.hover-actions button {
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.group\/card:hover .hover-actions button {
+  transform: translateY(0);
+}
+
+.hover-actions button:hover {
+  transform: scale(1.15);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Ensure buttons are clickable and visible */
+.hover-actions button {
+  pointer-events: auto;
+  cursor: pointer;
+  border: 2px solid white !important;
+  font-weight: 600;
+}
+
+.group\/card:hover {
+  z-index: 5;
+}
+
+/* Make buttons more visible on hover */
+.hover-actions button:focus {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
