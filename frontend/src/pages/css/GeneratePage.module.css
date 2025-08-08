@@ -1,0 +1,9 @@
+/* GeneratePage specific styles */
+.progressBar {
+  transition: width 0.3s ease-in-out;
+}
+
+.progressBarDynamic {
+  width: var(--progress-width, 0%);
+  transition: width 0.3s ease-in-out;
+}

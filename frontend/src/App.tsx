@@ -9,11 +9,13 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import TimetablePage from './pages/TimetablePage';
+import GeneratePage from './pages/GeneratePage';
 import DataManagementPage from './pages/DataManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
 import SubjectManagementPage from './pages/SubjectManagementPage';
 import RoomManagementPage from './pages/RoomManagementPage';
 import TimeSlotsPage from './pages/TimeSlotsPage';
+import AdminSettingsPage from './pages/AdminSettingsPage';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 
 // Protected Route Component
@@ -74,6 +76,16 @@ const AppContent: React.FC = () => {
           }
         />
         <Route
+          path="/generate"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <GeneratePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/data-management"
           element={
             <ProtectedRoute>
@@ -119,6 +131,16 @@ const AppContent: React.FC = () => {
             <ProtectedRoute>
               <Layout>
                 <TimeSlotsPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin-settings"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <AdminSettingsPage />
               </Layout>
             </ProtectedRoute>
           }

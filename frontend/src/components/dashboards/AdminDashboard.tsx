@@ -5,6 +5,16 @@ import Button from '../ui/Button';
 import { usersAPI, timetablesAPI } from '../../services/api';
 import { User, Timetable } from '../../types';
 import TimetableGenerator from '../timetable/TimetableGenerator';
+import './AdminDashboard.css';
+
+interface Department {
+  id: string;
+  name: string;
+  code: string;
+  totalStudents: number;
+  totalTeachers: number;
+  color: string;
+}
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
@@ -18,6 +28,16 @@ const AdminDashboard: React.FC = () => {
   const [recentTimetables, setRecentTimetables] = useState<Timetable[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTimetableGenerator, setShowTimetableGenerator] = useState(false);
+  
+  // Mock departments data - this would come from API
+  const [departments] = useState<Department[]>([
+    { id: 'cs', name: 'Computer Science', code: 'CS', totalStudents: 240, totalTeachers: 15, color: 'from-blue-500 to-cyan-500' },
+    { id: 'it', name: 'Information Technology', code: 'IT', totalStudents: 200, totalTeachers: 12, color: 'from-purple-500 to-pink-500' },
+    { id: 'ec', name: 'Electronics & Communication', code: 'EC', totalStudents: 180, totalTeachers: 10, color: 'from-green-500 to-emerald-500' },
+    { id: 'me', name: 'Mechanical Engineering', code: 'ME', totalStudents: 160, totalTeachers: 8, color: 'from-orange-500 to-red-500' },
+    { id: 'ce', name: 'Civil Engineering', code: 'CE', totalStudents: 140, totalTeachers: 7, color: 'from-indigo-500 to-purple-500' },
+    { id: 'ee', name: 'Electrical Engineering', code: 'EE', totalStudents: 120, totalTeachers: 6, color: 'from-yellow-500 to-orange-500' }
+  ]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -88,6 +108,66 @@ const AdminDashboard: React.FC = () => {
     }
   ];
 
+  const renderDepartmentOverview = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {departments.map((dept) => (
+        <Card 
+          key={dept.id}
+          className="relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:scale-105 dept-card-glow border-0"
+        >
+          <div className={`absolute inset-0 bg-gradient-to-br ${dept.color} opacity-15`}></div>
+          <div className={`absolute top-0 left-0 w-full h-2 bg-gradient-to-r ${dept.color}`}></div>
+          
+          <div className="relative p-6">
+            <div className="flex items-center justify-center mb-4">
+              <div className={`p-3 rounded-2xl bg-gradient-to-br ${dept.color} shadow-lg`}>
+                <BookOpen className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            
+            <div className="text-center mb-4">
+              <h3 className="font-bold text-xl text-gray-900 mb-1">{dept.code}</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">{dept.name}</p>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1 bg-blue-100 rounded">
+                    <Users className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <span className="text-gray-600 text-sm">Students</span>
+                </div>
+                <span className="font-bold text-lg text-gray-900">{dept.totalStudents}</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1 bg-purple-100 rounded">
+                    <BookOpen className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <span className="text-gray-600 text-sm">Faculty</span>
+                </div>
+                <span className="font-bold text-lg text-gray-900">{dept.totalTeachers}</span>
+              </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-gray-500">
+                  Ratio
+                </div>
+                <div className="font-semibold text-sm text-gray-700">
+                  {Math.round(dept.totalStudents / dept.totalTeachers)}:1
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -138,6 +218,28 @@ const AdminDashboard: React.FC = () => {
             </Card>
           );
         })}
+      </div>
+
+      {/* Department Overview */}
+      <div>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-2xl mr-4">
+                <BookOpen className="h-8 w-8 text-white" />
+              </div>
+              Department Overview
+            </h2>
+            <p className="text-gray-600 text-lg">
+              Comprehensive statistics and insights for all academic departments
+            </p>
+          </div>
+          <Button variant="outline" className="flex items-center enhanced-button">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            View Analytics
+          </Button>
+        </div>
+        {renderDepartmentOverview()}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

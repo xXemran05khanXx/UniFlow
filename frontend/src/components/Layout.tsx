@@ -41,7 +41,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Subject Management', href: '/subject-management', icon: BookOpen, show: isAdmin },
     { name: 'Room Management', href: '/room-management', icon: Building, show: isAdmin },
     { name: 'Time Slots', href: '/time-slots', icon: Clock, show: isAdmin },
-    { name: 'Settings', href: '/settings', icon: Settings, show: true },
+    { name: 'Admin Settings', href: '/admin-settings', icon: Settings, show: isAdmin },
+    { name: 'Settings', href: '/settings', icon: Settings, show: !isAdmin },
   ].filter(item => item.show);
 
   const isActive = (href: string) => {
@@ -121,7 +122,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <div className="flex h-16 items-center justify-between bg-white border-b border-secondary-200 px-4 lg:px-8">
+        <div className="flex h-16 items-center bg-white border-b border-secondary-200 px-4 lg:px-8">
           <button
             onClick={() => setSidebarOpen(true)}
             className="text-secondary-500 hover:text-secondary-700 lg:hidden"
@@ -130,7 +131,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Menu className="h-6 w-6" />
           </button>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 ml-auto">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-secondary-900">{user?.name}</p>
               <p className="text-xs text-secondary-500 capitalize">{user?.role}</p>
