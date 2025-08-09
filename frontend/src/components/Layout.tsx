@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppDispatch } from '../hooks/redux';
 import { logoutUser } from '../store/authSlice';
+import NotificationBell from './NotificationBell';
 import { 
   Home, 
   Calendar, 
@@ -13,7 +14,9 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  Bell,
+  User
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -21,7 +24,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { user, isAdmin, isTeacher } = useAuth();
+  const { user, isAdmin, isTeacher, isStudent } = useAuth();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,16 +37,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home, show: true },
+    // Admin menu options
     { name: 'Timetables', href: '/timetables', icon: Calendar, show: isAdmin },
-    { name: 'My Timetable', href: '/teacher-timetable', icon: Calendar, show: isTeacher },
-    { name: 'My Classes', href: '/teacher-classes', icon: BookOpen, show: isTeacher },
     { name: 'Data Management', href: '/data-management', icon: Settings, show: isAdmin },
     { name: 'User Management', href: '/user-management', icon: Users, show: isAdmin },
     { name: 'Subject Management', href: '/subject-management', icon: BookOpen, show: isAdmin },
     { name: 'Room Management', href: '/room-management', icon: Building, show: isAdmin },
     { name: 'Time Slots', href: '/time-slots', icon: Clock, show: isAdmin },
     { name: 'Admin Settings', href: '/admin-settings', icon: Settings, show: isAdmin },
-    { name: 'Settings', href: '/settings', icon: Settings, show: !isAdmin },
+    // Teacher menu options
+    { name: 'My Timetable', href: '/teacher-timetable', icon: Calendar, show: isTeacher },
+    { name: 'My Classes', href: '/teacher-classes', icon: BookOpen, show: isTeacher },
+    { name: 'Settings', href: '/teacher-settings', icon: Settings, show: isTeacher },
+    // Student menu options
+    { name: 'My Timetable', href: '/student-timetable', icon: Calendar, show: isStudent },
+    { name: 'My Notifications', href: '/student-notifications', icon: Bell, show: isStudent },
+    { name: 'My Profile', href: '/student-profile', icon: User, show: isStudent },
   ].filter(item => item.show);
 
   const isActive = (href: string) => {
@@ -133,6 +142,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
           
           <div className="flex items-center space-x-4 ml-auto">
+            {/* Notification Bell - only for students */}
+            {isStudent && <NotificationBell />}
+            
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-secondary-900">{user?.name}</p>
               <p className="text-xs text-secondary-500 capitalize">{user?.role}</p>

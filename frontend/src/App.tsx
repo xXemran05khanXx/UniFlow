@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import { useAuth } from './hooks/useAuth';
 import { initializeAuth } from './store/authSlice';
+import { NotificationProvider } from './contexts/NotificationContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -12,6 +13,9 @@ import TimetablePage from './pages/TimetablePage';
 import TeacherTimetablePage from './pages/TeacherTimetablePage';
 import TeacherClassesPage from './pages/TeacherClassesPage';
 import TeacherSettingsPage from './pages/TeacherSettingsPage';
+import StudentTimetablePage from './pages/StudentTimetablePage';
+import StudentNotificationsPage from './pages/StudentNotificationsPage';
+import StudentProfilePage from './pages/StudentProfilePage';
 import GeneratePage from './pages/GeneratePage';
 import DataManagementPage from './pages/DataManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
@@ -44,17 +48,18 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <DashboardPage />
-              </Layout>
+    <NotificationProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DashboardPage />
+                </Layout>
             </ProtectedRoute>
           }
         />
@@ -169,6 +174,16 @@ const AppContent: React.FC = () => {
           }
         />
         <Route
+          path="/teacher-settings"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <TeacherSettingsPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/settings"
           element={
             <ProtectedRoute>
@@ -178,9 +193,41 @@ const AppContent: React.FC = () => {
             </ProtectedRoute>
           }
         />
+        {/* Student Routes - Placeholder pages for now */}
+        <Route
+          path="/student-timetable"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <StudentTimetablePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-notifications"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <StudentNotificationsPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-profile"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <StudentProfilePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
+    </NotificationProvider>
   );
 };
 
