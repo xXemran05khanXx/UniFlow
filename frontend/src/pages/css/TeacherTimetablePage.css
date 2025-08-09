@@ -2,15 +2,105 @@
 
 .teacher-timetable-grid {
   display: grid;
-  grid-template-columns: 128px repeat(auto-fit, minmax(176px, 1fr));
+  grid-template-columns: 120px repeat(5, 1fr);
   gap: 8px;
-  min-width: 1200px;
+  min-width: 800px;
+}
+
+/* Enhanced hover effects for grid cards */
+.grid-card-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.grid-card-hover::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+  transform: rotate(45deg) translate(-100%, -100%);
+  transition: transform 0.6s ease;
+  pointer-events: none;
+}
+
+.grid-card-hover:hover::before {
+  transform: rotate(45deg) translate(100%, 100%);
+}
+
+/* Action button animations */
+.action-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(4px) scale(0.8);
+  opacity: 0;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group:hover .action-button {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.action-button:nth-child(1) {
+  transition-delay: 0.1s;
+}
+
+.action-button:nth-child(2) {
+  transition-delay: 0.2s;
+}
+
+.action-button:hover {
+  transform: translateY(-2px) scale(1.1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  background-color: white !important;
+}
+
+/* Preserve icon colors on hover */
+.action-button:hover .text-blue-600 {
+  color: #2563eb !important;
+}
+
+.action-button:hover .text-red-600 {
+  color: #dc2626 !important;
+}
+
+/* Table styling for consistent cell sizes */
+.timetable-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.timetable-table th:first-child,
+.timetable-table td:first-child {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
+.timetable-table th:not(:first-child),
+.timetable-table td:not(:first-child) {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
+.timetable-cell {
+  height: 100px;
+  min-height: 100px;
+  max-height: 100px;
+  padding: 4px;
+  vertical-align: top;
 }
 
 .teacher-timetable-cell {
-  min-height: 112px;
-  max-height: 112px;
-  height: 112px;
+  min-height: 80px;
   border-radius: 8px;
   transition: all 0.3s ease;
 }
@@ -18,43 +108,6 @@
 .teacher-timetable-cell:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* Consistent slot sizing */
-.timetable-scroll table {
-  table-layout: fixed;
-}
-
-.timetable-scroll table th:first-child,
-.timetable-scroll table td:first-child {
-  width: 128px;
-  min-width: 128px;
-  max-width: 128px;
-}
-
-.timetable-scroll table th:not(:first-child),
-.timetable-scroll table td:not(:first-child) {
-  width: 176px;
-  min-width: 176px;
-  max-width: 176px;
-  height: 112px;
-  vertical-align: top;
-}
-
-.timetable-scroll {
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-/* Ensure consistent cell heights */
-.timetable-scroll tbody tr {
-  height: 112px;
-}
-
-.timetable-scroll tbody td {
-  height: 112px;
-  padding: 8px;
-  vertical-align: top;
 }
 
 .class-card {
@@ -304,65 +357,4 @@
 
 .timetable-scroll::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
-}
-
-/* Enhanced hover effects for grid cards */
-.group\/card {
-  position: relative;
-  overflow: hidden;
-}
-
-.group\/card:hover .hover-actions {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.hover-actions {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  opacity: 0;
-  transform: scale(0.95);
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  border-radius: 0.75rem;
-  z-index: 10;
-}
-
-.hover-actions button {
-  transform: translateY(10px);
-  transition: all 0.3s ease;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-
-.group\/card:hover .hover-actions button {
-  transform: translateY(0);
-}
-
-.hover-actions button:hover {
-  transform: scale(1.15);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-/* Ensure buttons are clickable and visible */
-.hover-actions button {
-  pointer-events: auto;
-  cursor: pointer;
-  border: 2px solid white !important;
-  font-weight: 600;
-}
-
-.group\/card:hover {
-  z-index: 5;
-}
-
-/* Make buttons more visible on hover */
-.hover-actions button:focus {
-  outline: 2px solid white;
-  outline-offset: 2px;
 }

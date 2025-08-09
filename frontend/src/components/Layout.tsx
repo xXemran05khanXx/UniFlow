@@ -36,7 +36,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Dashboard', href: '/', icon: Home, show: true },
     { name: 'Timetables', href: '/timetables', icon: Calendar, show: isAdmin },
     { name: 'My Timetable', href: '/teacher-timetable', icon: Calendar, show: isTeacher },
-    { name: 'Generate', href: '/generate', icon: Calendar, show: isAdmin || isTeacher },
+    { name: 'My Classes', href: '/teacher-classes', icon: BookOpen, show: isTeacher },
     { name: 'Data Management', href: '/data-management', icon: Settings, show: isAdmin },
     { name: 'User Management', href: '/user-management', icon: Users, show: isAdmin },
     { name: 'Subject Management', href: '/subject-management', icon: BookOpen, show: isAdmin },

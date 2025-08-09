@@ -10,6 +10,8 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import TimetablePage from './pages/TimetablePage';
 import TeacherTimetablePage from './pages/TeacherTimetablePage';
+import TeacherClassesPage from './pages/TeacherClassesPage';
+import TeacherSettingsPage from './pages/TeacherSettingsPage';
 import GeneratePage from './pages/GeneratePage';
 import DataManagementPage from './pages/DataManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
@@ -87,6 +89,16 @@ const AppContent: React.FC = () => {
           }
         />
         <Route
+          path="/teacher-classes"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <TeacherClassesPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/generate"
           element={
             <ProtectedRoute>
@@ -152,6 +164,16 @@ const AppContent: React.FC = () => {
             <ProtectedRoute>
               <Layout>
                 <AdminSettingsPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <TeacherSettingsPage />
               </Layout>
             </ProtectedRoute>
           }

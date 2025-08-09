@@ -245,15 +245,6 @@ const TeacherTimetablePage: React.FC = () => {
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'lecture': return 'bg-blue-500';
-      case 'practical': return 'bg-green-500';
-      case 'tutorial': return 'bg-purple-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
   const getSubjectColor = (subject: string) => {
     const colors = {
       'Data Structures & Algorithms': {
@@ -492,26 +483,26 @@ const TeacherTimetablePage: React.FC = () => {
             
             {/* Timetable Grid */}
             <div className="overflow-x-auto timetable-scroll">
-              <table className="w-full border-collapse rounded-2xl overflow-hidden shadow-sm bg-gradient-to-br from-white to-gray-50">
+              <table className="timetable-table w-full border-collapse rounded-2xl overflow-hidden shadow-sm bg-gradient-to-br from-white to-gray-50">
                 <thead>
                   <tr className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                    <th className="py-4 px-4 text-left font-bold rounded-tl-2xl w-32">
+                    <th className="py-4 px-4 text-left font-bold rounded-tl-2xl">
                       <div className="flex items-center space-x-2">
                         <Calendar className="h-5 w-5" />
                         <span>Day</span>
                       </div>
                     </th>
                     {timeSlots.map((timeSlot, index) => (
-                      <th key={timeSlot} className={`py-4 px-3 text-center font-bold w-44 ${
+                      <th key={timeSlot} className={`py-4 px-2 text-center font-bold text-sm ${
                         index === timeSlots.length - 1 ? 'rounded-tr-2xl' : ''
                       }`}>
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className={`w-3 h-3 rounded-full ${
-                            index < 2 ? 'bg-green-300' :
-                            index < 4 ? 'bg-blue-300' :
-                            index < 6 ? 'bg-orange-300' : 'bg-pink-300'
+                        <div className="flex flex-col items-center justify-center space-y-1">
+                          <div className={`w-2 h-2 rounded-full ${
+                            index < 3 ? 'bg-yellow-300' :
+                            index < 6 ? 'bg-green-300' :
+                            'bg-orange-300'
                           }`}></div>
-                          <span className="text-sm">{timeSlot}</span>
+                          <span className="text-xs leading-tight">{timeSlot}</span>
                         </div>
                       </th>
                     ))}
@@ -522,15 +513,15 @@ const TeacherTimetablePage: React.FC = () => {
                     <tr key={day} className={`group transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 ${
                       dayIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                     }`}>
-                      <td className={`py-4 px-4 font-bold text-gray-800 border-r border-gray-200 bg-gradient-to-r from-gray-100 to-gray-50 w-32 ${
+                      <td className={`timetable-cell py-4 px-4 font-bold text-gray-800 border-r border-gray-200 bg-gradient-to-r from-gray-100 to-gray-50 ${
                         dayIndex === days.length - 1 ? 'rounded-bl-2xl' : ''
                       }`}>
                         <div className="flex items-center space-x-2">
                           <div className={`w-3 h-3 rounded-full ${
-                            dayIndex === 0 ? 'bg-red-500' :
-                            dayIndex === 1 ? 'bg-blue-500' :
-                            dayIndex === 2 ? 'bg-green-500' :
-                            dayIndex === 3 ? 'bg-yellow-500' : 'bg-purple-500'
+                            dayIndex === 0 ? 'bg-blue-500' :
+                            dayIndex === 1 ? 'bg-green-500' :
+                            dayIndex === 2 ? 'bg-yellow-500' :
+                            dayIndex === 3 ? 'bg-orange-500' : 'bg-purple-500'
                           }`}></div>
                           <span className="text-sm">{day}</span>
                         </div>
@@ -538,95 +529,81 @@ const TeacherTimetablePage: React.FC = () => {
                       {timeSlots.map((timeSlot, timeIndex) => {
                         const classItem = getClassForSlot(day, timeSlot);
                         return (
-                          <td key={`${day}-${timeSlot}`} className={`py-2 px-2 border-r border-gray-100 relative group-hover:border-blue-200 transition-colors w-44 h-28 ${
-                            timeIndex === timeSlots.length - 1 && dayIndex === days.length - 1 ? 'rounded-br-2xl border-r-0' : ''
+                          <td key={`${day}-${timeSlot}`} className={`timetable-cell py-2 px-1 border-r border-gray-100 relative group-hover:border-blue-200 transition-colors ${
+                            dayIndex === days.length - 1 && timeIndex === timeSlots.length - 1 ? 'rounded-br-2xl border-r-0' : ''
                           }`}>
                             {classItem ? (
                               (() => {
                                 const subjectColors = getSubjectColor(classItem.subject);
                                 return (
-                                  <div className={`p-2 rounded-xl border-l-4 transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer group/card bg-gradient-to-br ${subjectColors.bg} ${subjectColors.hoverBg} ${subjectColors.border} relative h-full`}>
-                                    <div className="mb-1">
-                                      <div className="flex items-center justify-between mb-1">
-                                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-xs font-bold border shadow-sm ${getStatusColor(classItem.status)}`}>
-                                          {classItem.status === 'completed' && <CheckCircle className="h-2.5 w-2.5 mr-1" />}
-                                          {classItem.status === 'scheduled' && <Clock className="h-2.5 w-2.5 mr-1" />}
-                                          <span className="capitalize text-xs">{classItem.status}</span>
-                                        </span>
-                                        <div className={`w-2 h-2 rounded-full ${getTypeColor(classItem.type)}`}></div>
-                                      </div>
+                                  <div className={`grid-card-hover p-2 rounded-lg border-l-4 transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer group/card bg-gradient-to-br ${subjectColors.bg} ${subjectColors.hoverBg} ${subjectColors.border} relative h-full flex flex-col justify-between overflow-hidden`}>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-bold border shadow-sm ${getStatusColor(classItem.status)}`}>
+                                        {classItem.status === 'completed' && <CheckCircle className="h-2 w-2 mr-1" />}
+                                        {classItem.status === 'scheduled' && <Clock className="h-2 w-2 mr-1" />}
+                                        <span className="capitalize text-xs">{classItem.status}</span>
+                                      </span>
+                                      {classItem.status === 'completed' && (
+                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Completed - View Only"></div>
+                                      )}
                                     </div>
                                     
                                     <h4 className={`font-bold text-xs mb-1 line-clamp-2 leading-tight ${subjectColors.text}`}>
-                                      {classItem.subject}
-                                    </h4>
-                                    <p className={`text-xs mb-1 font-medium ${subjectColors.text} opacity-80`}>
                                       {classItem.subjectCode}
-                                    </p>
+                                    </h4>
+
+                                    {/* Lab/Theory Type Badge */}
+                                    <div className="mb-1">
+                                      <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-bold text-white ${
+                                        classItem.type === 'practical' ? 'bg-purple-500' : 
+                                        classItem.type === 'tutorial' ? 'bg-orange-500' : 'bg-blue-500'
+                                      }`}>
+                                        {classItem.type === 'practical' && <Users className="h-2 w-2 mr-1" />}
+                                        {classItem.type === 'tutorial' && <RefreshCw className="h-2 w-2 mr-1" />}
+                                        {classItem.type === 'lecture' && <BookOpen className="h-2 w-2 mr-1" />}
+                                        <span className="capitalize">{classItem.type === 'practical' ? 'Lab' : classItem.type === 'lecture' ? 'Theory' : 'Tutorial'}</span>
+                                      </span>
+                                    </div>
                                     
                                     <div className="space-y-0.5">
                                       <div className={`flex items-center text-xs ${subjectColors.text} opacity-70`}>
-                                        <MapPin className="h-2.5 w-2.5 mr-1 flex-shrink-0" />
+                                        <MapPin className="h-2 w-2 mr-1 flex-shrink-0" />
                                         <span className="truncate">{classItem.room}</span>
                                       </div>
                                       <div className={`flex items-center text-xs ${subjectColors.text} opacity-70`}>
-                                        <Users className="h-2.5 w-2.5 mr-1 flex-shrink-0" />
-                                        <span>Sem {classItem.semester}-{classItem.section}</span>
+                                        <Users className="h-2 w-2 mr-1 flex-shrink-0" />
+                                        <span>{classItem.students}</span>
                                       </div>
                                     </div>
 
-                                    {/* Status indicators */}
-                                    {classItem.swapRequests && classItem.swapRequests.length > 0 && (
-                                      <div className="absolute top-1 right-1">
-                                        <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse"></div>
-                                      </div>
-                                    )}
-                                    
-                                    {classItem.attendanceMarked && (
-                                      <div className="absolute top-1 right-3">
-                                        <CheckCircle className="h-2.5 w-2.5 text-green-600" />
-                                      </div>
-                                    )}
-
-                                    {/* Hover actions */}
-                                    <div className="hover-actions">
-                                      <Button 
-                                        size="sm" 
-                                        variant="outline" 
-                                        className="h-10 w-10 p-0 bg-white/95 hover:bg-white border-white text-gray-700 hover:text-blue-600 shadow-lg"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // Handle view action
-                                          console.log('View class:', classItem);
-                                        }}
-                                        title="View Details"
-                                      >
-                                        <Eye className="h-5 w-5" />
-                                      </Button>
-                                      {classItem.canSwap && (
+                                    {/* Action buttons overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover/card:opacity-100 rounded-lg transition-all duration-300 flex items-end justify-center pb-3">
+                                      <div className="flex items-center space-x-3">
                                         <Button 
                                           size="sm" 
-                                          variant="outline" 
-                                          className="h-10 w-10 p-0 bg-white/95 hover:bg-white border-white text-gray-700 hover:text-orange-600 shadow-lg"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            // Handle swap action
-                                            console.log('Swap class:', classItem);
-                                          }}
-                                          title="Request Swap"
+                                          className="action-button h-10 w-10 p-0 bg-white/95 hover:bg-white border-2 border-white/50 rounded-full shadow-xl transform hover:scale-110 transition-all duration-200"
+                                          title="View Details"
                                         >
-                                          <ArrowUpDown className="h-5 w-5" />
+                                          <Eye className="h-6 w-6 text-blue-600" />
                                         </Button>
-                                      )}
+                                        {classItem.status !== 'completed' && classItem.canSwap && (
+                                          <Button 
+                                            size="sm" 
+                                            className="action-button h-10 w-10 p-0 bg-white/95 hover:bg-white border-2 border-white/50 rounded-full shadow-xl transform hover:scale-110 transition-all duration-200"
+                                            title="Request Swap"
+                                          >
+                                            <ArrowUpDown className="h-6 w-6 text-red-600" />
+                                          </Button>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 );
                               })()
                             ) : (
-                              <div className="h-full flex items-center justify-center text-gray-300 hover:bg-gradient-to-br hover:from-gray-50 hover:to-gray-100 rounded-lg transition-all duration-200 group border-2 border-dashed border-gray-200 hover:border-gray-300">
-                                <div className="text-center">
-                                  <Clock className="h-4 w-4 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                                  <span className="text-xs">Free</span>
+                              <div className="h-full flex items-center justify-center opacity-30 hover:opacity-60 transition-opacity cursor-pointer">
+                                <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-blue-400 transition-colors">
+                                  <span className="text-xs text-gray-400">+</span>
                                 </div>
                               </div>
                             )}
@@ -653,7 +630,7 @@ const TeacherTimetablePage: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-              {getFilteredClasses().map(classItem => {
+              {getFilteredClasses().map((classItem: TeacherClass) => {
                 const subjectColors = getSubjectColor(classItem.subject);
                 return (
                   <div key={classItem.id} className={`p-6 rounded-xl border-l-4 bg-gradient-to-br ${subjectColors.bg} ${subjectColors.hoverBg} ${subjectColors.border} hover:shadow-lg transition-all duration-300 border border-gray-200`}>
@@ -668,11 +645,19 @@ const TeacherTimetablePage: React.FC = () => {
                             {classItem.status === 'scheduled' && <Clock className="h-4 w-4 mr-1 inline" />}
                             <span className="capitalize">{classItem.status}</span>
                           </span>
-                          <span className={`px-3 py-1 text-sm font-medium rounded text-white ${getTypeColor(classItem.type)}`}>
-                            {classItem.type === 'lecture' && <BookOpen className="h-4 w-4 mr-1 inline" />}
+                          <span className={`px-3 py-1 text-sm font-medium rounded text-white shadow-sm ${
+                            classItem.type === 'practical' ? 'bg-gradient-to-r from-purple-500 to-purple-600' : 
+                            classItem.type === 'tutorial' ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 
+                            'bg-gradient-to-r from-blue-500 to-blue-600'
+                          }`}>
                             {classItem.type === 'practical' && <Users className="h-4 w-4 mr-1 inline" />}
                             {classItem.type === 'tutorial' && <RefreshCw className="h-4 w-4 mr-1 inline" />}
-                            <span className="capitalize">{classItem.type}</span>
+                            {classItem.type === 'lecture' && <BookOpen className="h-4 w-4 mr-1 inline" />}
+                            <span className="capitalize font-semibold">
+                              {classItem.type === 'practical' ? 'Lab Session' : 
+                               classItem.type === 'lecture' ? 'Theory Class' : 
+                               'Tutorial'}
+                            </span>
                           </span>
                         </div>
                         
@@ -734,43 +719,20 @@ const TeacherTimetablePage: React.FC = () => {
                           )}
                         </div>
                         
-                        <div className="flex space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="bg-white hover:bg-blue-50 border-blue-200 text-blue-600 hover:text-blue-700 px-4 py-2"
-                            onClick={() => {
-                              // Handle view action
-                              console.log('View class details:', classItem);
-                            }}
-                          >
-                            <Eye className="h-5 w-5 mr-2" />
-                            View
+                        <div className="flex space-x-3">
+                          <Button size="sm" variant="outline" className="bg-white hover:bg-gray-50 border-gray-300 text-gray-700 font-medium shadow-sm">
+                            <Eye className="h-6 w-6 mr-2 text-blue-600" />
+                            View Details
                           </Button>
-                          {classItem.canSwap && (
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="bg-white hover:bg-orange-50 border-orange-200 text-orange-600 hover:text-orange-700 px-4 py-2"
-                              onClick={() => {
-                                // Handle swap action
-                                console.log('Request swap for:', classItem);
-                              }}
-                            >
-                              <ArrowUpDown className="h-5 w-5 mr-2" />
-                              Swap
+                          {classItem.status !== 'completed' && classItem.canSwap && (
+                            <Button size="sm" variant="outline" className="bg-white hover:bg-gray-50 border-gray-300 text-gray-700 font-medium shadow-sm">
+                              <ArrowUpDown className="h-6 w-6 mr-2 text-red-600" />
+                              Request Swap
                             </Button>
                           )}
                           {!classItem.attendanceMarked && classItem.status === 'completed' && (
-                            <Button 
-                              size="sm" 
-                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2"
-                              onClick={() => {
-                                // Handle attendance marking
-                                console.log('Mark attendance for:', classItem);
-                              }}
-                            >
-                              <CheckCircle className="h-5 w-5 mr-2" />
+                            <Button size="sm" className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-medium shadow-sm">
+                              <CheckCircle className="h-6 w-6 mr-2" />
                               Mark Attendance
                             </Button>
                           )}
