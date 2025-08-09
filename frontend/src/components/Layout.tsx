@@ -39,6 +39,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Dashboard', href: '/', icon: Home, show: true },
     // Admin menu options
     { name: 'Timetables', href: '/timetables', icon: Calendar, show: isAdmin },
+    { name: 'My Teachers', href: '/admin-teachers', icon: Users, show: isAdmin },
     { name: 'Data Management', href: '/data-management', icon: Settings, show: isAdmin },
     { name: 'User Management', href: '/user-management', icon: Users, show: isAdmin },
     { name: 'Subject Management', href: '/subject-management', icon: BookOpen, show: isAdmin },
@@ -51,6 +52,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Settings', href: '/teacher-settings', icon: Settings, show: isTeacher },
     // Student menu options
     { name: 'My Timetable', href: '/student-timetable', icon: Calendar, show: isStudent },
+    { name: 'My Teachers', href: '/student-teachers', icon: Users, show: isStudent },
     { name: 'My Notifications', href: '/student-notifications', icon: Bell, show: isStudent },
     { name: 'My Profile', href: '/student-profile', icon: User, show: isStudent },
   ].filter(item => item.show);

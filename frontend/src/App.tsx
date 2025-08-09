@@ -16,6 +16,8 @@ import TeacherSettingsPage from './pages/TeacherSettingsPage';
 import StudentTimetablePage from './pages/StudentTimetablePage';
 import StudentNotificationsPage from './pages/StudentNotificationsPage';
 import StudentProfilePage from './pages/StudentProfilePage';
+import StudentMyTeachersPage from './pages/StudentMyTeachersPage';
+import AdminMyTeachersPage from './pages/AdminMyTeachersPage';
 import GeneratePage from './pages/GeneratePage';
 import DataManagementPage from './pages/DataManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
@@ -174,6 +176,16 @@ const AppContent: React.FC = () => {
           }
         />
         <Route
+          path="/admin-teachers"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <AdminMyTeachersPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/teacher-settings"
           element={
             <ProtectedRoute>
@@ -220,6 +232,16 @@ const AppContent: React.FC = () => {
             <ProtectedRoute>
               <Layout>
                 <StudentProfilePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-teachers"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <StudentMyTeachersPage />
               </Layout>
             </ProtectedRoute>
           }
