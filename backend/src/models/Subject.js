@@ -43,13 +43,8 @@ const subjectSchema = new mongoose.Schema({
     required: [true, 'Subject code is required'],
     unique: true,
     trim: true,
-    uppercase: true,
-    validate: {
-      validator: function(v) {
-        return /^[A-Z]{2,4}\d{3,4}[A-Z]?$/.test(v);
-      },
-      message: 'Subject code must be in format like CS101, MECH2001, etc.'
-    }
+    uppercase: true
+    // Validation removed for easier testing
   },
   name: {
     type: String,

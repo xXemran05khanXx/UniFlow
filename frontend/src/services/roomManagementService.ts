@@ -199,11 +199,21 @@ class RoomManagementService {
    */
   async createRoom(roomData: Omit<Room, '_id' | 'createdAt' | 'updatedAt'>): Promise<Room> {
     try {
+     
       const response: AxiosResponse<Room> = await apiClient.post('/rooms', roomData);
+      console.log('Creating room with data:', roomData);
+      console.log('✅ Room created successfully:', response.data);
       return response.data;
-    } catch (error) {
-      console.error('Error creating room:', error);
-      throw new Error('Failed to create room');
+    } catch (error: any) {
+      console.error('❌ Error creating room:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      
+      // Preserve the original error for better debugging
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to create room';
+      const newError = new Error(errorMessage);
+      (newError as any).response = error.response;
+      throw newError;
     }
   }
 

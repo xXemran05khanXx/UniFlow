@@ -148,7 +148,7 @@ const SubjectManagementPage: React.FC = () => {
         ? prev.filter(id => id !== subjectId)
         : [...prev, subjectId];
       
-      setSelectAll(newSelection.length === subjects.length);
+      setSelectAll(newSelection.length === (subjects?.length || 0));
       return newSelection;
     });
   };
@@ -161,7 +161,7 @@ const SubjectManagementPage: React.FC = () => {
       setSelectedSubjects([]);
       setSelectAll(false);
     } else {
-      const allIds = subjects.map(subject => subject._id!);
+      const allIds = (subjects || []).map(subject => subject._id!);
       setSelectedSubjects(allIds);
       setSelectAll(true);
     }
@@ -424,7 +424,7 @@ const SubjectManagementPage: React.FC = () => {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {subjects.map((subject) => (
+          {(subjects || []).map((subject) => (
             <tr key={subject._id} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap">
                 <input
@@ -515,7 +515,7 @@ const SubjectManagementPage: React.FC = () => {
     </div>
   );
 
-  if (loading && subjects.length === 0) {
+  if (loading && (subjects?.length || 0) === 0) {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner />

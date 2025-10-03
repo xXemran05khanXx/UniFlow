@@ -27,25 +27,23 @@ const BUILDINGS = [
 ];
 
 const ROOM_TYPES = [
-  'classroom',
-  'laboratory', 
-  'lecture_hall',
-  'seminar_room',
-  'auditorium',
-  'library',
-  'office',
-  'other'
+  'Classroom',
+  'Laboratory', 
+  'Lecture Hall',
+  'Seminar Room',
+  'Staff Room',
+  'Helpers Room',
+  'Office',
+  'Other'
 ];
 
 const DEPARTMENTS = [
   'Computer Science',
   'Information Technology',
-  'Electronics & Telecommunication',
-  'Electrical Engineering',
+  'Data Science',
+  'Artificial Intelligence & Machine Learning',
   'Mechanical Engineering',
-  'Civil Engineering',
-  'Chemical Engineering',
-  'Instrumentation Engineering'
+  'Civil Engineering'
 ];
 
 const FEATURES = [
@@ -54,22 +52,15 @@ const FEATURES = [
   'Smart Board',
   'WiFi',
   'Audio System',
-  'Video Conferencing',
   'Whiteboard',
   'Blackboard',
-  'Laboratory Equipment',
   'Computer Lab',
-  'Internet Access',
   'Power Outlets',
-  'Natural Light',
-  'Emergency Exit'
 ];
 
 const EQUIPMENT_CONDITIONS = [
   'excellent',
   'good', 
-  'fair',
-  'poor',
   'needs_repair'
 ];
 
@@ -320,7 +311,16 @@ const RoomManagementPage: React.FC = () => {
       await loadStats();
       setActiveTab('rooms');
     } catch (err) {
-      setError('Failed to save room');
+      console.error('Error saving room:', err);
+      let errorMessage = 'Failed to save room';
+      if (typeof err === 'object' && err !== null) {
+        if ('response' in err && typeof (err as any).response === 'object' && (err as any).response !== null) {
+          errorMessage = (err as any).response?.data?.message || (err as any).message || errorMessage;
+        } else if ('message' in err) {
+          errorMessage = (err as any).message || errorMessage;
+        }
+      }
+      setError(`Failed to save room: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

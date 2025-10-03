@@ -36,6 +36,20 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Add custom request logging
+app.use((req, res, next) => {
+  console.log(`🌐 ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log(`📝 Headers:`, {
+    'content-type': req.headers['content-type'],
+    'authorization': req.headers['authorization'] ? 'Bearer ***' : 'None',
+    'origin': req.headers['origin']
+  });
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`📦 Body:`, req.body);
+  }
+  next();
+});
+
 // Logging middleware
 app.use(logger);
 
@@ -61,14 +75,16 @@ app.get('/', (req, res) => {
 });
 
 // Routes
+console.log('🚀 Mounting routes...');
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/timetable', timetableRoutes);
+console.log('🏠 Mounting room routes...');
 app.use('/api/rooms', roomRoutes);
 app.use('/api/timeslots', timeSlotRoutes);
 app.use('/api/data', dataManagementRoutes);
-app.use('/api/data', dataManagementRoutes);
+console.log('✅ All routes mounted successfully');
 
 // 404 handler
 app.use('*', (req, res) => {

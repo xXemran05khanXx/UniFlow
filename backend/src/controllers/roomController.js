@@ -117,7 +117,8 @@ const getAllRooms = asyncHandler(async (req, res) => {
     const totalPages = Math.ceil(totalRooms / limitNum);
 
     res.status(200).json(new ApiResponse(
-      200,
+      true,
+      'Rooms retrieved successfully',
       {
         rooms,
         pagination: {
@@ -128,7 +129,7 @@ const getAllRooms = asyncHandler(async (req, res) => {
           hasPrevPage: pageNum > 1
         }
       },
-      'Rooms retrieved successfully'
+      200
     ));
   } catch (error) {
     throw new ApiError(500, 'Error retrieving rooms');
@@ -151,7 +152,7 @@ const getRoomById = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Room not found');
   }
 
-  res.status(200).json(new ApiResponse(200, room, 'Room retrieved successfully'));
+  res.status(200).json(new ApiResponse(true, 'Room retrieved successfully', room, 200));
 });
 
 /**
@@ -160,10 +161,15 @@ const getRoomById = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 const createRoom = asyncHandler(async (req, res) => {
+  console.log('Creating room with data:', req.body);
+  console.log('User creating room:', req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'No user');
+  
+  // Prepare room data
   const roomData = {
     ...req.body,
     createdBy: req.user._id
   };
+  console.log('Final room data:', roomData);
 
   // Check if room number already exists
   const existingRoom = await Room.findOne({ 
@@ -171,13 +177,24 @@ const createRoom = asyncHandler(async (req, res) => {
   });
 
   if (existingRoom) {
+    console.log('❌ Room number already exists:', roomData.roomNumber);
     throw new ApiError(400, 'Room number already exists');
   }
 
-  const room = await Room.create(roomData);
-  await room.populate('createdBy', 'name email');
+  try {
+    const room = await Room.create(roomData);
+    console.log('✅ Room created successfully:', room._id);
+    await room.populate('createdBy', 'name email');
 
-  res.status(201).json(new ApiResponse(201, room, 'Room created successfully'));
+    res.status(201).json(new ApiResponse(true, 'Room created successfully', room, 201));
+  } catch (mongoError) {
+    console.error('❌ MongoDB error creating room:', mongoError);
+    if (mongoError.name === 'ValidationError') {
+      const validationErrors = Object.values(mongoError.errors).map(err => err.message);
+      throw new ApiError(400, `Validation error: ${validationErrors.join(', ')}`);
+    }
+    throw new ApiError(500, 'Database error creating room');
+  }
 });
 
 /**

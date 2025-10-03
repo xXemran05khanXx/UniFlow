@@ -24,7 +24,7 @@ const {
   exportRooms,
   getRoomTemplate
 } = require('../controllers/roomController');
-const { protect, restrictTo } = require('../middleware/auth');
+const { auth, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -53,7 +53,12 @@ const upload = multer({
 });
 
 // Apply authentication to all routes
-router.use(protect);
+router.use((req, res, next) => {
+  console.log(`🏠 Room route hit: ${req.method} ${req.originalUrl}`);
+  console.log(`🏠 User:`, req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'Not authenticated yet');
+  next();
+});
+router.use(auth);
 
 // Public routes (for authenticated users)
 router.get('/available', findAvailableRooms);
@@ -64,26 +69,26 @@ router.get('/export', exportRooms);
 router.get('/template', getRoomTemplate);
 
 // Admin-only routes for bulk operations
-router.patch('/bulk', restrictTo('admin'), bulkUpdateRooms);
+router.patch('/bulk', authorize('admin'), bulkUpdateRooms);
 
 // Import route with file upload
-router.post('/import', restrictTo('admin'), upload.single('file'), importRooms);
+router.post('/import', authorize('admin'), upload.single('file'), importRooms);
 
 // Standard CRUD routes
 router.route('/')
   .get(getAllRooms) // Staff and above can view
-  .post(restrictTo('admin'), createRoom); // Only admin can create
+  .post(authorize('admin'), createRoom); // Only admin can create
 
 router.route('/:id')
   .get(getRoomById) // Staff and above can view details
-  .put(restrictTo('admin'), updateRoom) // Only admin can update
-  .delete(restrictTo('admin'), deleteRoom); // Only admin can delete
+  .put(authorize('admin'), updateRoom) // Only admin can update
+  .delete(authorize('admin'), deleteRoom); // Only admin can delete
 
 // Status management routes
-router.patch('/:id/status', restrictTo('admin'), toggleRoomStatus);
-router.patch('/:id/availability', restrictTo('admin'), toggleRoomAvailability);
+router.patch('/:id/status', authorize('admin'), toggleRoomStatus);
+router.patch('/:id/availability', authorize('admin'), toggleRoomAvailability);
 
 // Maintenance routes
-router.post('/:id/maintenance', restrictTo('admin'), scheduleRoomMaintenance);
+router.post('/:id/maintenance', authorize('admin'), scheduleRoomMaintenance);
 
 module.exports = router;
