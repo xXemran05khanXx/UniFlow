@@ -148,6 +148,18 @@ export interface BulkRoomOperation {
 }
 
 // Room Management Service Class
+// Helper to unwrap mis-ordered ApiResponse instances
+function unwrapRoomData<T>(raw: any): T {
+  if (!raw) return raw as T;
+  if (raw.rooms || raw.roomNumber || raw._id) return raw as T; // already object we need
+  if (raw.data && (raw.data.rooms || raw.data.roomNumber || raw.data._id)) return raw.data as T;
+  if (raw.message && typeof raw.message === 'object') {
+    const m = raw.message;
+    if (m.rooms || m.roomNumber || m._id || Object.keys(m).length > 1) return m as T;
+  }
+  return raw as T;
+}
+
 class RoomManagementService {
   
   /**
@@ -171,12 +183,35 @@ class RoomManagementService {
         )
       });
 
-      const response: AxiosResponse<PaginatedRooms> = await apiClient.get(
+      const response: AxiosResponse<any> = await apiClient.get(
         `/rooms?${params.toString()}`
       );
-      return response.data;
+      // Backend pagination nests data differently (rooms + pagination). Map to expected shape.
+      const unwrapped = unwrapRoomData<any>(response.data);
+      if (unwrapped.pagination) {
+        return {
+          rooms: unwrapped.rooms || unwrapped.pagination.rooms || [],
+          totalCount: unwrapped.pagination.totalRooms || unwrapped.pagination.totalCount || 0,
+          currentPage: unwrapped.pagination.currentPage || 1,
+            totalPages: unwrapped.pagination.totalPages || 1,
+          hasNextPage: unwrapped.pagination.hasNextPage ?? false,
+          hasPrevPage: unwrapped.pagination.hasPrevPage ?? false
+        } as PaginatedRooms;
+      }
+      return unwrapped as PaginatedRooms;
     } catch (error) {
-      console.error('Error fetching rooms:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Error fetching rooms:', {
+          status: error.response?.status,
+            statusText: error.response?.statusText,
+          url: error.config?.url,
+          params: error.config?.params,
+          data: error.response?.data
+        });
+        const backendMsg = (error.response?.data && (error.response.data.message || error.response.data.error)) || '';
+        throw new Error(`Failed to fetch rooms${backendMsg ? ': ' + backendMsg : ''}`);
+      }
+      console.error('Unknown error fetching rooms:', error);
       throw new Error('Failed to fetch rooms');
     }
   }
@@ -186,8 +221,8 @@ class RoomManagementService {
    */
   async getRoomById(id: string): Promise<Room> {
     try {
-      const response: AxiosResponse<Room> = await apiClient.get(`/rooms/${id}`);
-      return response.data;
+      const response: AxiosResponse<any> = await apiClient.get(`/rooms/${id}`);
+      return unwrapRoomData<Room>(response.data);
     } catch (error) {
       console.error('Error fetching room:', error);
       throw new Error('Failed to fetch room details');
@@ -200,10 +235,10 @@ class RoomManagementService {
   async createRoom(roomData: Omit<Room, '_id' | 'createdAt' | 'updatedAt'>): Promise<Room> {
     try {
      
-      const response: AxiosResponse<Room> = await apiClient.post('/rooms', roomData);
+      const response: AxiosResponse<any> = await apiClient.post('/rooms', roomData);
       console.log('Creating room with data:', roomData);
       console.log('✅ Room created successfully:', response.data);
-      return response.data;
+      return unwrapRoomData<Room>(response.data);
     } catch (error: any) {
       console.error('❌ Error creating room:', error);
       console.error('❌ Error response:', error.response?.data);
@@ -222,8 +257,8 @@ class RoomManagementService {
    */
   async updateRoom(id: string, roomData: Partial<Room>): Promise<Room> {
     try {
-      const response: AxiosResponse<Room> = await apiClient.put(`/rooms/${id}`, roomData);
-      return response.data;
+      const response: AxiosResponse<any> = await apiClient.put(`/rooms/${id}`, roomData);
+      return unwrapRoomData<Room>(response.data);
     } catch (error) {
       console.error('Error updating room:', error);
       throw new Error('Failed to update room');
@@ -247,10 +282,12 @@ class RoomManagementService {
    */
   async toggleRoomStatus(id: string, isActive: boolean): Promise<Room> {
     try {
-      const response: AxiosResponse<Room> = await apiClient.patch(
-        `/rooms/${id}/${isActive ? 'activate' : 'deactivate'}`
+      // Backend expects PATCH /api/rooms/:id/status with body { isActive }
+      const response: AxiosResponse<any> = await apiClient.patch(
+        `/rooms/${id}/status`,
+        { isActive }
       );
-      return response.data;
+      return unwrapRoomData<Room>(response.data);
     } catch (error) {
       console.error('Error toggling room status:', error);
       throw new Error('Failed to update room status');
@@ -262,10 +299,12 @@ class RoomManagementService {
    */
   async toggleRoomAvailability(id: string, isAvailable: boolean): Promise<Room> {
     try {
-      const response: AxiosResponse<Room> = await apiClient.patch(
-        `/rooms/${id}/${isAvailable ? 'make-available' : 'make-unavailable'}`
+      // Backend expects PATCH /api/rooms/:id/availability with body { isAvailable }
+      const response: AxiosResponse<any> = await apiClient.patch(
+        `/rooms/${id}/availability`,
+        { isAvailable }
       );
-      return response.data;
+      return unwrapRoomData<Room>(response.data);
     } catch (error) {
       console.error('Error toggling room availability:', error);
       throw new Error('Failed to update room availability');
@@ -277,8 +316,8 @@ class RoomManagementService {
    */
   async getRoomStats(): Promise<RoomStats> {
     try {
-      const response: AxiosResponse<RoomStats> = await apiClient.get('/rooms/stats');
-      return response.data;
+      const response: AxiosResponse<any> = await apiClient.get('/rooms/stats');
+      return unwrapRoomData<RoomStats>(response.data);
     } catch (error) {
       console.error('Error fetching room statistics:', error);
       throw new Error('Failed to fetch room statistics');
@@ -294,8 +333,9 @@ class RoomManagementService {
     errors: string[] 
   }> {
     try {
-      const response = await apiClient.patch('/rooms/bulk-update', operation);
-      return response.data;
+  // Backend bulk route is /api/rooms/bulk
+  const response = await apiClient.patch('/rooms/bulk', operation);
+      return unwrapRoomData<{ success: number; failed: number; errors: string[] }>(response.data);
     } catch (error) {
       console.error('Error performing bulk operation:', error);
       throw new Error('Failed to perform bulk operation');
@@ -319,7 +359,7 @@ class RoomManagementService {
           'Content-Type': 'multipart/form-data',
         },
       });
-      return response.data;
+      return unwrapRoomData(response.data);
     } catch (error) {
       console.error('Error importing rooms:', error);
       throw new Error('Failed to import rooms');
@@ -344,7 +384,7 @@ class RoomManagementService {
       const response = await apiClient.get(`/rooms/export?${params.toString()}`, {
         responseType: 'blob',
       });
-      return response.data;
+      return unwrapRoomData(response.data);
     } catch (error) {
       console.error('Error exporting rooms:', error);
       throw new Error('Failed to export rooms');
@@ -359,7 +399,7 @@ class RoomManagementService {
       const response = await apiClient.get('/rooms/template', {
         responseType: 'blob',
       });
-      return response.data;
+      return unwrapRoomData(response.data);
     } catch (error) {
       console.error('Error downloading template:', error);
       throw new Error('Failed to download template');
@@ -372,7 +412,7 @@ class RoomManagementService {
   async getBuildings(): Promise<string[]> {
     try {
       const response = await apiClient.get('/rooms/buildings');
-      return response.data;
+      return unwrapRoomData<string[]>(response.data);
     } catch (error) {
       console.error('Error fetching buildings:', error);
       return [
@@ -395,10 +435,10 @@ class RoomManagementService {
     floor: number
   ): Promise<Room[]> {
     try {
-      const response: AxiosResponse<Room[]> = await apiClient.get(
+      const response: AxiosResponse<any> = await apiClient.get(
         `/rooms/building/${building}/floor/${floor}`
       );
-      return response.data;
+      return unwrapRoomData<Room[]>(response.data);
     } catch (error) {
       console.error('Error fetching rooms by building and floor:', error);
       throw new Error('Failed to fetch rooms');
@@ -426,7 +466,7 @@ class RoomManagementService {
       const response = await apiClient.get(`/rooms/${roomId}/availability`, {
         params: { date, startTime, endTime }
       });
-      return response.data;
+      return unwrapRoomData(response.data);
     } catch (error) {
       console.error('Error checking room availability:', error);
       throw new Error('Failed to check room availability');
@@ -456,7 +496,7 @@ class RoomManagementService {
       if (endDate) params.append('endDate', endDate);
 
       const response = await apiClient.get(`/rooms/utilization?${params.toString()}`);
-      return response.data;
+      return unwrapRoomData(response.data);
     } catch (error) {
       console.error('Error fetching room utilization:', error);
       throw new Error('Failed to fetch room utilization');
@@ -475,11 +515,11 @@ class RoomManagementService {
     }>
   ): Promise<Room> {
     try {
-      const response: AxiosResponse<Room> = await apiClient.patch(
+      const response: AxiosResponse<any> = await apiClient.patch(
         `/rooms/${roomId}/equipment`,
         { equipment }
       );
-      return response.data;
+      return unwrapRoomData<Room>(response.data);
     } catch (error) {
       console.error('Error updating room equipment:', error);
       throw new Error('Failed to update room equipment');
@@ -499,11 +539,11 @@ class RoomManagementService {
     }
   ): Promise<Room> {
     try {
-      const response: AxiosResponse<Room> = await apiClient.patch(
+      const response: AxiosResponse<any> = await apiClient.patch(
         `/rooms/${roomId}/maintenance`,
         maintenanceData
       );
-      return response.data;
+      return unwrapRoomData<Room>(response.data);
     } catch (error) {
       console.error('Error scheduling room maintenance:', error);
       throw new Error('Failed to schedule room maintenance');

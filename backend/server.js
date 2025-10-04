@@ -60,6 +60,7 @@ const timetableRoutes = require('./src/routes/timetable');
 const dataManagementRoutes = require('./src/routes/dataManagement');
 const userRoutes = require('./src/routes/userRoutes');
 const subjectRoutes = require('./src/routes/subjectRoutes');
+const roomRoutes = require('./src/routes/roomRoutes');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -67,7 +68,7 @@ app.use('/api/timetable', timetableRoutes);
 app.use('/api/data', dataManagementRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/subjects', subjectRoutes);
-// app.use('/api/rooms', roomRoutes);
+app.use('/api/rooms', roomRoutes);
 // app.use('/api/timeslots', timeSlotRoutes);
 // app.use('/api/timetables', timetableRoutes);
 

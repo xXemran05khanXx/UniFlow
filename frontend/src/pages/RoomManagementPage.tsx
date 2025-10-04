@@ -26,15 +26,17 @@ const BUILDINGS = [
   'Administration Block'
 ];
 
+// Backend enum: classroom, laboratory, lecture_hall, seminar_room, auditorium, library, office, other
+// We keep label for display while value matches schema exactly
 const ROOM_TYPES = [
-  'Classroom',
-  'Laboratory', 
-  'Lecture Hall',
-  'Seminar Room',
-  'Staff Room',
-  'Helpers Room',
-  'Office',
-  'Other'
+  { value: 'classroom', label: 'Classroom' },
+  { value: 'laboratory', label: 'Laboratory' },
+  { value: 'lecture_hall', label: 'Lecture Hall' },
+  { value: 'seminar_room', label: 'Seminar Room' },
+  { value: 'auditorium', label: 'Auditorium' },
+  { value: 'library', label: 'Library' },
+  { value: 'office', label: 'Office' },
+  { value: 'other', label: 'Other' }
 ];
 
 const DEPARTMENTS = [
@@ -70,6 +72,7 @@ const RoomManagementPage: React.FC = () => {
   const [stats, setStats] = useState<RoomStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'rooms' | 'add' | 'import' | 'utilization'>('overview');
 
   // Pagination state
@@ -273,11 +276,15 @@ const RoomManagementPage: React.FC = () => {
     
     try {
       setLoading(true);
+      setError(null);
+      setSuccess(null);
       
       if (editingRoom) {
         await roomManagementService.updateRoom(editingRoom._id!, roomForm);
+        setSuccess('Room updated successfully');
       } else {
         await roomManagementService.createRoom(roomForm as Omit<Room, '_id' | 'createdAt' | 'updatedAt'>);
+        setSuccess('Room created successfully');
       }
       
       setEditingRoom(null);
@@ -723,6 +730,16 @@ const RoomManagementPage: React.FC = () => {
           </div>
         </div>
       )}
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-md p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-green-800">Success</h3>
+              <div className="mt-2 text-sm text-green-700">{success}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200">
@@ -817,9 +834,9 @@ const RoomManagementPage: React.FC = () => {
                 aria-label="Filter by room type"
               >
                 <option value="">All Types</option>
-                {ROOM_TYPES.map(type => (
-                  <option key={type} value={type}>
-                    {type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                {ROOM_TYPES.map(rt => (
+                  <option key={rt.value} value={rt.value}>
+                    {rt.label}
                   </option>
                 ))}
               </select>
@@ -1015,9 +1032,9 @@ const RoomManagementPage: React.FC = () => {
                   aria-label="Select room type"
                 >
                   <option value="">Select Type</option>
-                  {ROOM_TYPES.map(type => (
-                    <option key={type} value={type}>
-                      {type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  {ROOM_TYPES.map(rt => (
+                    <option key={rt.value} value={rt.value}>
+                      {rt.label}
                     </option>
                   ))}
                 </select>
