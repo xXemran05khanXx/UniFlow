@@ -1,6 +1,6 @@
 /**
  * Room Routes
- * API routes for room management in Mumbai University engineering college
+ * API routes for room management in college
  */
 
 const express = require('express');
@@ -54,8 +54,8 @@ const upload = multer({
 
 // Apply authentication to all routes
 router.use((req, res, next) => {
-  console.log(`🏠 Room route hit: ${req.method} ${req.originalUrl}`);
-  console.log(`🏠 User:`, req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'Not authenticated yet');
+  console.log(` Room route hit: ${req.method} ${req.originalUrl}`);
+  console.log(` User:`, req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'Not authenticated yet');
   next();
 });
 router.use(auth);
@@ -80,8 +80,8 @@ router.route('/')
   .post(authorize('admin'), createRoom); // Only admin can create
 
 router.route('/:id')
-  .get(getRoomById) // Staff and above can view details
-  .put(authorize('admin'), updateRoom) // Only admin can update
+  .get(getRoomById) // Staff and above can view
+  .put(authorize('admin'), updateRoom) 
   .delete(authorize('admin'), deleteRoom); // Only admin can delete
 
 // Status management routes

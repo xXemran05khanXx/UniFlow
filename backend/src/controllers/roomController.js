@@ -132,6 +132,7 @@ const getAllRooms = asyncHandler(async (req, res) => {
       200
     ));
   } catch (error) {
+    console.error('Error in getAllRooms:', error); // Added logging for debugging
     throw new ApiError(500, 'Error retrieving rooms');
   }
 });
@@ -177,7 +178,7 @@ const createRoom = asyncHandler(async (req, res) => {
   });
 
   if (existingRoom) {
-    console.log('❌ Room number already exists:', roomData.roomNumber);
+    console.log('Room number already exists:', roomData.roomNumber);
     throw new ApiError(400, 'Room number already exists');
   }
 

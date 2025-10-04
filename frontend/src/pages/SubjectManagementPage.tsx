@@ -37,6 +37,7 @@ const SubjectManagementPage: React.FC = () => {
   const [stats, setStats] = useState<SubjectStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'subjects' | 'add' | 'import'>('overview');
 
   // Pagination state
@@ -175,11 +176,15 @@ const SubjectManagementPage: React.FC = () => {
     
     try {
       setLoading(true);
+      setError(null);
+      setSuccess(null);
       
       if (editingSubject) {
         await subjectManagementService.updateSubject(editingSubject._id!, subjectForm);
+        setSuccess('Subject updated successfully');
       } else {
         await subjectManagementService.createSubject(subjectForm as Omit<Subject, '_id' | 'createdAt' | 'updatedAt'>);
+        setSuccess('Subject created successfully');
       }
       
       setEditingSubject(null);
@@ -198,6 +203,8 @@ const SubjectManagementPage: React.FC = () => {
       
       await loadSubjects();
       await loadStats();
+      // Navigate back to subjects list after successful save
+      setActiveTab('subjects');
     } catch (err) {
       setError('Failed to save subject');
     } finally {
@@ -566,6 +573,16 @@ const SubjectManagementPage: React.FC = () => {
           </div>
         </div>
       )}
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-md p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-green-800">Success</h3>
+              <div className="mt-2 text-sm text-green-700">{success}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200">
@@ -927,7 +944,7 @@ const SubjectManagementPage: React.FC = () => {
                 variant="secondary"
                 className="mb-4"
               >
-                📥 Download CSV Template
+                 Download CSV Template
               </Button>
               <p className="text-sm text-gray-600">
                 Download the template file to see the required format for importing subjects.

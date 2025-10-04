@@ -75,16 +75,18 @@ app.get('/', (req, res) => {
 });
 
 // Routes
-console.log('🚀 Mounting routes...');
+
+console.log(' Mounting routes...');
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/timetable', timetableRoutes);
-console.log('🏠 Mounting room routes...');
+
+console.log(' Mounting room routes...');
 app.use('/api/rooms', roomRoutes);
 app.use('/api/timeslots', timeSlotRoutes);
 app.use('/api/data', dataManagementRoutes);
-console.log('✅ All routes mounted successfully');
+console.log(' All routes mounted successfully');
 
 // 404 handler
 app.use('*', (req, res) => {

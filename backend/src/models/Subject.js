@@ -44,7 +44,7 @@ const subjectSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     uppercase: true
-    // Validation removed for easier testing
+
   },
   name: {
     type: String,

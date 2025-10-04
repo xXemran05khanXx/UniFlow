@@ -106,6 +106,33 @@ export interface BulkSubjectOperation {
 }
 
 // Subject Management Service Class
+// Helper to unwrap various backend ApiResponse shapes
+// Current backend (subjectController) mistakenly constructs new ApiResponse(statusCode, data, message)
+// resulting JSON shape: { success: <statusCode>, message: <actualData>, data: <messageString> }
+// Proper shape (ideal) would be: { success: true, message: <messageString>, data: <actualData> }
+// This helper attempts to gracefully handle both without breaking if backend is later corrected.
+function unwrapApiData<T>(raw: any): T {
+  if (!raw) return raw as T;
+
+  // If raw looks already like the target object (has expected fields) return as-is
+  if (raw.subjects || raw.code || raw._id) return raw as T;
+
+  // If raw has data property that contains expected fields
+  if (raw.data && (raw.data.subjects || raw.data.code || raw.data._id)) {
+    return raw.data as T;
+  }
+
+  // If raw.message holds the actual payload (current faulty pattern)
+  if (raw.message && typeof raw.message === 'object' && !Array.isArray(raw.message)) {
+    const msgObj = raw.message;
+    if (msgObj.subjects || msgObj.code || msgObj._id || Object.keys(msgObj).length > 1) {
+      return msgObj as T;
+    }
+  }
+
+  return raw as T; // Fallback
+}
+
 class SubjectManagementService {
   
   /**
@@ -129,10 +156,10 @@ class SubjectManagementService {
         )
       });
 
-      const response: AxiosResponse<PaginatedSubjects> = await apiClient.get(
+      const response: AxiosResponse<any> = await apiClient.get(
         `/subjects?${params.toString()}`
       );
-      return response.data;
+      return unwrapApiData<PaginatedSubjects>(response.data);
     } catch (error) {
       console.error('Error fetching subjects:', error);
       throw new Error('Failed to fetch subjects');
@@ -144,8 +171,8 @@ class SubjectManagementService {
    */
   async getSubjectById(id: string): Promise<Subject> {
     try {
-      const response: AxiosResponse<Subject> = await apiClient.get(`/subjects/${id}`);
-      return response.data;
+      const response: AxiosResponse<any> = await apiClient.get(`/subjects/${id}`);
+      return unwrapApiData<Subject>(response.data);
     } catch (error) {
       console.error('Error fetching subject:', error);
       throw new Error('Failed to fetch subject details');
@@ -157,8 +184,8 @@ class SubjectManagementService {
    */
   async createSubject(subjectData: Omit<Subject, '_id' | 'createdAt' | 'updatedAt'>): Promise<Subject> {
     try {
-      const response: AxiosResponse<Subject> = await apiClient.post('/subjects', subjectData);
-      return response.data;
+      const response: AxiosResponse<any> = await apiClient.post('/subjects', subjectData);
+      return unwrapApiData<Subject>(response.data);
     } catch (error) {
       console.error('Error creating subject:', error);
       throw new Error('Failed to create subject');
@@ -170,8 +197,8 @@ class SubjectManagementService {
    */
   async updateSubject(id: string, subjectData: Partial<Subject>): Promise<Subject> {
     try {
-      const response: AxiosResponse<Subject> = await apiClient.put(`/subjects/${id}`, subjectData);
-      return response.data;
+      const response: AxiosResponse<any> = await apiClient.put(`/subjects/${id}`, subjectData);
+      return unwrapApiData<Subject>(response.data);
     } catch (error) {
       console.error('Error updating subject:', error);
       throw new Error('Failed to update subject');
@@ -195,10 +222,10 @@ class SubjectManagementService {
    */
   async toggleSubjectStatus(id: string, isActive: boolean): Promise<Subject> {
     try {
-      const response: AxiosResponse<Subject> = await apiClient.patch(
+      const response: AxiosResponse<any> = await apiClient.patch(
         `/subjects/${id}/${isActive ? 'activate' : 'deactivate'}`
       );
-      return response.data;
+      return unwrapApiData<Subject>(response.data);
     } catch (error) {
       console.error('Error toggling subject status:', error);
       throw new Error('Failed to update subject status');
@@ -210,8 +237,8 @@ class SubjectManagementService {
    */
   async getSubjectStats(): Promise<SubjectStats> {
     try {
-      const response: AxiosResponse<SubjectStats> = await apiClient.get('/subjects/stats');
-      return response.data;
+      const response: AxiosResponse<any> = await apiClient.get('/subjects/stats');
+      return unwrapApiData<SubjectStats>(response.data);
     } catch (error) {
       console.error('Error fetching subject statistics:', error);
       throw new Error('Failed to fetch subject statistics');
@@ -228,7 +255,7 @@ class SubjectManagementService {
   }> {
     try {
       const response = await apiClient.patch('/subjects/bulk-update', operation);
-      return response.data;
+      return unwrapApiData<{ success: number; failed: number; errors: string[] }>(response.data);
     } catch (error) {
       console.error('Error performing bulk operation:', error);
       throw new Error('Failed to perform bulk operation');
@@ -252,7 +279,7 @@ class SubjectManagementService {
           'Content-Type': 'multipart/form-data',
         },
       });
-      return response.data;
+      return unwrapApiData(response.data);
     } catch (error) {
       console.error('Error importing subjects:', error);
       throw new Error('Failed to import subjects');
@@ -277,7 +304,7 @@ class SubjectManagementService {
       const response = await apiClient.get(`/subjects/export?${params.toString()}`, {
         responseType: 'blob',
       });
-      return response.data;
+      return unwrapApiData(response.data);
     } catch (error) {
       console.error('Error exporting subjects:', error);
       throw new Error('Failed to export subjects');
@@ -292,7 +319,7 @@ class SubjectManagementService {
       const response = await apiClient.get('/subjects/template', {
         responseType: 'blob',
       });
-      return response.data;
+      return unwrapApiData(response.data);
     } catch (error) {
       console.error('Error downloading template:', error);
       throw new Error('Failed to download template');
@@ -305,7 +332,7 @@ class SubjectManagementService {
   async getDepartments(): Promise<string[]> {
     try {
       const response = await apiClient.get('/subjects/departments');
-      return response.data;
+      return unwrapApiData<string[]>(response.data);
     } catch (error) {
       console.error('Error fetching departments:', error);
       return [
@@ -326,11 +353,11 @@ class SubjectManagementService {
    */
   async duplicateSubject(id: string, newCode: string): Promise<Subject> {
     try {
-      const response: AxiosResponse<Subject> = await apiClient.post(
+      const response: AxiosResponse<any> = await apiClient.post(
         `/subjects/${id}/duplicate`,
         { newCode }
       );
-      return response.data;
+      return unwrapApiData<Subject>(response.data);
     } catch (error) {
       console.error('Error duplicating subject:', error);
       throw new Error('Failed to duplicate subject');
@@ -345,10 +372,10 @@ class SubjectManagementService {
     semester: number
   ): Promise<Subject[]> {
     try {
-      const response: AxiosResponse<Subject[]> = await apiClient.get(
+      const response: AxiosResponse<any> = await apiClient.get(
         `/subjects/department/${department}/semester/${semester}`
       );
-      return response.data;
+      return unwrapApiData<Subject[]>(response.data);
     } catch (error) {
       console.error('Error fetching subjects by department and semester:', error);
       throw new Error('Failed to fetch subjects');
