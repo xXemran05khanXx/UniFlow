@@ -171,22 +171,6 @@ const LoginPage: React.FC = () => {
               <LogIn className="h-5 w-5 mr-2" />
               Sign In
             </Button>
-
-            {/* Demo Accounts */}
-            <div className="mt-6 border-t border-gray-200 pt-6">
-              <p className="text-sm text-gray-600 text-center mb-4">Demo Accounts:</p>
-              <div className="grid grid-cols-1 gap-2 text-xs text-gray-500">
-                <div className="bg-gray-50 p-2 rounded">
-                  <strong>Admin:</strong> admin@uniflow.edu / password123
-                </div>
-                <div className="bg-gray-50 p-2 rounded">
-                  <strong>Teacher:</strong> teacher@uniflow.edu / password123
-                </div>
-                <div className="bg-gray-50 p-2 rounded">
-                  <strong>Student:</strong> student@uniflow.edu / password123
-                </div>
-              </div>
-            </div>
           </form>
         </Card>
       </div>

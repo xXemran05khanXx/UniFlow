@@ -125,13 +125,22 @@ userSchema.pre('save', async function(next) {
 
 // Generate and sign JWT token
 userSchema.methods.getSignedJwtToken = function() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    // Log a clear diagnostic once per process
+    if (!global.__UNIFLOW_MISSING_JWT_SECRET_LOGGED) {
+      console.error('\n[Auth Error] JWT_SECRET is not set. Set it in your environment or .env file.\n');
+      global.__UNIFLOW_MISSING_JWT_SECRET_LOGGED = true;
+    }
+    throw new Error('JWT secret not configured');
+  }
   return jwt.sign(
-    { 
+    {
       id: this._id,
       email: this.email,
-      role: this.role 
+      role: this.role
     },
-    process.env.JWT_SECRET,
+    secret,
     {
       expiresIn: process.env.JWT_EXPIRES_IN || '24h'
     }

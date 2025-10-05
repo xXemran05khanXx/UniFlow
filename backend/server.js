@@ -99,10 +99,18 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Configuration sanity checks
+if (!process.env.JWT_SECRET) {
+  console.warn('\n[Startup Warning] JWT_SECRET is not set. Authentication token issuance will fail.');
+  console.warn('Create a .env file (backend/.env) with a strong JWT_SECRET, e.g.');
+  console.warn('  JWT_SECRET=replace-with-a-long-random-string');
+}
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
   console.log(`API Base URL: http://localhost:${PORT}/api`);
+  console.log(`JWT Secret: ${process.env.JWT_SECRET ? 'SET' : 'NOT SET'}`);
 });
 
 module.exports = app;
