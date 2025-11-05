@@ -16,6 +16,7 @@ const healthRoutes = require('./routes/healthRoutes');
 const timetableRoutes = require('./routes/timetable');
 const roomRoutes = require('./routes/roomRoutes');
 const timeSlotRoutes = require('./routes/timeSlotRoutes');
+const subjectRoutes = require('./routes/subjectRoutes');
 const dataManagementRoutes = require('../routes/dataManagement');
 
 // Import config
@@ -85,6 +86,7 @@ app.use('/api/timetable', timetableRoutes);
 console.log(' Mounting room routes...');
 app.use('/api/rooms', roomRoutes);
 app.use('/api/timeslots', timeSlotRoutes);
+app.use('/api/subjects', subjectRoutes);
 app.use('/api/data', dataManagementRoutes);
 console.log(' All routes mounted successfully');
 

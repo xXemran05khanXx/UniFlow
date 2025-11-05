@@ -198,17 +198,35 @@ const AdminMyTeachersPage: React.FC = () => {
 
   const fetchTeachers = async () => {
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setTeachers([
-        { id: '1', name: 'Dr. Rajesh Kumar', department: 'Computer Engineering', email: 'rajesh@college.edu', subjects: ['Data Structures', 'Algorithms'] },
-        { id: '2', name: 'Prof. Priya Sharma', department: 'Computer Engineering', email: 'priya@college.edu', subjects: ['Database Management', 'Software Engineering'] },
-        { id: '3', name: 'Dr. Amit Patel', department: 'Electronics Engineering', email: 'amit@college.edu', subjects: ['Digital Electronics', 'Microprocessors'] },
-        { id: '4', name: 'Prof. Sunita Jain', department: 'Computer Engineering', email: 'sunita@college.edu', subjects: ['Operating Systems', 'Computer Networks'] },
-        { id: '5', name: 'Dr. Vikram Singh', department: 'Mechanical Engineering', email: 'vikram@college.edu', subjects: ['Thermodynamics', 'Fluid Mechanics'] }
-      ]);
+      // Fetch real teachers from API
+      const response = await fetch('/api/data/teachers', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const teachersData = data.data || data;
+        
+        // Map the teacher data to the expected format
+        const mappedTeachers = teachersData.map((teacher: any) => ({
+          id: teacher._id,
+          name: teacher.name || teacher.user?.name,
+          department: teacher.department,
+          email: teacher.user?.email || teacher.email,
+          subjects: teacher.qualifications || ['Subject Info Not Available'] // Using qualifications as subjects for now
+        }));
+        
+        setTeachers(mappedTeachers);
+      } else {
+        console.error('Failed to fetch teachers');
+        setTeachers([]);
+      }
     } catch (error) {
       console.error('Error fetching teachers:', error);
+      setTeachers([]);
     }
   };
 

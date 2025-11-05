@@ -1,5 +1,6 @@
 const asyncHandler = require('../middleware/asyncHandler');
 const User = require('../models/User');
+const Teacher = require('../models/Teacher');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
@@ -268,6 +269,11 @@ const deleteUser = asyncHandler(async (req, res) => {
       });
     }
 
+    // Delete associated Teacher record if the user is a teacher
+    if (user.role === 'teacher') {
+      await Teacher.deleteOne({ user: req.params.id });
+    }
+
     await User.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
@@ -527,6 +533,17 @@ const bulkDeleteUsers = asyncHandler(async (req, res) => {
         success: false,
         error: 'Cannot delete your own account'
       });
+    }
+
+    // Find users to check which ones are teachers
+    const usersToDelete = await User.find({ _id: { $in: userIds } });
+    const teacherUserIds = usersToDelete
+      .filter(user => user.role === 'teacher')
+      .map(user => user._id);
+
+    // Delete associated Teacher records for users with teacher role
+    if (teacherUserIds.length > 0) {
+      await Teacher.deleteMany({ user: { $in: teacherUserIds } });
     }
 
     const result = await User.deleteMany({

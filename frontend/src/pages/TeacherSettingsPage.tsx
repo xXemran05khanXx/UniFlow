@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Clock,
@@ -51,17 +51,17 @@ const TeacherSettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Sample data - replace with actual API calls
+  // Initialize with default values - will be replaced by API data
   const [profile, setProfile] = useState<TeacherProfile>({
-    id: 'teacher-001',
-    name: 'Dr. Sarah Johnson',
-    email: 'sarah.johnson@university.edu',
-    phone: '+1 (555) 123-4567',
-    department: 'Computer Science',
-    employeeId: 'CSE-001',
-    designation: 'Associate Professor',
-    joiningDate: '2020-09-01',
-    subjects: ['Data Structures', 'Algorithms', 'Database Systems', 'Software Engineering']
+    id: '',
+    name: '',
+    email: '',
+    phone: '',
+    department: '',
+    employeeId: '',
+    designation: 'Assistant Professor',
+    joiningDate: '',
+    subjects: []
   });
 
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([
@@ -82,6 +82,91 @@ const TeacherSettingsPage: React.FC = () => {
     timetableUpdates: true,
     reminderNotifications: true
   });
+
+  // Load current teacher's data on component mount
+  useEffect(() => {
+    const loadTeacherProfile = async () => {
+      setLoading(true);
+      try {
+        // Get current user info from token or auth context
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        // First, get current user info
+        const userResponse = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          const userId = userData.user?._id || userData._id;
+
+          // Then fetch teacher details using the user ID
+          const teacherResponse = await fetch('/api/data/teachers', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (teacherResponse.ok) {
+            const teacherData = await teacherResponse.json();
+            const teachers = teacherData.data || teacherData;
+            
+            // Find the teacher that matches current user
+            const currentTeacher = teachers.find((teacher: any) => 
+              teacher.user?._id === userId || teacher.user === userId
+            );
+
+            if (currentTeacher) {
+              setProfile({
+                id: currentTeacher._id,
+                name: currentTeacher.name || currentTeacher.user?.name,
+                email: currentTeacher.user?.email || currentTeacher.email,
+                phone: currentTeacher.contactInfo?.phone || '',
+                department: currentTeacher.department,
+                employeeId: currentTeacher.employeeId,
+                designation: currentTeacher.designation,
+                joiningDate: currentTeacher.createdAt ? new Date(currentTeacher.createdAt).toISOString().split('T')[0] : '',
+                subjects: currentTeacher.qualifications || []
+              });
+
+              // Load availability if available
+              if (currentTeacher.availability && currentTeacher.availability.length > 0) {
+                const mappedAvailability = currentTeacher.availability.map((slot: any) => ({
+                  day: slot.dayOfWeek,
+                  startTime: slot.startTime,
+                  endTime: slot.endTime,
+                  isAvailable: true
+                }));
+                
+                // Merge with default availability
+                setAvailability(prev => {
+                  const updated = [...prev];
+                  mappedAvailability.forEach((newSlot: any) => {
+                    const index = updated.findIndex(slot => slot.day === newSlot.day);
+                    if (index !== -1) {
+                      updated[index] = newSlot;
+                    }
+                  });
+                  return updated;
+                });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading teacher profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTeacherProfile();
+  }, []);
 
   const handleProfileUpdate = async () => {
     setLoading(true);

@@ -311,37 +311,40 @@ class TimetableGenerator {
   }
 
   async fetchTeachers() {
-    // Mock teacher data for now
-    return [
-      {
-        teacherId: 'T001',
-        name: 'Dr. John Smith',
-        department: 'Computer Science',
-        specialization: 'algorithms;data structures;programming',
-        maxHours: 20
-      },
-      {
-        teacherId: 'T002',
-        name: 'Dr. Jane Wilson',
-        department: 'Computer Science',
-        specialization: 'database;software engineering',
-        maxHours: 18
-      },
-      {
-        teacherId: 'T003',
-        name: 'Dr. Robert Johnson',
-        department: 'Mathematics',
-        specialization: 'calculus;linear algebra',
-        maxHours: 22
-      },
-      {
-        teacherId: 'T004',
-        name: 'Dr. Sarah Davis',
-        department: 'Computer Science',
-        specialization: 'computer science;programming',
-        maxHours: 20
-      }
-    ];
+    try {
+      const Teacher = require('../../models/Teacher');
+      
+      const teachers = await Teacher.find({ isActive: true })
+        .populate('user', 'name email')
+        .select('employeeId name department designation qualifications workload');
+
+      return teachers.map(teacher => ({
+        teacherId: teacher.employeeId,
+        name: teacher.name || teacher.user?.name,
+        department: teacher.department,
+        specialization: teacher.qualifications?.join(';') || teacher.department.toLowerCase(),
+        maxHours: teacher.workload?.maxHoursPerWeek || 18
+      }));
+    } catch (error) {
+      console.error('Error fetching teachers:', error);
+      // Fallback to mock data if database fetch fails
+      return [
+        {
+          teacherId: 'T001',
+          name: 'Dr. John Smith',
+          department: 'Computer Science',
+          specialization: 'algorithms;data structures;programming',
+          maxHours: 20
+        },
+        {
+          teacherId: 'T002',
+          name: 'Dr. Jane Wilson',
+          department: 'Computer Science',
+          specialization: 'database;software engineering',
+          maxHours: 18
+        }
+      ];
+    }
   }
 
   async fetchRooms() {

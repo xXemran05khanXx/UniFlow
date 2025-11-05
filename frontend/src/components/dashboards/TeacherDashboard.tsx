@@ -49,15 +49,76 @@ interface TodayClass {
 
 const TeacherDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [teacherProfile] = useState<TeacherProfile>({
-    id: '1',
-    name: 'Dr. Sarah Johnson',
-    email: 'sarah.johnson@university.edu',
-    department: 'Computer Science',
-    employeeId: 'EMP001',
-    designation: 'Associate Professor',
-    experience: 8
+  const [teacherProfile, setTeacherProfile] = useState<TeacherProfile>({
+    id: '',
+    name: '',
+    email: '',
+    department: '',
+    employeeId: '',
+    designation: 'Assistant Professor',
+    experience: 0
   });
+
+  const [loading, setLoading] = useState(true);
+
+  // Load teacher profile on component mount
+  useEffect(() => {
+    const loadTeacherProfile = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        // Get current user info
+        const userResponse = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          const userId = userData.user?._id || userData._id;
+
+          // Fetch teacher details
+          const teacherResponse = await fetch('/api/data/teachers', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (teacherResponse.ok) {
+            const teacherData = await teacherResponse.json();
+            const teachers = teacherData.data || teacherData;
+            
+            const currentTeacher = teachers.find((teacher: any) => 
+              teacher.user?._id === userId || teacher.user === userId
+            );
+
+            if (currentTeacher) {
+              setTeacherProfile({
+                id: currentTeacher._id,
+                name: currentTeacher.name || currentTeacher.user?.name,
+                email: currentTeacher.user?.email || currentTeacher.email,
+                department: currentTeacher.department,
+                employeeId: currentTeacher.employeeId,
+                designation: currentTeacher.designation,
+                experience: currentTeacher.experience || 0
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading teacher profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTeacherProfile();
+  }, []);
 
   const [subjectProgress] = useState<SubjectProgress[]>([
     {
@@ -165,7 +226,6 @@ const TeacherDashboard: React.FC = () => {
     subjects: 0
   });
   const [nextClass, setNextClass] = useState<TodayClass | null>(null);
-  const [loading, setLoading] = useState(false);
   const [showTimetableGenerator, setShowTimetableGenerator] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [selectedClassForSwap, setSelectedClassForSwap] = useState<TodayClass | null>(null);

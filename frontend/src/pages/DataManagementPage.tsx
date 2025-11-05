@@ -105,8 +105,10 @@ const DataManagementPage: React.FC = () => {
       });
       setShowAddForm(false);
       fetchData();
-    } catch (error) {
-      showMessage('error', 'Failed to add teacher');
+    } catch (error: any) {
+      console.error('Add teacher error:', error);
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to add teacher';
+      showMessage('error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -159,8 +161,10 @@ const DataManagementPage: React.FC = () => {
       });
       setShowAddForm(false);
       fetchData();
-    } catch (error) {
-      showMessage('error', 'Failed to add course');
+    } catch (error: any) {
+      console.error('Add course error:', error);
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to add course';
+      showMessage('error', errorMessage);
     } finally {
       setLoading(false);
     }

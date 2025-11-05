@@ -33,10 +33,7 @@ const AdminDashboard: React.FC = () => {
   const [departments] = useState<Department[]>([
     { id: 'cs', name: 'Computer Science', code: 'CS', totalStudents: 240, totalTeachers: 15, color: 'from-blue-500 to-cyan-500' },
     { id: 'it', name: 'Information Technology', code: 'IT', totalStudents: 200, totalTeachers: 12, color: 'from-purple-500 to-pink-500' },
-    { id: 'ec', name: 'Electronics & Communication', code: 'EC', totalStudents: 180, totalTeachers: 10, color: 'from-green-500 to-emerald-500' },
-    { id: 'me', name: 'Mechanical Engineering', code: 'ME', totalStudents: 160, totalTeachers: 8, color: 'from-orange-500 to-red-500' },
-    { id: 'ce', name: 'Civil Engineering', code: 'CE', totalStudents: 140, totalTeachers: 7, color: 'from-indigo-500 to-purple-500' },
-    { id: 'ee', name: 'Electrical Engineering', code: 'EE', totalStudents: 120, totalTeachers: 6, color: 'from-yellow-500 to-orange-500' }
+    { id: 'fe', name: 'First Year', code: 'FE', totalStudents: 6, totalTeachers: 10, color: 'from-green-500 to-lime-500' },
   ]);
 
   useEffect(() => {

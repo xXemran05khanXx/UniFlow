@@ -38,45 +38,33 @@ const StudentMyTeachersPage: React.FC = () => {
     const loadTeachers = async () => {
       setIsLoadingTeachers(true);
       try {
-        // Mock API call - replace with actual API
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setTeachers([
-          { 
-            id: '1', 
-            name: 'Dr. Rajesh Kumar', 
-            department: 'Computer Engineering', 
-            email: 'rajesh@college.edu',
-            designation: 'Professor' 
-          },
-          { 
-            id: '2', 
-            name: 'Prof. Priya Sharma', 
-            department: 'Computer Engineering', 
-            email: 'priya@college.edu',
-            designation: 'Associate Professor' 
-          },
-          { 
-            id: '3', 
-            name: 'Dr. Amit Patel', 
-            department: 'Electronics Engineering', 
-            email: 'amit@college.edu',
-            designation: 'Professor' 
-          },
-          { 
-            id: '4', 
-            name: 'Prof. Sunita Jain', 
-            department: 'Computer Engineering', 
-            email: 'sunita@college.edu',
-            designation: 'Assistant Professor' 
-          },
-          { 
-            id: '5', 
-            name: 'Dr. Vikram Singh', 
-            department: 'Mechanical Engineering', 
-            email: 'vikram@college.edu',
-            designation: 'Professor' 
+        // Fetch real teachers from API
+        const response = await fetch('/api/data/teachers', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
           }
-        ]);
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const teachersData = data.data || data;
+          
+          // Map the teacher data to the expected format
+          const mappedTeachers = teachersData.map((teacher: any) => ({
+            id: teacher._id,
+            name: teacher.name || teacher.user?.name,
+            department: teacher.department,
+            email: teacher.user?.email || teacher.email,
+            designation: teacher.designation
+          }));
+          
+          setTeachers(mappedTeachers);
+        } else {
+          console.error('Failed to fetch teachers');
+          // Fallback to empty array if API fails
+          setTeachers([]);
+        }
       } catch (error) {
         console.error('Error fetching teachers:', error);
       } finally {

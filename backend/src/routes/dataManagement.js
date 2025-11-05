@@ -61,11 +61,12 @@ router.post('/teachers', auth, async (req, res) => {
       name,
       email,
       department,
-      title,
+      designation,
       employeeId,
-      qualification,
-      specialization,
-      maxHours,
+      qualifications,
+      staffRoom,
+      maxHoursPerWeek,
+      minHoursPerWeek,
       experience
     } = req.body;
 
@@ -104,28 +105,24 @@ router.post('/teachers', auth, async (req, res) => {
     const newTeacher = new Teacher({
       user: user._id,
       employeeId,
-      title: title || 'lecturer',
-      department: {
-        name: department,
-        code: department.substring(0, 3).toUpperCase()
+      name,
+      department,
+      designation: designation || 'Assistant Professor',
+      qualifications: Array.isArray(qualifications) ? qualifications : (qualifications ? [qualifications] : []),
+      contactInfo: {
+        staffRoom: staffRoom || ''
       },
-      qualifications: qualification ? [qualification] : ['MSc'],
-      specializations: Array.isArray(specialization) ? specialization : [specialization || department],
       workload: {
-        maxHoursPerWeek: parseInt(maxHours) || 20,
-        currentHours: 0
+        maxHoursPerWeek: parseInt(maxHoursPerWeek) || 18,
+        minHoursPerWeek: parseInt(minHoursPerWeek) || 8
       },
-      experience: {
-        totalYears: parseInt(experience) || 1,
-        teachingYears: parseInt(experience) || 1
-      },
-      availability: {
-        monday: { isAvailable: true, timeSlots: [{ start: '09:00', end: '17:00' }] },
-        tuesday: { isAvailable: true, timeSlots: [{ start: '09:00', end: '17:00' }] },
-        wednesday: { isAvailable: true, timeSlots: [{ start: '09:00', end: '17:00' }] },
-        thursday: { isAvailable: true, timeSlots: [{ start: '09:00', end: '17:00' }] },
-        friday: { isAvailable: true, timeSlots: [{ start: '09:00', end: '17:00' }] }
-      }
+      availability: [
+        { dayOfWeek: 'Monday', startTime: '09:00', endTime: '17:00' },
+        { dayOfWeek: 'Tuesday', startTime: '09:00', endTime: '17:00' },
+        { dayOfWeek: 'Wednesday', startTime: '09:00', endTime: '17:00' },
+        { dayOfWeek: 'Thursday', startTime: '09:00', endTime: '17:00' },
+        { dayOfWeek: 'Friday', startTime: '09:00', endTime: '17:00' }
+      ]
     });
 
     await newTeacher.save();
@@ -271,21 +268,23 @@ router.post('/courses', auth, async (req, res) => {
   try {
     const {
       courseCode,
-      title,
+      courseName,
       description,
       department,
       credits,
       hoursPerWeek,
       semester,
+      courseType,
+      syllabus,
       prerequisites,
       roomRequirements
     } = req.body;
 
     // Validate required fields
-    if (!courseCode || !title || !department || !credits) {
+    if (!courseCode || !courseName || !department || !credits) {
       return res.status(400).json({
         success: false,
-        error: 'Course code, title, department, and credits are required'
+        error: 'Course code, course name, department, and credits are required'
       });
     }
 
@@ -300,31 +299,13 @@ router.post('/courses', auth, async (req, res) => {
 
     const newCourse = new Course({
       courseCode: courseCode.toUpperCase(),
-      title,
-      description: description || `${title} course`,
+      courseName,
       department,
-      faculty: department, // Assuming department and faculty are same for simplicity
+      semester: parseInt(semester) || 1,
+      courseType: courseType || 'Theory',
       credits: parseInt(credits),
-      duration: {
-        hours: parseInt(hoursPerWeek) || parseInt(credits),
-        weeks: 16 // Standard semester length
-      },
-      level: courseCode.match(/\d+/)?.[0] >= 300 ? 'advanced' : courseCode.match(/\d+/)?.[0] >= 200 ? 'intermediate' : 'beginner',
-      semester: {
-        term: semester || 'fall',
-        year: new Date().getFullYear(),
-        isActive: true
-      },
-      prerequisites: Array.isArray(prerequisites) ? prerequisites : (prerequisites ? [prerequisites] : []),
-      roomRequirements: {
-        type: roomRequirements || 'classroom',
-        capacity: 30,
-        equipment: []
-      },
-      assessment: {
-        methods: ['exam', 'assignment'],
-        weights: { exam: 70, assignment: 30 }
-      }
+      hoursPerWeek: parseInt(hoursPerWeek) || parseInt(credits),
+      syllabus: syllabus || { topics: [], syllabusLink: '' }
     });
 
     await newCourse.save();
@@ -347,13 +328,24 @@ router.post('/courses', auth, async (req, res) => {
 
 // Upload teachers CSV
 router.post('/teachers/upload', auth, upload.single('file'), async (req, res) => {
+  console.log('📁 Teacher CSV upload started');
+  console.log('File received:', req.file ? 'Yes' : 'No');
+  
   try {
     if (!req.file) {
+      console.log('❌ No file uploaded');
       return res.status(400).json({
         success: false,
         error: 'No file uploaded'
       });
     }
+
+    console.log('📄 File details:', {
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      path: req.file.path,
+      size: req.file.size
+    });
 
     const results = [];
     const errors = [];
@@ -364,17 +356,48 @@ router.post('/teachers/upload', auth, upload.single('file'), async (req, res) =>
     fs.createReadStream(req.file.path)
       .pipe(csv())
       .on('data', (data) => {
+        console.log('📊 CSV row data:', data);
         results.push(data);
       })
       .on('end', async () => {
+        console.log(`🔄 Processing ${results.length} CSV rows`);
+        
         // Process each teacher record
         for (const teacherData of results) {
           processed++;
+          console.log(`📝 Processing row ${processed}:`, teacherData);
+          
           try {
-            const { name, email, department, employeeId, qualification, specialization, maxHours, experience } = teacherData;
+            const { 
+              name, 
+              email, 
+              department, 
+              employeeId, 
+              designation,
+              qualifications, 
+              staffRoom,
+              maxHoursPerWeek,
+              minHoursPerWeek
+            } = teacherData;
 
             if (!name || !email || !department || !employeeId) {
-              errors.push(`Row ${processed}: Missing required fields`);
+              console.log(`❌ Row ${processed}: Missing required fields`);
+              errors.push(`Row ${processed}: Missing required fields (name, email, department, employeeId)`);
+              continue;
+            }
+
+            // Validate department
+            const validDepartments = ['Computer', 'IT', 'EXTC', 'Mechanical', 'Civil', 'AI & DS', 'First Year'];
+            if (!validDepartments.includes(department)) {
+              errors.push(`Row ${processed}: Invalid department "${department}". Must be one of: ${validDepartments.join(', ')}`);
+              continue;
+            }
+
+            // Validate designation
+            const validDesignations = ['Professor', 'Associate Professor', 'Assistant Professor'];
+            const teacherDesignation = designation || 'Assistant Professor';
+            if (!validDesignations.includes(teacherDesignation)) {
+              errors.push(`Row ${processed}: Invalid designation "${teacherDesignation}". Must be one of: ${validDesignations.join(', ')}`);
               continue;
             }
 
@@ -398,37 +421,56 @@ router.post('/teachers/upload', auth, upload.single('file'), async (req, res) =>
               continue;
             }
 
+            // Parse qualifications (can be comma-separated string)
+            let qualificationsArray = [];
+            if (qualifications) {
+              if (typeof qualifications === 'string') {
+                qualificationsArray = qualifications.split(',').map(q => q.trim()).filter(q => q);
+              } else if (Array.isArray(qualifications)) {
+                qualificationsArray = qualifications;
+              }
+            }
+
             const newTeacher = new Teacher({
               user: user._id,
               employeeId,
-              title: 'lecturer',
-              department: {
-                name: department,
-                code: department.substring(0, 3).toUpperCase()
+              name,
+              department,
+              designation: teacherDesignation,
+              qualifications: qualificationsArray,
+              contactInfo: {
+                staffRoom: staffRoom || ''
               },
-              qualifications: qualification ? [qualification] : ['MSc'],
-              specializations: Array.isArray(specialization) ? specialization : [specialization || department],
               workload: {
-                maxHoursPerWeek: parseInt(maxHours) || 20,
-                currentHours: 0
+                maxHoursPerWeek: parseInt(maxHoursPerWeek) || 18,
+                minHoursPerWeek: parseInt(minHoursPerWeek) || 8
               },
-              experience: {
-                totalYears: parseInt(experience) || 1,
-                teachingYears: parseInt(experience) || 1
-              }
+              availability: [
+                { dayOfWeek: 'Monday', startTime: '09:00', endTime: '17:00' },
+                { dayOfWeek: 'Tuesday', startTime: '09:00', endTime: '17:00' },
+                { dayOfWeek: 'Wednesday', startTime: '09:00', endTime: '17:00' },
+                { dayOfWeek: 'Thursday', startTime: '09:00', endTime: '17:00' },
+                { dayOfWeek: 'Friday', startTime: '09:00', endTime: '17:00' }
+              ]
             });
 
+            console.log(`💾 Saving teacher: ${name} (${employeeId})`);
             await newTeacher.save();
+            console.log(`✅ Successfully saved teacher: ${name}`);
             successful++;
           } catch (error) {
+            console.log(`❌ Error saving teacher row ${processed}:`, error.message);
             errors.push(`Row ${processed}: ${error.message}`);
           }
         }
 
+        console.log(`📈 Upload summary: ${successful}/${processed} teachers processed successfully`);
+        console.log('🗂️ Errors:', errors);
+
         // Clean up uploaded file
         fs.unlinkSync(req.file.path);
 
-        res.json({
+        const responseData = {
           success: true,
           message: `Successfully processed ${successful}/${processed} teachers`,
           data: {
@@ -436,7 +478,10 @@ router.post('/teachers/upload', auth, upload.single('file'), async (req, res) =>
             successful,
             errors
           }
-        });
+        };
+
+        console.log('📤 Sending response:', responseData);
+        res.json(responseData);
       });
   } catch (error) {
     console.error('Error uploading teachers:', error);
@@ -451,9 +496,14 @@ router.post('/teachers/upload', auth, upload.single('file'), async (req, res) =>
 
 // Download teacher template
 router.get('/teachers/template', auth, (req, res) => {
-  const template = 'name,email,department,employeeId,qualification,specialization,maxHours,experience\n' +
-                   'Dr. John Smith,john.smith@university.edu,Computer Science,EMP001,PhD,Programming,20,5\n' +
-                   'Prof. Sarah Johnson,sarah.johnson@university.edu,Mathematics,EMP002,PhD,Calculus,18,8';
+  const template = 'name,email,department,employeeId,designation,qualifications,staffRoom,maxHoursPerWeek,minHoursPerWeek\n' +
+                   'Dr. Rajesh Kumar,rajesh.kumar@university.edu,Computer,CS001,Professor,"PhD Computer Science, MTech Software Engineering",Room 101,18,8\n' +
+                   'Prof. Priya Sharma,priya.sharma@university.edu,IT,IT002,Associate Professor,"MSc Information Technology, BTech IT",Room 102,20,10\n' +
+                   'Dr. Amit Patel,amit.patel@university.edu,EXTC,EX003,Assistant Professor,"PhD Electronics & Communication, BE Electronics",Room 201,16,8\n' +
+                   'Prof. Sunita Verma,sunita.verma@university.edu,Mechanical,ME004,Associate Professor,"MTech Mechanical Engineering, BE Mechanical",Room 202,18,10\n' +
+                   'Dr. Vikram Singh,vikram.singh@university.edu,Civil,CE005,Professor,"PhD Civil Engineering, MTech Structural Engineering",Room 301,20,12\n' +
+                   'Ms. Kavya Reddy,kavya.reddy@university.edu,AI & DS,AI006,Assistant Professor,"MSc Data Science, BTech Computer Science",Room 401,16,8\n' +
+                   'Prof. Ramesh Gupta,ramesh.gupta@university.edu,First Year,FY007,Associate Professor,"MSc Mathematics, BSc Mathematics",Room 501,22,14';
   
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename=teachers_template.csv');

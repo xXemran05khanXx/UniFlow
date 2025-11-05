@@ -5,7 +5,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api
 // Create axios instance for data management
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -117,12 +117,71 @@ export interface CourseForm {
   };
 }
 
+// Interface for paginated subjects response (like in subjectManagementService)
+export interface PaginatedSubjects {
+  subjects: Course[];
+  totalPages: number;
+  currentPage: number;
+  totalCount: number;
+}
+
+// Helper function to unwrap API data (copied from subjectManagementService)
+// Current backend (subjectController) mistakenly constructs new ApiResponse(statusCode, data, message)
+// resulting JSON shape: { success: <statusCode>, message: <actualData>, data: <messageString> }
+// Proper shape (ideal) would be: { success: true, message: <messageString>, data: <actualData> }
+// This helper attempts to gracefully handle both without breaking if backend is later corrected.
+function unwrapApiData<T>(raw: any): T {
+  if (!raw) return raw as T;
+
+  // If raw looks already like the target object (has expected fields) return as-is
+  if (raw.subjects || raw.code || raw._id) return raw as T;
+
+  // If raw has data property that contains expected fields
+  if (raw.data && (raw.data.subjects || raw.data.code || raw.data._id)) {
+    return raw.data as T;
+  }
+
+  // If raw.message holds the actual payload (current faulty pattern)
+  if (raw.message && typeof raw.message === 'object' && !Array.isArray(raw.message)) {
+    const msgObj = raw.message;
+    if (msgObj.subjects || msgObj.code || msgObj._id || Object.keys(msgObj).length > 1) {
+      return msgObj as T;
+    }
+  }
+
+  // If raw.message holds array data directly
+  if (raw.message && Array.isArray(raw.message)) {
+    return raw.message as T;
+  }
+
+  // Fallback to raw data
+  return raw as T;
+}
+
 export const dataManagementService = {
   // Teacher methods
   async getTeachers(): Promise<Teacher[]> {
     try {
-      const response = await apiClient.get('/data/teachers');
-      return response.data.data || response.data;
+      // Use users endpoint to get teacher users since Teachers collection is empty
+      const response = await apiClient.get('/users?role=teacher');
+      const teacherUsers = response.data.data || response.data;
+      
+      // Transform user data to teacher format for display
+      return teacherUsers.map((user: any) => ({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        employeeId: user.employeeId || `T${user._id.slice(-4)}`,
+        department: user.department || 'Not Assigned',
+        designation: user.designation || 'Teacher',
+        qualifications: user.qualifications || [],
+        contactInfo: { staffRoom: user.staffRoom || '' },
+        workload: { 
+          maxHoursPerWeek: user.maxHoursPerWeek || 18,
+          minHoursPerWeek: user.minHoursPerWeek || 8
+        },
+        user: user._id
+      }));
     } catch (error) {
       console.error('Error fetching teachers:', error);
       throw error;
@@ -133,24 +192,15 @@ export const dataManagementService = {
     try {
       // Transform form data to match backend schema
       const payload = {
-        employeeId: teacherData.employeeId,
         name: teacherData.name,
+        email: teacherData.email,
+        employeeId: teacherData.employeeId,
         department: teacherData.department,
         designation: teacherData.designation,
-        qualifications: teacherData.qualifications,
-        contactInfo: {
-          staffRoom: teacherData.staffRoom
-        },
-        workload: {
-          maxHoursPerWeek: teacherData.maxHoursPerWeek,
-          minHoursPerWeek: teacherData.minHoursPerWeek
-        },
-        // Create user account
-        user: {
-          email: teacherData.email,
-          password: 'defaultPassword123', // You might want to generate this or require it
-          role: 'teacher'
-        }
+        qualifications: teacherData.qualifications, // Already an array from the component
+        staffRoom: teacherData.staffRoom,
+        maxHoursPerWeek: teacherData.maxHoursPerWeek,
+        minHoursPerWeek: teacherData.minHoursPerWeek
       };
 
       const response = await apiClient.post('/data/teachers', payload);
@@ -220,14 +270,54 @@ export const dataManagementService = {
     }
   },
 
-  // Course methods
+  // Course methods  
   async getCourses(): Promise<Course[]> {
     try {
-      const response = await apiClient.get('/data/courses');
-      return response.data.data || response.data;
+      console.log('🔍 DataManagement: Fetching courses from subjects endpoint...');
+      
+      // Use subjects endpoint with pagination like Subject Management service
+      const response = await apiClient.get('/subjects?page=1&limit=100&sortBy=name&sortOrder=asc');
+      
+      console.log('🔍 DataManagement: Raw response:', response.data);
+      
+      // Use unwrapApiData to handle the backend's inconsistent response format
+      const paginatedData = unwrapApiData<PaginatedSubjects>(response.data);
+      
+      console.log('🔍 DataManagement: Unwrapped data:', paginatedData);
+      
+      // Extract subjects array from paginated response
+      const subjects = paginatedData.subjects || [];
+      
+      console.log('🔍 DataManagement: Extracted subjects:', subjects);
+      console.log('🔍 DataManagement: Is array?', Array.isArray(subjects));
+      console.log('🔍 DataManagement: Number of subjects found:', subjects.length);
+      
+      if (!Array.isArray(subjects)) {
+        console.error('❌ DataManagement: subjects is not an array:', subjects);
+        return [];
+      }
+      
+      // Transform subject data to course format for display
+      const courses = subjects.map((subject: any) => ({
+        _id: subject._id,
+        courseCode: subject.code,
+        courseName: subject.name,
+        department: subject.department,
+        semester: subject.semester,
+        courseType: subject.type || 'Theory',
+        credits: subject.credits,
+        hoursPerWeek: subject.hoursPerWeek || 0,
+        syllabus: {
+          topics: Array.isArray(subject.syllabus?.topics) ? subject.syllabus.topics : [],
+          syllabusLink: subject.syllabus?.syllabusLink || ''
+        }
+      }));
+      
+      console.log('✅ DataManagement: Transformed courses:', courses);
+      return courses;
     } catch (error) {
-      console.error('Error fetching courses:', error);
-      throw error;
+      console.error('❌ DataManagement: Error fetching courses:', error);
+      throw new Error('Failed to fetch courses');
     }
   },
 
