@@ -2,6 +2,7 @@ const Course = require('../../models/Course');
 const Teacher = require('../../models/Teacher');
 const Room = require('../../models/Room');
 const Timetable = require('../../models/Timetable');
+const User = require('../../models/User');
 
 class TimetableGenerator {
   constructor() {
@@ -26,17 +27,25 @@ class TimetableGenerator {
     const {
       algorithm = 'greedy',
       maxIterations = 1000,
-      semester = 'fall',
-      academicYear = new Date().getFullYear()
+      semester = null, // Can be 1, 2, 3, 4, 5, 6, 7, 8 or null for all
+      academicYear = new Date().getFullYear(),
+      targetSemester = semester // For backward compatibility
     } = options;
 
     try {
       console.log('🚀 Starting timetable generation...');
       
       // Fetch all required data
-      const courses = await this.fetchCourses();
+      let courses = await this.fetchCourses();
       const teachers = await this.fetchTeachers();
       const rooms = await this.fetchRooms();
+
+      // Filter courses by semester if specified
+      if (semester || targetSemester) {
+        const targetSem = semester || targetSemester;
+        courses = courses.filter(course => course.semester === targetSem);
+        console.log(`📚 Filtered to semester ${targetSem}: ${courses.length} courses`);
+      }
 
       console.log(`📊 Data loaded: ${courses.length} courses, ${teachers.length} teachers, ${rooms.length} rooms`);
 
@@ -47,7 +56,7 @@ class TimetableGenerator {
       // Generate timetable based on algorithm
       switch (algorithm) {
         case 'greedy':
-          timetable = await this.greedyAlgorithm(courses, teachers, rooms, timetable);
+          timetable = await this.greedyAlgorithmImproved(courses, teachers, rooms, timetable);
           break;
         case 'genetic':
           timetable = await this.geneticAlgorithm(courses, teachers, rooms, timetable);
@@ -73,7 +82,7 @@ class TimetableGenerator {
         conflicts: this.conflicts,
         metadata: {
           algorithm,
-          semester,
+          semester: semester || targetSemester || 'all',
           academicYear,
           generatedAt: new Date().toISOString(),
           totalSessions: timetable.length
@@ -86,14 +95,20 @@ class TimetableGenerator {
     }
   }
 
-  async greedyAlgorithm(courses, teachers, rooms, timetable) {
-    console.log('🧠 Running Greedy Algorithm...');
+  async greedyAlgorithmImproved(courses, teachers, rooms, timetable) {
+    console.log('🧠 Running Improved Greedy Algorithm with Even Distribution...');
     
     // Sort courses by priority (credit hours, enrollment, etc.)
     const sortedCourses = courses.sort((a, b) => {
       const priorityA = (a.credits || 3) * (a.maxStudents || 30);
       const priorityB = (b.credits || 3) * (b.maxStudents || 30);
       return priorityB - priorityA;
+    });
+
+    // Track sessions per day to ensure even distribution
+    const sessionsPerDay = {};
+    this.workingDays.forEach(day => {
+      sessionsPerDay[day] = 0;
     });
 
     for (const course of sortedCourses) {
@@ -104,16 +119,24 @@ class TimetableGenerator {
       for (let session = 0; session < sessionsNeeded; session++) {
         let scheduled = false;
 
-        // Try to find a suitable slot
-        for (const day of this.workingDays) {
+        // Try to schedule on the day with fewest sessions first (load balancing)
+        const daysByLoad = this.workingDays.sort((a, b) => sessionsPerDay[a] - sessionsPerDay[b]);
+        
+        for (const day of daysByLoad) {
+          // Skip this day if it's too overloaded compared to others
+          const avgSessionsPerDay = Object.values(sessionsPerDay).reduce((a, b) => a + b, 0) / this.workingDays.length;
+          if (sessionsPerDay[day] > avgSessionsPerDay + 2) {
+            continue;
+          }
+
           for (const timeSlot of this.timeSlots) {
-            // Find available teacher
+            // Find available teacher for this course
             const availableTeacher = teachers.find(teacher => 
               this.isTeacherAvailable(teacher, day, timeSlot, timetable) &&
               this.canTeachCourse(teacher, course)
             );
 
-            // Find available room
+            // Find available room suitable for this course
             const availableRoom = rooms.find(room =>
               this.isRoomAvailable(room, day, timeSlot, timetable) &&
               this.isRoomSuitable(room, course)
@@ -122,7 +145,7 @@ class TimetableGenerator {
             if (availableTeacher && availableRoom) {
               // Schedule the session
               const session = {
-                id: `${course.courseCode}-${day}-${timeSlot.id}`,
+                id: `${course.courseCode}-${day}-${timeSlot.id}-${sessionsScheduled + 1}`,
                 courseCode: course.courseCode,
                 courseName: course.courseName,
                 teacherId: availableTeacher._id || availableTeacher.teacherId,
@@ -130,14 +153,19 @@ class TimetableGenerator {
                 roomId: availableRoom._id || availableRoom.roomNumber,
                 roomNumber: availableRoom.roomNumber,
                 day,
-                timeSlot: `${timeSlot.startTime} - ${timeSlot.endTime}`,
+                timeSlot: {
+                  id: timeSlot.id,
+                  startTime: timeSlot.startTime,
+                  endTime: timeSlot.endTime,
+                  label: timeSlot.label
+                },
                 startTime: timeSlot.startTime,
                 endTime: timeSlot.endTime,
                 semester: course.semester,
                 department: course.department,
+                courseType: course.courseType,
                 credits: course.credits,
-                maxStudents: course.maxStudents,
-                sessionType: course.sessionType || 'lecture',
+                maxStudents: course.maxStudents || 30,
                 course: {
                   code: course.courseCode,
                   name: course.courseName,
@@ -151,13 +179,17 @@ class TimetableGenerator {
                 },
                 room: {
                   number: availableRoom.roomNumber,
+                  capacity: availableRoom.capacity,
+                  type: availableRoom.type,
                   id: availableRoom._id || availableRoom.roomNumber
                 }
               };
 
               timetable.push(session);
-              console.log(`✅ Scheduled: ${session.courseCode} - ${session.day} ${session.timeSlot}`);
+              sessionsPerDay[day]++;
               sessionsScheduled++;
+              
+              console.log(`✅ Scheduled: ${session.courseCode} - ${session.day} ${session.timeSlot.label} (Day load: ${sessionsPerDay[day]})`);
               scheduled = true;
               break;
             }
@@ -175,7 +207,13 @@ class TimetableGenerator {
       }
     }
 
-    console.log(`📊 Greedy Algorithm completed: ${timetable.length} total sessions scheduled`);
+    // Log final distribution
+    console.log('\n📊 Final Session Distribution:');
+    this.workingDays.forEach(day => {
+      console.log(`   ${day.charAt(0).toUpperCase() + day.slice(1)}: ${sessionsPerDay[day]} sessions`);
+    });
+
+    console.log(`\n📊 Improved Greedy Algorithm completed: ${timetable.length} total sessions scheduled`);
     return timetable;
   }
 
@@ -214,25 +252,43 @@ class TimetableGenerator {
   }
 
   canTeachCourse(teacher, course) {
-    // Check if teacher can teach this course based on specialization
-    if (!teacher.specialization && !teacher.department) return true;
+    // Check if teacher can teach this course based on department match
+    if (!teacher.department && !course.department) return true;
     
-    const teacherSpecs = (teacher.specialization || '').toLowerCase().split(';');
-    const courseName = course.courseName.toLowerCase();
-    const courseCode = course.courseCode.toLowerCase();
+    // Primary match: same department
+    if (teacher.department === course.department) return true;
     
-    return teacherSpecs.some(spec => 
-      courseName.includes(spec.trim()) || 
-      courseCode.includes(spec.trim())
-    ) || teacher.department === course.department;
+    // Secondary match: First Year teachers can teach basic courses to other departments
+    if (teacher.department === 'First Year' && course.semester <= 2) return true;
+    
+    // Tertiary match: CS teachers can teach some IT courses and vice versa
+    if ((teacher.department === 'Computer Science' && course.department === 'Information Technology') ||
+        (teacher.department === 'Information Technology' && course.department === 'Computer Science')) {
+      return true;
+    }
+    
+    return false;
   }
 
   isRoomSuitable(room, course) {
-    // Check room capacity
+    // Check room capacity (assume 30 students per course if not specified)
     if (room.capacity < (course.maxStudents || 30)) return false;
     
-    // Check room type for labs
-    if (course.sessionType === 'lab' && !room.isLab) return false;
+    // Check room type for practical courses
+    if (course.courseType === 'Practical') {
+      // Practical courses need laboratories
+      return room.type === 'laboratory';
+    }
+    
+    // Theory courses can use classrooms, lecture halls, or seminar rooms
+    if (course.courseType === 'Theory') {
+      return ['classroom', 'lecture_hall', 'seminar_room'].includes(room.type);
+    }
+    
+    // Tutorial courses prefer smaller rooms
+    if (course.courseType === 'Tutorial') {
+      return ['classroom', 'seminar_room'].includes(room.type) && room.capacity <= 40;
+    }
     
     return true;
   }
@@ -256,133 +312,67 @@ class TimetableGenerator {
   }
 
   async fetchCourses() {
-    return [
-      {
-        courseCode: 'CS101',
-        courseName: 'Introduction to Computer Science',
-        credits: 3,
-        department: 'Computer Science',
-        semester: 'fall',
-        maxStudents: 50,
-        hoursPerWeek: 3,
-        sessionType: 'lecture'
-      },
-      {
-        courseCode: 'CS102',
-        courseName: 'Programming Fundamentals',
-        credits: 4,
-        department: 'Computer Science',
-        semester: 'fall',
-        maxStudents: 40,
-        hoursPerWeek: 4,
-        sessionType: 'lecture'
-      },
-      {
-        courseCode: 'CS201',
-        courseName: 'Data Structures',
-        credits: 3,
-        department: 'Computer Science',
-        semester: 'fall',
-        maxStudents: 35,
-        hoursPerWeek: 3,
-        sessionType: 'lecture'
-      },
-      {
-        courseCode: 'CS202',
-        courseName: 'Database Lab',
-        credits: 2,
-        department: 'Computer Science',
-        semester: 'fall',
-        maxStudents: 20,
-        hoursPerWeek: 2,
-        sessionType: 'lab'
-      },
-      {
-        courseCode: 'MATH101',
-        courseName: 'Calculus I',
-        credits: 4,
-        department: 'Mathematics',
-        semester: 'fall',
-        maxStudents: 60,
-        hoursPerWeek: 4,
-        sessionType: 'lecture'
-      }
-    ];
+    try {
+      const courses = await Course.find({})
+        .select('courseCode courseName department semester courseType credits hoursPerWeek syllabus');
+
+      return courses.map(course => ({
+        courseCode: course.courseCode,
+        courseName: course.courseName,
+        department: course.department,
+        semester: course.semester,
+        courseType: course.courseType,
+        credits: course.credits,
+        hoursPerWeek: course.hoursPerWeek,
+        maxStudents: 30, // Default class size
+        topics: course.syllabus?.topics || []
+      }));
+    } catch (error) {
+      console.error('Error fetching courses from database:', error);
+      // Return empty array if database fetch fails
+      return [];
+    }
   }
 
   async fetchTeachers() {
     try {
-      const Teacher = require('../../models/Teacher');
-      
-      const teachers = await Teacher.find({ isActive: true })
+      const teachers = await Teacher.find({})
         .populate('user', 'name email')
         .select('employeeId name department designation qualifications workload');
 
       return teachers.map(teacher => ({
         teacherId: teacher.employeeId,
+        _id: teacher._id,
         name: teacher.name || teacher.user?.name,
         department: teacher.department,
-        specialization: teacher.qualifications?.join(';') || teacher.department.toLowerCase(),
+        specialization: teacher.qualifications?.join(';') || teacher.department?.toLowerCase(),
         maxHours: teacher.workload?.maxHoursPerWeek || 18
       }));
     } catch (error) {
       console.error('Error fetching teachers:', error);
-      // Fallback to mock data if database fetch fails
-      return [
-        {
-          teacherId: 'T001',
-          name: 'Dr. John Smith',
-          department: 'Computer Science',
-          specialization: 'algorithms;data structures;programming',
-          maxHours: 20
-        },
-        {
-          teacherId: 'T002',
-          name: 'Dr. Jane Wilson',
-          department: 'Computer Science',
-          specialization: 'database;software engineering',
-          maxHours: 18
-        }
-      ];
+      // Return empty array if database fetch fails
+      return [];
     }
   }
 
   async fetchRooms() {
-    // Mock room data for now
-    return [
-      {
-        roomNumber: 'CS101',
-        building: 'Computer Science Building',
-        capacity: 50,
-        type: 'classroom',
-        isLab: false,
-        equipment: ['projector', 'whiteboard']
-      },
-      {
-        roomNumber: 'CS102',
-        building: 'Computer Science Building',
-        capacity: 40,
-        type: 'classroom',
-        isLab: false,
-        equipment: ['projector', 'whiteboard']
-      },
-      {
-        roomNumber: 'CS-LAB1',
-        building: 'Computer Science Building',
-        capacity: 25,
-        type: 'lab',
-        isLab: true,
-        equipment: ['computers', 'projector']
-      },
-      {
-        roomNumber: 'MATH201',
-        building: 'Mathematics Building',
-        capacity: 60,
-        type: 'classroom',
-        isLab: false,
-        equipment: ['projector', 'whiteboard', 'smart_board']
-      }
-    ];
+    try {
+      const rooms = await Room.find({})
+        .select('roomNumber floor capacity type availabilityNotes');
+
+      return rooms.map(room => ({
+        roomNumber: room.roomNumber,
+        capacity: room.capacity,
+        type: room.type,
+        floor: room.floor,
+        isLab: room.type === 'laboratory',
+        availabilityNotes: room.availabilityNotes
+      }));
+    } catch (error) {
+      console.error('Error fetching rooms from database:', error);
+      // Return empty array if database fetch fails
+      return [];
+    }
   }
 
   // Validation and conflict detection methods

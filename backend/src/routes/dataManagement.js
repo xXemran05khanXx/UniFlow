@@ -497,13 +497,13 @@ router.post('/teachers/upload', auth, upload.single('file'), async (req, res) =>
 // Download teacher template
 router.get('/teachers/template', auth, (req, res) => {
   const template = 'name,email,department,employeeId,designation,qualifications,staffRoom,maxHoursPerWeek,minHoursPerWeek\n' +
-                   'Dr. Rajesh Kumar,rajesh.kumar@university.edu,Computer,CS001,Professor,"PhD Computer Science, MTech Software Engineering",Room 101,18,8\n' +
-                   'Prof. Priya Sharma,priya.sharma@university.edu,IT,IT002,Associate Professor,"MSc Information Technology, BTech IT",Room 102,20,10\n' +
-                   'Dr. Amit Patel,amit.patel@university.edu,EXTC,EX003,Assistant Professor,"PhD Electronics & Communication, BE Electronics",Room 201,16,8\n' +
-                   'Prof. Sunita Verma,sunita.verma@university.edu,Mechanical,ME004,Associate Professor,"MTech Mechanical Engineering, BE Mechanical",Room 202,18,10\n' +
-                   'Dr. Vikram Singh,vikram.singh@university.edu,Civil,CE005,Professor,"PhD Civil Engineering, MTech Structural Engineering",Room 301,20,12\n' +
-                   'Ms. Kavya Reddy,kavya.reddy@university.edu,AI & DS,AI006,Assistant Professor,"MSc Data Science, BTech Computer Science",Room 401,16,8\n' +
-                   'Prof. Ramesh Gupta,ramesh.gupta@university.edu,First Year,FY007,Associate Professor,"MSc Mathematics, BSc Mathematics",Room 501,22,14';
+                   'Dr. Rajesh Kumar,rajesh.kumar@university.edu,Computer Science,CS001,Professor,"PhD Computer Science, MTech Software Engineering",Room 101,18,8\n' +
+                   'Prof. Priya Sharma,priya.sharma@university.edu,Information Technology,IT002,Associate Professor,"MSc Information Technology, BTech IT",Room 102,20,10\n' +
+                   'Dr. Amit Patel,amit.patel@university.edu,Computer Science,CS003,Assistant Professor,"PhD Computer Science, BE Computer Engineering",Room 201,16,8\n' +
+                   'Prof. Sunita Verma,sunita.verma@university.edu,Information Technology,IT004,Associate Professor,"MTech Information Technology, BE IT",Room 202,18,10\n' +
+                   'Dr. Vikram Singh,vikram.singh@university.edu,Computer Science,CS005,Professor,"PhD Computer Science, MTech Computer Engineering",Room 301,20,12\n' +
+                   'Ms. Kavya Reddy,kavya.reddy@university.edu,Information Technology,IT006,Assistant Professor,"MSc Data Science, BTech Computer Science",Room 401,16,8\n' +
+                   'Prof. Ramesh Gupta,ramesh.gupta@university.edu,First Year,FY007,Lecturer,"MSc Mathematics, BSc Mathematics",Room 501,22,14';
   
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename=teachers_template.csv');
@@ -513,8 +513,10 @@ router.get('/teachers/template', auth, (req, res) => {
 // Download room template
 router.get('/rooms/template', auth, (req, res) => {
   const template = 'roomNumber,roomName,building,capacity,type,equipment,isLab,floor\n' +
-                   'A101,Lecture Hall A,Main Building,100,lecture_hall,Projector;Microphone,false,1\n' +
-                   'B205,Computer Lab,Science Building,30,computer_lab,Computers;Projector,true,2';
+                   'A101,Theory Classroom,Main Building,60,Theory Classroom,Projector;Microphone,false,1\n' +
+                   'B201,Computer Lab,CS Building,30,Computer Lab,Computers;Projector,true,2\n' +
+                   'C301,IT Lab,IT Building,35,IT Lab,Computers;Network Equipment,true,3\n' +
+                   'D401,Seminar Hall,Main Building,80,Seminar Hall,Projector;Audio System,false,4';
   
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename=rooms_template.csv');
@@ -524,8 +526,10 @@ router.get('/rooms/template', auth, (req, res) => {
 // Download course template
 router.get('/courses/template', auth, (req, res) => {
   const template = 'courseCode,title,description,department,credits,hoursPerWeek,semester,prerequisites,roomRequirements\n' +
-                   'CS101,Programming Fundamentals,Introduction to programming concepts,Computer Science,4,4,fall,,computer_lab\n' +
-                   'MATH201,Calculus I,Differential and integral calculus,Mathematics,3,3,fall,MATH101,classroom';
+                   'CS101,Programming Fundamentals,Introduction to programming concepts,Computer Science,4,4,1,,Computer Lab\n' +
+                   'IT201,Database Management,Database design and implementation,Information Technology,3,3,3,CS101,IT Lab\n' +
+                   'MATH101,Engineering Mathematics I,Calculus and linear algebra,First Year,4,4,1,,Theory Classroom\n' +
+                   'CS301,Data Structures,Advanced data structures and algorithms,Computer Science,4,5,5,CS101,Computer Lab';
   
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename=courses_template.csv');

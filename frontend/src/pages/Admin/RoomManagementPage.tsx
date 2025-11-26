@@ -4,16 +4,16 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import Card from '../components/ui/Card';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import Card from '../../components/ui/Card';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import roomManagementService, { 
   Room, 
   RoomFilters, 
   RoomStats, 
   PaginatedRooms 
-} from '../services/roomManagementService';
+} from '../../services/roomManagementService';
 
 // Constants
 const BUILDINGS = [

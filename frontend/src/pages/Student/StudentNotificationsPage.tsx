@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Bell, Calendar, MessageSquare, Book, CheckCheck, Filter, Trash2 } from 'lucide-react';
-import { useNotifications } from '../contexts/NotificationContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 type FilterType = 'all' | 'schedule' | 'announcement';
 

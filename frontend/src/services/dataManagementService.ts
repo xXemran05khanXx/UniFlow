@@ -1,4 +1,20 @@
 import axios from 'axios';
+import { 
+  DEPARTMENTS, 
+  DEPARTMENT_LIST, 
+  DepartmentType, 
+  SEMESTERS, 
+  SemesterType,
+  ROOM_TYPES,
+  ROOM_TYPE_LIST,
+  RoomType,
+  COURSE_TYPES,
+  COURSE_TYPE_LIST,
+  CourseType,
+  TEACHER_DESIGNATIONS,
+  TEACHER_DESIGNATION_LIST,
+  TeacherDesignationType
+} from '../constants';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -47,8 +63,8 @@ export interface Teacher {
     _id: string;
     email: string;
   };
-  department: 'Computer' | 'IT' | 'EXTC' | 'Mechanical' | 'Civil' | 'AI & DS' | 'First Year';
-  designation: 'Professor' | 'Associate Professor' | 'Assistant Professor';
+  department: DepartmentType;
+  designation: TeacherDesignationType;
   qualifications: string[];
   contactInfo: {
     staffRoom?: string;
@@ -83,7 +99,7 @@ export interface Room {
   roomNumber: string;
   floor: number;
   capacity: number;
-  type: 'Theory Classroom' | 'Computer Lab' | 'Electronics Lab' | 'Mechanical Workshop' | 'Seminar Hall' | 'Auditorium';
+  type: RoomType;
   availabilityNotes?: string;
 }
 
@@ -92,9 +108,9 @@ export interface Course {
   _id?: string;
   courseCode: string;
   courseName: string;
-  department: 'Computer' | 'IT' | 'EXTC' | 'Mechanical' | 'Civil' | 'AI & DS' | 'First Year';
-  semester: number; // 1-8
-  courseType: 'Theory' | 'Practical' | 'Tutorial';
+  department: DepartmentType;
+  semester: SemesterType; // 1-8
+  courseType: CourseType;
   credits: number;
   hoursPerWeek: number;
   syllabus: {
@@ -106,9 +122,9 @@ export interface Course {
 export interface CourseForm {
   courseCode: string;
   courseName: string;
-  department: string;
-  semester: number;
-  courseType: string;
+  department: DepartmentType;
+  semester: SemesterType;
+  courseType: CourseType;
   credits: number;
   hoursPerWeek: number;
   syllabus: {

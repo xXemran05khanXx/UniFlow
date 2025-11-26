@@ -4,32 +4,26 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import Card from '../components/ui/Card';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import Card from '../../components/ui/Card';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import subjectManagementService, { 
   Subject, 
   SubjectFilters, 
   SubjectStats, 
   PaginatedSubjects 
-} from '../services/subjectManagementService';
+} from '../../services/subjectManagementService';
+import { 
+  DEPARTMENT_LIST, 
+  SEMESTERS, 
+  COURSE_TYPE_LIST,
+  DepartmentType,
+  SemesterType,
+  CourseType
+} from '../../constants';
 
-// Constants
-const DEPARTMENTS = [
-  'Computer Science',
-  'Information Technology', 
-  'Electronics & Telecommunication',
-  'Electrical Engineering',
-  'Mechanical Engineering',
-  'Civil Engineering',
-  'Chemical Engineering',
-  'Instrumentation Engineering'
-];
-
-const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8];
 const YEARS = [1, 2, 3, 4];
-const SUBJECT_TYPES = ['theory', 'practical', 'both'];
 
 const SubjectManagementPage: React.FC = () => {
   // State management
@@ -62,10 +56,10 @@ const SubjectManagementPage: React.FC = () => {
     code: '',
     name: '',
     credits: 3,
-    semester: 1,
-    department: '',
+    semester: 1 as SemesterType,
+    department: undefined,
     year: 1,
-    type: 'theory',
+    type: undefined,
     description: '',
     prerequisites: [],
     isActive: true
@@ -192,10 +186,10 @@ const SubjectManagementPage: React.FC = () => {
         code: '',
         name: '',
         credits: 3,
-        semester: 1,
-        department: '',
+        semester: 1 as SemesterType,
+        department: undefined,
         year: 1,
-        type: 'theory',
+        type: undefined,
         description: '',
         prerequisites: [],
         isActive: true
@@ -459,9 +453,9 @@ const SubjectManagementPage: React.FC = () => {
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  subject.type === 'theory' 
+                  subject.type === 'Theory' 
                     ? 'bg-blue-100 text-blue-800'
-                    : subject.type === 'practical'
+                    : subject.type === 'Practical'
                     ? 'bg-green-100 text-green-800'
                     : 'bg-purple-100 text-purple-800'
                 }`}>
@@ -649,7 +643,7 @@ const SubjectManagementPage: React.FC = () => {
                 aria-label="Filter by department"
               >
                 <option value="">All Departments</option>
-                {DEPARTMENTS.map(dept => (
+                {DEPARTMENT_LIST.map(dept => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
@@ -673,10 +667,8 @@ const SubjectManagementPage: React.FC = () => {
                 aria-label="Filter by subject type"
               >
                 <option value="">All Types</option>
-                {SUBJECT_TYPES.map(type => (
-                  <option key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </option>
+                {COURSE_TYPE_LIST.map(type => (
+                  <option key={type} value={type}>{type}</option>
                 ))}
               </select>
             </div>
@@ -807,12 +799,12 @@ const SubjectManagementPage: React.FC = () => {
                 <select
                   required
                   value={subjectForm.department || ''}
-                  onChange={(e) => setSubjectForm(prev => ({ ...prev, department: e.target.value }))}
+                  onChange={(e) => setSubjectForm(prev => ({ ...prev, department: e.target.value as DepartmentType }))}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   aria-label="Select department"
                 >
                   <option value="">Select Department</option>
-                  {DEPARTMENTS.map(dept => (
+                  {DEPARTMENT_LIST.map(dept => (
                     <option key={dept} value={dept}>{dept}</option>
                   ))}
                 </select>
@@ -825,7 +817,7 @@ const SubjectManagementPage: React.FC = () => {
                 <select
                   required
                   value={subjectForm.semester || ''}
-                  onChange={(e) => setSubjectForm(prev => ({ ...prev, semester: Number(e.target.value) }))}
+                  onChange={(e) => setSubjectForm(prev => ({ ...prev, semester: Number(e.target.value) as SemesterType }))}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   aria-label="Select semester"
                 >
@@ -875,15 +867,13 @@ const SubjectManagementPage: React.FC = () => {
                 <select
                   required
                   value={subjectForm.type || ''}
-                  onChange={(e) => setSubjectForm(prev => ({ ...prev, type: e.target.value as 'theory' | 'practical' | 'both' }))}
+                  onChange={(e) => setSubjectForm(prev => ({ ...prev, type: e.target.value as CourseType }))}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   aria-label="Select subject type"
                 >
                   <option value="">Select Type</option>
-                  {SUBJECT_TYPES.map(type => (
-                    <option key={type} value={type}>
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </option>
+                  {COURSE_TYPE_LIST.map(type => (
+                    <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
               </div>

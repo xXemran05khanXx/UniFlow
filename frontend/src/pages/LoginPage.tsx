@@ -6,6 +6,8 @@ import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
+import { useNotifications } from '../contexts/NotificationContext';
+import { useToast } from '../contexts/ToastContext';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
@@ -18,6 +20,8 @@ const LoginPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { isLoading, isAuthenticated } = useAuth();
+  const { addNotification } = useNotifications();
+  const { addToast } = useToast();
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -71,7 +75,30 @@ const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err || 'Login failed. Please check your credentials.');
+      const raw = typeof err === 'string' ? err : err?.message || '';
+      let friendly = 'Login failed. Please check your credentials.';
+      if (raw.includes('Invalid credentials')) {
+        friendly = 'Invalid credentials. Please check your email and password.';
+      } else if (raw.includes('User not found')) {
+        friendly = 'No account found with that email. Please register first.';
+      }
+      setError(friendly);
+      try {
+        addNotification({
+          type: 'general',
+          title: 'Login Error',
+          message: friendly,
+          timestamp: new Date(),
+          read: false,
+        });
+      } catch (notifyErr) {
+        console.warn('Notification failed:', notifyErr);
+      }
+      try {
+        addToast({ title: 'Login Error', message: friendly, type: 'error', duration: 5000 });
+      } catch (toastErr) {
+        console.warn('Toast failed:', toastErr);
+      }
     }
   };
 

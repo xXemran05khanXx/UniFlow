@@ -23,12 +23,12 @@ const teacherSchema = new Schema({
     department: {
         type: String,
         required: [true, 'Department is required.'],
-        enum: ['Computer', 'IT', 'EXTC', 'Mechanical', 'Civil', 'AI & DS', 'First Year'],
+        enum: ['Computer Science', 'Information Technology', 'First Year'],
     },
     designation: {
         type: String,
         required: true,
-        enum: ['Professor', 'Associate Professor', 'Assistant Professor'],
+        enum: ['Professor', 'Associate Professor', 'Assistant Professor', 'Lecturer'],
     },
     qualifications: {
         type: [String], // e.g., ['Ph.D. (Computer Engg)', 'M.E. (IT)']

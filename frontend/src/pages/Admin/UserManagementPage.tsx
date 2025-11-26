@@ -18,10 +18,10 @@ import {
   CheckCircle,
   RefreshCw
 } from 'lucide-react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import { userManagementService, User, UserForm, UserFilters, UserStats } from '../services/userManagementService';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import { userManagementService, User, UserForm, UserFilters, UserStats } from '../../services/userManagementService';
 
 const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);

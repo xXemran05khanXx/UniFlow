@@ -15,10 +15,10 @@ import {
   Settings,
   BookOpen
 } from 'lucide-react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
 
-import './css/TeacherTimetablePage.css';
+import '../css/TeacherTimetablePage.css';
 
 // Interfaces for teacher timetable data
 interface TeacherClass {
@@ -400,7 +400,7 @@ const TeacherTimetablePage: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Quick Actions</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Generate</label>
                 <Button size="sm" variant="outline" className="w-full">
                   <Settings className="h-4 w-4 mr-2" />
                   Preferences

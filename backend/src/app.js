@@ -14,6 +14,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const timetableRoutes = require('./routes/timetable');
+const timetableSimpleRoutes = require('./routes/timetableSimple');
 const roomRoutes = require('./routes/roomRoutes');
 const timeSlotRoutes = require('./routes/timeSlotRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
@@ -82,6 +83,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/timetable', timetableRoutes);
+app.use('/api/timetable-simple', timetableSimpleRoutes);
 
 console.log(' Mounting room routes...');
 app.use('/api/rooms', roomRoutes);

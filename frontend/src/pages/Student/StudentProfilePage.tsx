@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Camera, User, GraduationCap, Shield, Eye, EyeOff, Save, X } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth';
 
 interface PasswordModalProps {
   isOpen: boolean;

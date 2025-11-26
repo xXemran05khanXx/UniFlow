@@ -18,7 +18,7 @@ const courseSchema = new Schema({
     department: {
         type: String,
         required: [true, 'Department is required.'],
-        enum: ['Computer', 'IT', 'EXTC', 'Mechanical', 'Civil', 'AI & DS', 'First Year'],
+        enum: ['Computer Science', 'Information Technology', 'First Year'],
     },
     semester: { // Which semester the course belongs to
         type: Number,

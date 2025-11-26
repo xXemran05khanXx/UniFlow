@@ -71,12 +71,7 @@ const subjectSchema = new mongoose.Schema({
       values: [
         'Computer Science',
         'Information Technology',
-        'Electronics & Telecommunication',
-        'Electrical Engineering',
-        'Mechanical Engineering',
-        'Civil Engineering',
-        'Chemical Engineering',
-        'Instrumentation Engineering'
+        'First Year'
       ],
       message: 'Please select a valid department'
     }
@@ -91,8 +86,8 @@ const subjectSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Subject type is required'],
     enum: {
-      values: ['theory', 'practical', 'both'],
-      message: 'Subject type must be theory, practical, or both'
+      values: ['Theory', 'Practical', 'Tutorial'],
+      message: 'Subject type must be Theory, Practical, or Tutorial'
     }
   },
   description: {

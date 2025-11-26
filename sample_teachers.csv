@@ -1,8 +1,8 @@
 name,email,department,employeeId,designation,qualifications,staffRoom,maxHoursPerWeek,minHoursPerWeek
-Dr. Rajesh Kumar,rajesh.kumar@university.edu,Computer,CS001,Professor,"PhD Computer Science, MTech Software Engineering",Room 101,18,8
-Prof. Priya Sharma,priya.sharma@university.edu,IT,IT002,Associate Professor,"MSc Information Technology, BTech IT",Room 102,20,10
-Dr. Amit Patel,amit.patel@university.edu,EXTC,EX003,Assistant Professor,"PhD Electronics & Communication, BE Electronics",Room 201,16,8
-Prof. Sunita Verma,sunita.verma@university.edu,Mechanical,ME004,Associate Professor,"MTech Mechanical Engineering, BE Mechanical",Room 202,18,10
-Dr. Vikram Singh,vikram.singh@university.edu,Civil,CE005,Professor,"PhD Civil Engineering, MTech Structural Engineering",Room 301,20,12
-Ms. Kavya Reddy,kavya.reddy@university.edu,AI & DS,AI006,Assistant Professor,"MSc Data Science, BTech Computer Science",Room 401,16,8
-Prof. Ramesh Gupta,ramesh.gupta@university.edu,First Year,FY007,Associate Professor,"MSc Mathematics, BSc Mathematics",Room 501,22,14
+Dr. Rajesh Kumar,rajesh.kumar@university.edu,Computer Science,CS001,Professor,"PhD Computer Science, MTech Software Engineering",Room 101,18,8
+Prof. Priya Sharma,priya.sharma@university.edu,Information Technology,IT002,Associate Professor,"MSc Information Technology, BTech IT",Room 102,20,10
+Dr. Amit Patel,amit.patel@university.edu,Computer Science,CS003,Assistant Professor,"PhD Computer Science, BE Computer Engineering",Room 201,16,8
+Prof. Sunita Verma,sunita.verma@university.edu,Information Technology,IT004,Associate Professor,"MTech Information Technology, BE IT",Room 202,18,10
+Dr. Vikram Singh,vikram.singh@university.edu,Computer Science,CS005,Professor,"PhD Computer Science, MTech Computer Engineering",Room 301,20,12
+Ms. Kavya Reddy,kavya.reddy@university.edu,Information Technology,IT006,Assistant Professor,"MSc Data Science, BTech Computer Science",Room 401,16,8
+Prof. Ramesh Gupta,ramesh.gupta@university.edu,First Year,FY007,Lecturer,"MSc Mathematics, BSc Mathematics",Room 501,22,14

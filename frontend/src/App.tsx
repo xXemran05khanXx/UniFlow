@@ -5,26 +5,28 @@ import { store } from './store';
 import { useAuth } from './hooks/useAuth';
 import { initializeAuth } from './store/authSlice';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
-import TimetablePage from './pages/TimetablePage';
-import TeacherTimetablePage from './pages/TeacherTimetablePage';
-import TeacherClassesPage from './pages/TeacherClassesPage';
-import TeacherSettingsPage from './pages/TeacherSettingsPage';
-import StudentTimetablePage from './pages/StudentTimetablePage';
-import StudentNotificationsPage from './pages/StudentNotificationsPage';
-import StudentProfilePage from './pages/StudentProfilePage';
-import StudentMyTeachersPage from './pages/StudentMyTeachersPage';
-import AdminMyTeachersPage from './pages/AdminMyTeachersPage';
-import GeneratePage from './pages/GeneratePage';
-import DataManagementPage from './pages/DataManagementPage';
-import UserManagementPage from './pages/UserManagementPage';
-import SubjectManagementPage from './pages/SubjectManagementPage';
-import RoomManagementPage from './pages/RoomManagementPage';
-import TimeSlotsPage from './pages/TimeSlotsPage';
-import AdminSettingsPage from './pages/AdminSettingsPage';
+import TimetablePage from './pages/Timetable/TimetablePage';
+import TeacherTimetablePage from './pages/Teacher/TeacherTimetablePage';
+import TeacherClassesPage from './pages/Teacher/TeacherClassesPage';
+import TeacherSettingsPage from './pages/Teacher/TeacherSettingsPage';
+import StudentTimetablePage from './pages/Student/StudentTimetablePage';
+import StudentNotificationsPage from './pages/Student/StudentNotificationsPage';
+import StudentProfilePage from './pages/Student/StudentProfilePage';
+import StudentMyTeachersPage from './pages/Student/StudentMyTeachersPage';
+import AdminMyTeachersPage from './pages/Admin/AdminMyTeachersPage';
+import GeneratePage from './pages/Timetable/TimetableGeneratorPage';
+import TimetableGeneratorPage from './pages/Timetable/TimetableGeneratorPage';
+import DataManagementPage from './pages/Admin/DataManagementPage';
+import UserManagementPage from './pages/Admin/UserManagementPage';
+import SubjectManagementPage from './pages/Admin/SubjectManagementPage';
+import RoomManagementPage from './pages/Admin/RoomManagementPage';
+import TimeSlotsPage from './pages/Timetable/TimeSlotsPage';
+import AdminSettingsPage from './pages/Admin/AdminSettingsPage';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 
 // Protected Route Component
@@ -51,7 +53,8 @@ const AppContent: React.FC = () => {
 
   return (
     <NotificationProvider>
-      <Router>
+      <ToastProvider>
+        <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -111,6 +114,16 @@ const AppContent: React.FC = () => {
             <ProtectedRoute>
               <Layout>
                 <GeneratePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/timetable-generator"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <TimetableGeneratorPage />
               </Layout>
             </ProtectedRoute>
           }
@@ -248,7 +261,8 @@ const AppContent: React.FC = () => {
         />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-    </Router>
+        </Router>
+      </ToastProvider>
     </NotificationProvider>
   );
 };

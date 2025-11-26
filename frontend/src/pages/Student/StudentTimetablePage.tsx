@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, MapPin, BookOpen, User, Download, RefreshCw } from 'lucide-react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import { useAuth } from '../hooks/useAuth';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import { useAuth } from '../../hooks/useAuth';
 
 interface TimeSlot {
   id: string;

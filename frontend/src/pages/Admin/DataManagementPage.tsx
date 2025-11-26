@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, Plus, Users, Building, BookOpen, Download, AlertCircle, CheckCircle } from 'lucide-react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import { dataManagementService, Room, Course, Teacher } from '../services/dataManagementService';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import { dataManagementService, Room, Course, Teacher } from '../../services/dataManagementService';
+import { 
+  DEPARTMENT_LIST, 
+  SEMESTERS, 
+  ROOM_TYPE_LIST, 
+  COURSE_TYPE_LIST, 
+  TEACHER_DESIGNATION_LIST,
+  DepartmentType,
+  SemesterType,
+  CourseType
+} from '../../constants';
 
 const DataManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'teachers' | 'rooms' | 'courses'>('teachers');
@@ -22,8 +32,8 @@ const DataManagementPage: React.FC = () => {
     name: '',
     email: '',
     employeeId: '',
-    department: 'Computer',
-    designation: 'Assistant Professor',
+    department: '' as DepartmentType | '',
+    designation: '' as string,
     qualifications: '',
     staffRoom: '',
     maxHoursPerWeek: 18,
@@ -34,16 +44,16 @@ const DataManagementPage: React.FC = () => {
     roomNumber: '',
     floor: 1,
     capacity: 40,
-    type: 'Theory Classroom',
+    type: '' as any,
     availabilityNotes: 'Available during college hours'
   });
 
   const [courseForm, setCourseForm] = useState({
     courseCode: '',
     courseName: '',
-    department: 'Computer',
-    semester: 1,
-    courseType: 'Theory',
+    department: '' as DepartmentType | '',
+    semester: 1 as SemesterType,
+    courseType: '' as CourseType | '',
     credits: 4,
     hoursPerWeek: 4,
     topics: '',
@@ -96,7 +106,7 @@ const DataManagementPage: React.FC = () => {
         name: '',
         email: '',
         employeeId: '',
-        department: 'Computer',
+        department: 'Computer Science' as DepartmentType,
         designation: 'Assistant Professor',
         qualifications: '',
         staffRoom: '',
@@ -141,7 +151,13 @@ const DataManagementPage: React.FC = () => {
     setLoading(true);
     try {
       await dataManagementService.addCourse({
-        ...courseForm,
+        courseCode: courseForm.courseCode,
+        courseName: courseForm.courseName,
+        department: courseForm.department as DepartmentType,
+        semester: courseForm.semester,
+        courseType: courseForm.courseType as CourseType,
+        credits: courseForm.credits,
+        hoursPerWeek: courseForm.hoursPerWeek,
         syllabus: {
           topics: courseForm.topics.split(',').map(t => t.trim()).filter(t => t),
           syllabusLink: courseForm.syllabusLink
@@ -151,9 +167,9 @@ const DataManagementPage: React.FC = () => {
       setCourseForm({
         courseCode: '',
         courseName: '',
-        department: 'Computer',
-        semester: 1,
-        courseType: 'Theory',
+        department: 'Computer Science' as DepartmentType,
+        semester: 1 as SemesterType,
+        courseType: 'Theory' as CourseType,
         credits: 4,
         hoursPerWeek: 4,
         topics: '',
@@ -231,16 +247,13 @@ const DataManagementPage: React.FC = () => {
                   <select
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={teacherForm.department}
-                    onChange={(e) => setTeacherForm({ ...teacherForm, department: e.target.value })}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, department: e.target.value as DepartmentType })}
                     aria-label="Teacher Department"
                   >
-                    <option value="Computer">Computer Engineering</option>
-                    <option value="IT">Information Technology</option>
-                    <option value="EXTC">Electronics & Telecommunication</option>
-                    <option value="Mechanical">Mechanical Engineering</option>
-                    <option value="Civil">Civil Engineering</option>
-                    <option value="AI & DS">AI & Data Science</option>
-                    <option value="First Year">First Year</option>
+                    <option value="">Select Department</option>
+                    {DEPARTMENT_LIST.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -251,9 +264,10 @@ const DataManagementPage: React.FC = () => {
                     onChange={(e) => setTeacherForm({ ...teacherForm, designation: e.target.value })}
                     aria-label="Teacher Designation"
                   >
-                    <option value="Assistant Professor">Assistant Professor</option>
-                    <option value="Associate Professor">Associate Professor</option>
-                    <option value="Professor">Professor</option>
+                    <option value="">Select Designation</option>
+                    {TEACHER_DESIGNATION_LIST.map((designation) => (
+                      <option key={designation} value={designation}>{designation}</option>
+                    ))}
                   </select>
                 </div>
                 <Input
@@ -335,12 +349,10 @@ const DataManagementPage: React.FC = () => {
                     onChange={(e) => setRoomForm({ ...roomForm, type: e.target.value as Room['type'] })}
                     aria-label="Room Type"
                   >
-                    <option value="Theory Classroom">Theory Classroom</option>
-                    <option value="Computer Lab">Computer Lab</option>
-                    <option value="Electronics Lab">Electronics Lab</option>
-                    <option value="Mechanical Workshop">Mechanical Workshop</option>
-                    <option value="Seminar Hall">Seminar Hall</option>
-                    <option value="Auditorium">Auditorium</option>
+                    <option value="">Select Room Type</option>
+                    {ROOM_TYPE_LIST.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="md:col-span-2">
@@ -388,38 +400,41 @@ const DataManagementPage: React.FC = () => {
                   <select
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={courseForm.department}
-                    onChange={(e) => setCourseForm({ ...courseForm, department: e.target.value })}
+                    onChange={(e) => setCourseForm({ ...courseForm, department: e.target.value as DepartmentType })}
                     aria-label="Course Department"
                   >
-                    <option value="Computer">Computer Engineering</option>
-                    <option value="IT">Information Technology</option>
-                    <option value="EXTC">Electronics & Telecommunication</option>
-                    <option value="Mechanical">Mechanical Engineering</option>
-                    <option value="Civil">Civil Engineering</option>
-                    <option value="AI & DS">AI & Data Science</option>
-                    <option value="First Year">First Year</option>
+                    <option value="">Select Department</option>
+                    {DEPARTMENT_LIST.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
                   </select>
                 </div>
-                <Input
-                  label="Semester"
-                  type="number"
-                  value={courseForm.semester}
-                  onChange={(e) => setCourseForm({ ...courseForm, semester: parseInt(e.target.value) })}
-                  min="1"
-                  max="8"
-                  required
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Semester</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={courseForm.semester}
+                    onChange={(e) => setCourseForm({ ...courseForm, semester: parseInt(e.target.value) as SemesterType })}
+                    aria-label="Course Semester"
+                  >
+                    <option value="">Select Semester</option>
+                    {SEMESTERS.map((sem) => (
+                      <option key={sem} value={sem}>Semester {sem}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Course Type</label>
                   <select
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={courseForm.courseType}
-                    onChange={(e) => setCourseForm({ ...courseForm, courseType: e.target.value })}
+                    onChange={(e) => setCourseForm({ ...courseForm, courseType: e.target.value as CourseType })}
                     aria-label="Course Type"
                   >
-                    <option value="Theory">Theory</option>
-                    <option value="Practical">Practical</option>
-                    <option value="Tutorial">Tutorial</option>
+                    <option value="">Select Course Type</option>
+                    {COURSE_TYPE_LIST.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
                   </select>
                 </div>
                 <Input

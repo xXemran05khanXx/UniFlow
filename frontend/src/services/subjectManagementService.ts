@@ -4,6 +4,16 @@
  */
 
 import axios, { AxiosResponse } from 'axios';
+import { 
+  DEPARTMENTS, 
+  DEPARTMENT_LIST, 
+  DepartmentType, 
+  SEMESTERS, 
+  SemesterType,
+  COURSE_TYPES,
+  COURSE_TYPE_LIST,
+  CourseType
+} from '../constants';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -43,10 +53,10 @@ export interface Subject {
   code: string;
   name: string;
   credits: number;
-  semester: number;
-  department: string;
+  semester: SemesterType;
+  department: DepartmentType;
   year: number;
-  type: 'theory' | 'practical' | 'both';
+  type: CourseType;
   description?: string;
   prerequisites?: string[];
   syllabus?: {

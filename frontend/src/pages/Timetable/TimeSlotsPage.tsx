@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Plus, Edit, Trash2, Search, Filter, Save, X } from 'lucide-react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import { timeSlotsAPI } from '../services/api';
-import { TimeSlot } from '../types';
-import { useAuth } from '../hooks/useAuth';
-import { formatTime, getDayName } from '../utils';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import { timeSlotsAPI } from '../../services/api';
+import { TimeSlot } from '../../types';
+import { useAuth } from '../../hooks/useAuth';
+import { formatTime, getDayName } from '../../utils';
 
 interface TimeSlotFormData {
   startTime: string;

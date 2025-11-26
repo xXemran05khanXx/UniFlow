@@ -14,9 +14,9 @@ import {
   Monitor,
   Shield
 } from 'lucide-react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
 
 interface AdminSettingsProps {}
 

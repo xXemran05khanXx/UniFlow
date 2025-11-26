@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
 import { 
   Calendar, 
   Download, 
@@ -20,7 +20,7 @@ import {
   AlertCircle,
   TrendingUp
 } from 'lucide-react';
-import './css/GeneratePage.module.css';
+import '../css/GeneratePage.module.css';
 
 interface TimetableEntry {
   id: string;
@@ -45,6 +45,7 @@ const TimetablePage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchTerm, setSearchTerm] = useState('');
   const [timetableData, setTimetableData] = useState<TimetableEntry[]>([]);
+  const [showTimetableGenerator, setShowTimetableGenerator] = useState<boolean>(false);
   
   const years = ['1', '2', '3', '4'];
   const semesters = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
@@ -568,9 +569,11 @@ const TimetablePage: React.FC = () => {
                 <TrendingUp className="h-4 w-4 mr-2" />
                 Analytics
               </Button>
-              <Button className="flex items-center bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+              <Button className="flex items-center bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                onClick={() => setShowTimetableGenerator(true)}
+              >
                 <Star className="h-4 w-4 mr-2" />
-                Quick Actions
+                Generate
               </Button>
             </div>
           </div>
