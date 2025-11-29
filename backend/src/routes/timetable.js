@@ -1,462 +1,248 @@
 const express = require('express');
-const TimetableController = require('../controllers/timetable/timetableController');
-const { auth: authMiddleware } = require('../middleware/auth');
+const TimetableGenerator = require('../services/timetable/TimetableGenerator');
+const { auth } = require('../middleware/auth');
 
 const router = express.Router();
-const timetableController = new TimetableController();
 
 // Middleware to ensure user is authenticated for all timetable operations
-router.use(authMiddleware);
+router.use(auth);
 
 /**
  * @route   POST /api/timetable/generate
- * @desc    Generate timetable synchronously
+ * @desc    Generate timetable using existing database data
  * @access  Private (Admin only)
  * @body    {
- *   algorithm: string (greedy|genetic|constraint_satisfaction),
- *   maxIterations: number,
- *   timeSlotDuration: number (minutes),
- *   workingDays: array,
- *   workingHours: {start: string, end: string},
- *   courses: array (optional if using files),
- *   teachers: array (optional if using files),
- *   rooms: array (optional if using files),
- *   files: multipart files (optional if using direct data),
- *   saveTimetable: boolean,
- *   savePath: string,
- *   algorithmOptions: object,
- *   postProcessing: object,
- *   parseOptions: object
+ *   algorithm: 'greedy' | 'genetic' | 'constraint',
+ *   semester: number (1-8) | null (for all semesters),
+ *   academicYear: number
  * }
  */
-router.post('/generate',
-  // Admin authorization middleware
-  (req, res, next) => {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required'
-      });
-    }
-    next();
-  },
-  // File upload middleware
-  timetableController.getUploadMiddleware(),
-  // Controller method
-  timetableController.generateTimetable.bind(timetableController)
-);
-
-/**
- * @route   POST /api/timetable/generate-async
- * @desc    Generate timetable asynchronously (for large datasets)
- * @access  Private (Admin only)
- */
-router.post('/generate-async',
-  // Admin authorization middleware
-  (req, res, next) => {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required'
-      });
-    }
-    next();
-  },
-  // File upload middleware
-  timetableController.getUploadMiddleware(),
-  // Controller method
-  timetableController.generateTimetableAsync.bind(timetableController)
-);
-
-/**
- * @route   POST /api/timetable/parse-syllabus
- * @desc    Parse syllabus files without generating timetable
- * @access  Private (Admin/Teacher)
- */
-router.post('/parse-syllabus',
-  // Admin or Teacher authorization
-  (req, res, next) => {
-    if (!['admin', 'teacher'].includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin or Teacher access required'
-      });
-    }
-    next();
-  },
-  // File upload middleware
-  timetableController.getUploadMiddleware(),
-  // Controller method
-  timetableController.parseSyllabus.bind(timetableController)
-);
-
-/**
- * @route   POST /api/timetable/validate
- * @desc    Validate existing timetable for conflicts
- * @access  Private (Admin/Teacher)
- * @body    {
- *   timetable: array or object
- * }
- */
-router.post('/validate',
-  // Admin or Teacher authorization
-  (req, res, next) => {
-    if (!['admin', 'teacher'].includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin or Teacher access required'
-      });
-    }
-    next();
-  },
-  timetableController.validateTimetable.bind(timetableController)
-);
-
-/**
- * @route   POST /api/timetable/optimize
- * @desc    Optimize existing timetable
- * @access  Private (Admin only)
- * @body    {
- *   timetable: array or object,
- *   strategy: string,
- *   maxIterations: number,
- *   preserveAssignments: array,
- *   constraints: object
- * }
- */
-router.post('/optimize',
-  // Admin authorization middleware
-  (req, res, next) => {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required'
-      });
-    }
-    next();
-  },
-  timetableController.optimizeTimetable.bind(timetableController)
-);
-
-/**
- * @route   GET /api/timetable/status/:jobId
- * @desc    Get job status for async operations
- * @access  Private
- */
-router.get('/status/:jobId',
-  timetableController.getJobStatus.bind(timetableController)
-);
-
-/**
- * @route   DELETE /api/timetable/jobs/:jobId
- * @desc    Cancel active job
- * @access  Private (Admin only)
- */
-router.delete('/jobs/:jobId',
-  // Admin authorization middleware
-  (req, res, next) => {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required'
-      });
-    }
-    next();
-  },
-  timetableController.cancelJob.bind(timetableController)
-);
-
-/**
- * @route   GET /api/timetable/templates
- * @desc    Generate template files for data input
- * @access  Private (Admin/Teacher)
- * @query   {
- *   types: string (comma-separated: course,teacher,room),
- *   outputDir: string
- * }
- */
-router.get('/templates',
-  // Admin or Teacher authorization
-  (req, res, next) => {
-    if (!['admin', 'teacher'].includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin or Teacher access required'
-      });
-    }
-    next();
-  },
-  timetableController.generateTemplates.bind(timetableController)
-);
-
-/**
- * @route   GET /api/timetable/templates/:type/download
- * @desc    Download template file
- * @access  Private (Admin/Teacher)
- * @params  type: course|teacher|room
- */
-router.get('/templates/:type/download',
-  // Admin or Teacher authorization
-  (req, res, next) => {
-    if (!['admin', 'teacher'].includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin or Teacher access required'
-      });
-    }
-    next();
-  },
-  timetableController.downloadTemplate.bind(timetableController)
-);
-
-/**
- * @route   GET /api/timetable/algorithms
- * @desc    Get information about available algorithms
- * @access  Private
- */
-router.get('/algorithms',
-  timetableController.getAlgorithmInfo.bind(timetableController)
-);
-
-/**
- * Additional routes for timetable management
- */
-
-/**
- * @route   GET /api/timetable/view/:id
- * @desc    Get specific timetable by ID
- * @access  Private
- */
-router.get('/view/:id', async (req, res) => {
+router.post('/generate', async (req, res) => {
   try {
-    // This would integrate with the Timetable model we created earlier
-    // For now, returning a placeholder
-    res.status(200).json({
-      success: true,
-      message: 'Timetable retrieved successfully',
-      data: {
-        id: req.params.id,
-        // Timetable data would be fetched from database
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve timetable',
-      error: error.message
-    });
-  }
-});
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required for timetable generation'
+      });
+    }
 
-/**
- * @route   GET /api/timetable/list
- * @desc    Get list of timetables with pagination
- * @access  Private
- * @query   {
- *   page: number,
- *   limit: number,
- *   semester: string,
- *   year: number,
- *   department: string,
- *   status: string
- * }
- */
-router.get('/list', async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 10,
+    const { 
+      algorithm = 'greedy', 
+      semester = null, // 1-8 or null for all
+      academicYear = 2025 
+    } = req.body;
+
+    // Validate semester if provided
+    if (semester !== null && (semester < 1 || semester > 8)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Semester must be between 1 and 8, or null for all semesters'
+      });
+    }
+
+    const semesterText = semester ? `semester ${semester}` : 'all semesters';
+    console.log(`🚀 Starting timetable generation for ${semesterText} by ${req.user.name}...`);
+    
+    // Initialize the generator
+    const generator = new TimetableGenerator();
+    
+    // Generate timetable
+    const result = await generator.generateTimetable({
+      algorithm,
       semester,
-      year,
-      department,
-      status
-    } = req.query;
-
-    // Build filter object
-    const filter = {};
-    if (semester) filter['academicPeriod.semester'] = semester;
-    if (year) filter['academicPeriod.year'] = parseInt(year);
-    if (department) filter['scope.department'] = department;
-    if (status) filter['publication.status'] = status;
-
-    // Add user-specific filters based on role
-    if (req.user.role === 'teacher') {
-      filter['scope.teacher'] = req.user.id;
-    } else if (req.user.role === 'student') {
-      filter['scope.student'] = req.user.id;
-    }
-
-    // This would integrate with the Timetable model
-    // For now, returning a placeholder
+      academicYear
+    });
+    
+    console.log(`✅ Timetable generation completed for ${semesterText}: ${result.metadata.totalSessions} sessions`);
+    
+    // Return the result
     res.status(200).json({
       success: true,
+      message: `Timetable generated successfully for ${semesterText}`,
       data: {
-        timetables: [], // Would be fetched from database
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: 0,
-          pages: 0
-        },
-        filter: filter
+        timetable: result.timetable,
+        metrics: result.metrics,
+        conflicts: result.conflicts,
+        metadata: result.metadata
       }
     });
+
   } catch (error) {
+    console.error('❌ Timetable generation failed:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve timetables',
+      message: 'Failed to generate timetable',
       error: error.message
     });
   }
 });
 
 /**
- * @route   GET /api/timetable/my-schedule
- * @desc    Get current user's personalized schedule
+ * @route   GET /api/timetable/semesters
+ * @desc    Get available semesters with course counts
  * @access  Private
  */
-router.get('/my-schedule', async (req, res) => {
+router.get('/semesters', async (req, res) => {
   try {
-    const userId = req.user.id;
-    const userRole = req.user.role;
+    const generator = new TimetableGenerator();
+    const courses = await generator.fetchCourses();
     
-    // Filter based on user role
-    let schedule = [];
-    
-    if (userRole === 'teacher') {
-      // Get teacher's teaching schedule
-      // This would query the database for schedules where instructor = userId
-    } else if (userRole === 'student') {
-      // Get student's class schedule
-      // This would query enrollments and return corresponding schedule entries
-    } else if (userRole === 'admin') {
-      // Admin might see overall schedule or specific department
-      // Based on query parameters
-    }
+    // Group courses by semester
+    const semesterData = {};
+    courses.forEach(course => {
+      const sem = course.semester;
+      if (!semesterData[sem]) {
+        semesterData[sem] = {
+          semester: sem,
+          courses: 0,
+          departments: new Set(),
+          totalHours: 0
+        };
+      }
+      semesterData[sem].courses++;
+      semesterData[sem].departments.add(course.department);
+      semesterData[sem].totalHours += course.hoursPerWeek || course.credits || 3;
+    });
+
+    // Convert to array and format
+    const semesterList = Object.values(semesterData).map(data => ({
+      semester: data.semester,
+      courses: data.courses,
+      departments: Array.from(data.departments),
+      totalHours: data.totalHours,
+      canGenerate: data.courses > 0
+    })).sort((a, b) => a.semester - b.semester);
 
     res.status(200).json({
       success: true,
       data: {
-        user: {
-          id: userId,
-          role: userRole
-        },
-        schedule: schedule,
-        summary: {
-          totalClasses: schedule.length,
-          weeklyHours: 0, // Calculate from schedule
-          departments: [] // Extract from schedule
-        }
+        semesters: semesterList,
+        totalSemesters: semesterList.length,
+        totalCourses: courses.length
       }
     });
+
   } catch (error) {
+    console.error('❌ Error fetching semester data:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve personal schedule',
+      message: 'Failed to fetch semester data',
       error: error.message
     });
   }
 });
 
 /**
- * @route   PUT /api/timetable/:id/publish
- * @desc    Publish a timetable
- * @access  Private (Admin only)
+ * @route   GET /api/timetable/status
+ * @desc    Get timetable generation status and statistics
+ * @access  Private
  */
-router.put('/:id/publish',
-  // Admin authorization middleware
-  (req, res, next) => {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required'
-      });
-    }
-    next();
-  },
-  async (req, res) => {
-    try {
-      const timetableId = req.params.id;
-      const publishedBy = req.user.id;
+router.get('/status', async (req, res) => {
+  try {
+    const generator = new TimetableGenerator();
+    
+    // Get basic statistics
+    const courses = await generator.fetchCourses();
+    const teachers = await generator.fetchTeachers();
+    const rooms = await generator.fetchRooms();
+    
+    // Calculate basic metrics
+    const departmentStats = {};
+    courses.forEach(course => {
+      if (!departmentStats[course.department]) {
+        departmentStats[course.department] = { courses: 0, totalHours: 0 };
+      }
+      departmentStats[course.department].courses++;
+      departmentStats[course.department].totalHours += course.hoursPerWeek;
+    });
 
-      // This would update the timetable in database
-      // Set publication.status = 'published'
-      // Set publication.publishedBy = publishedBy
-      // Set publication.publishedAt = new Date()
+    const teacherStats = {};
+    teachers.forEach(teacher => {
+      if (!teacherStats[teacher.department]) {
+        teacherStats[teacher.department] = 0;
+      }
+      teacherStats[teacher.department]++;
+    });
 
-      res.status(200).json({
-        success: true,
-        message: 'Timetable published successfully',
-        data: {
-          id: timetableId,
-          publishedBy: publishedBy,
-          publishedAt: new Date()
-        }
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to publish timetable',
-        error: error.message
-      });
-    }
+    const roomStats = {};
+    rooms.forEach(room => {
+      if (!roomStats[room.type]) {
+        roomStats[room.type] = 0;
+      }
+      roomStats[room.type]++;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        overview: {
+          totalCourses: courses.length,
+          totalTeachers: teachers.length,
+          totalRooms: rooms.length,
+          departments: Object.keys(departmentStats).length
+        },
+        departmentStats,
+        teacherStats,
+        roomStats,
+        canGenerate: courses.length > 0 && teachers.length > 0 && rooms.length > 0
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching timetable status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch timetable status',
+      error: error.message
+    });
   }
-);
+});
 
 /**
- * @route   GET /api/timetable/conflicts/system-wide
- * @desc    Get system-wide conflicts across all timetables
- * @access  Private (Admin only)
+ * @route   GET /api/timetable/departments/:department
+ * @desc    Get timetable for a specific department
+ * @access  Private
  */
-router.get('/conflicts/system-wide',
-  // Admin authorization middleware
-  (req, res, next) => {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required'
-      });
-    }
-    next();
-  },
-  async (req, res) => {
-    try {
-      const { year, semester } = req.query;
-
-      if (!year || !semester) {
-        return res.status(400).json({
-          success: false,
-          message: 'Year and semester are required'
-        });
-      }
-
-      // This would use the static method from Timetable model
-      // const conflicts = await Timetable.findSystemWideConflicts(year, semester);
-
-      res.status(200).json({
-        success: true,
-        data: {
-          conflicts: [], // Would be populated from database
-          summary: {
-            total: 0,
-            byType: {},
-            resolved: 0,
-            pending: 0
-          },
-          academicPeriod: {
-            year: parseInt(year),
-            semester: semester
-          }
+router.get('/departments/:department', async (req, res) => {
+  try {
+    const { department } = req.params;
+    
+    // This would typically fetch from a saved timetable in the database
+    // For now, we'll generate a fresh one and filter by department
+    const generator = new TimetableGenerator();
+    const result = await generator.generateTimetable({
+      algorithm: 'greedy',
+      semester: 'fall',
+      academicYear: 2025
+    });
+    
+    // Filter sessions by department
+    const departmentSessions = result.timetable.filter(
+      session => session.department === department
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        department,
+        sessions: departmentSessions,
+        totalSessions: departmentSessions.length,
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          algorithm: 'greedy'
         }
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve system-wide conflicts',
-        error: error.message
-      });
-    }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching department timetable:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch department timetable',
+      error: error.message
+    });
   }
-);
+});
 
 module.exports = router;

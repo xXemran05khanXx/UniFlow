@@ -79,7 +79,7 @@ const GeneratePage: React.FC = () => {
   const fetchAvailableSemesters = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/timetable-simple/semesters', {
+      const response = await fetch('http://localhost:5000/api/timetable/semesters', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -128,7 +128,7 @@ const GeneratePage: React.FC = () => {
 
       console.log('🚀 Generating timetable with payload:', payload);
 
-      const response = await fetch('http://localhost:5000/api/timetable-simple/generate', {
+      const response = await fetch('http://localhost:5000/api/timetable/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

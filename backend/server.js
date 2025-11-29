@@ -57,7 +57,6 @@ app.get('/api/health', (req, res) => {
 // Import routes
 const authRoutes = require('./src/routes/authRoutes');
 const timetableRoutes = require('./src/routes/timetable');
-const timetableSimpleRoutes = require('./src/routes/timetableSimple');
 const dataManagementRoutes = require('./src/routes/dataManagement');
 const userRoutes = require('./src/routes/userRoutes');
 const subjectRoutes = require('./src/routes/subjectRoutes');
@@ -67,8 +66,6 @@ const roomRoutes = require('./src/routes/roomRoutes');
 console.log('🔧 Mounting API routes...');
 app.use('/api/auth', authRoutes);
 app.use('/api/timetable', timetableRoutes);
-app.use('/api/timetable-simple', timetableSimpleRoutes);
-console.log('✅ timetable-simple routes mounted on /api/timetable-simple');
 app.use('/api/data', dataManagementRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/subjects', subjectRoutes);

@@ -1,6 +1,0 @@
-name,email,department,subjects,maxHoursPerWeek,availability
-Dr. John Smith,john.smith@university.edu,Computer Science,"Programming Fundamentals,Data Structures",20,"Monday:9-17,Tuesday:9-17,Wednesday:9-17,Thursday:9-17,Friday:9-17"
-Prof. Sarah Johnson,sarah.johnson@university.edu,Mathematics,"Calculus I,Linear Algebra",18,"Monday:10-16,Tuesday:10-16,Wednesday:10-16,Thursday:10-16,Friday:10-16"
-Dr. Michael Brown,michael.brown@university.edu,Physics,"Physics I,Mechanics",22,"Monday:8-18,Tuesday:8-18,Wednesday:8-18,Thursday:8-18,Friday:8-18"
-Dr. Emily Davis,emily.davis@university.edu,Chemistry,"Organic Chemistry,Inorganic Chemistry",19,"Monday:9-15,Tuesday:9-15,Wednesday:9-15,Thursday:9-15,Friday:9-15"
-Prof. Robert Wilson,robert.wilson@university.edu,English,"English Literature,Creative Writing",16,"Monday:11-17,Tuesday:11-17,Wednesday:11-17,Thursday:11-17,Friday:11-17"

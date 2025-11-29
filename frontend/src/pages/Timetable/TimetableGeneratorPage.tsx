@@ -19,6 +19,10 @@ import {
   BookOpen
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { timetableAPI } from '../../services/timetableService';
+import { subjectManagementService } from '../../services/subjectManagementService';
+
+// New departmental + semester-focused timetable generation page
 
 interface TimetableResult {
   success: boolean;
@@ -71,29 +75,27 @@ const TimetableGeneratorPage: React.FC = () => {
     { value: 'constraint', label: 'Constraint Satisfaction', description: 'Rule-based approach - Most flexible' }
   ];
 
-  // Load available semesters on component mount
+  // Load available departments and semesters on mount
   useEffect(() => {
-    fetchAvailableSemesters();
+    (async () => {
+      try {
+        const deps = await subjectManagementService.getDepartments();
+        setDepartments(deps || []);
+
+        // derive semesters from subjects
+        const subsResponse = await subjectManagementService.getAllSubjects({}, 1, 1000);
+        const subs = subsResponse.subjects || [];
+        const semSet = new Set<number>();
+        subs.forEach((s: any) => { const sem = Number(s.semester); if (sem) semSet.add(sem); });
+        const sems = Array.from(semSet).sort((a,b)=>a-b).map(n=>({ semester: n, courseCount: subs.filter((x:any)=>Number(x.semester)===n).length, departments: [], totalHours:0 }));
+        setAvailableSemesters(sems);
+      } catch (err) {
+        console.error('Load deps/semesters failed', err);
+      }
+    })();
   }, []);
 
-  const fetchAvailableSemesters = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/timetable-simple/semesters', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableSemesters(data.semesters || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch semesters:', error);
-    }
-  };
+  const [departments, setDepartments] = useState<string[]>([]);
 
   const handleAutoGenerate = async () => {
     if (!user || user.role !== 'admin') {
@@ -115,47 +117,80 @@ const TimetableGeneratorPage: React.FC = () => {
     }, 200);
 
     try {
-      const token = localStorage.getItem('token');
-      const payload: any = {
-        algorithm: autoGenForm.algorithm,
-        academicYear: autoGenForm.academicYear
-      };
-
-      // Only include semester if one is selected
-      if (autoGenForm.semester) {
-        payload.semester = parseInt(autoGenForm.semester);
+      // require department and semester to be selected for departmental generation
+      if (!departmentFilter) {
+        setError('Please select a department before generating');
+        clearInterval(progressInterval);
+        setIsGenerating(false);
+        return;
       }
 
-      console.log('🚀 Generating timetable with payload:', payload);
+      const payload: any = {
+        department: departmentFilter,
+        year: yearFilter || String(autoGenForm.academicYear),
+        division: divisionFilter || undefined,
+        gaParams: {
+          populationSize: 50,
+          generations: 100
+        }
+      };
 
-      const response = await fetch('http://localhost:5000/api/timetable-simple/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      if (selectedSemester) payload.semester = Number(selectedSemester);
+
+      const result: any = await timetableAPI.generateTimetable(payload);
 
       clearInterval(progressInterval);
       setGenerationProgress(100);
 
-      const result: TimetableResult = await response.json();
-
-      if (result.success) {
-        setTimetableResult(result);
-        const semesterText = autoGenForm.semester ? `semester ${autoGenForm.semester}` : 'all semesters';
-        setSuccess(`✅ Timetable generated successfully for ${semesterText}! ${result.data?.metadata.totalSessions || 0} sessions scheduled with ${result.data?.conflicts?.length || 0} conflicts.`);
+      if (result && result.generatedTimetable) {
+        setSuccess(`Generated timetable (fitness ${result.generatedTimetable.fitnessScore || result.fitnessScore || 0}).`);
+        // refresh list
+        await fetchGeneratedList();
+      } else if (result && result.timetableEntries) {
+        setSuccess(`Generated timetable with ${result.timetableEntries.length} entries.`);
+        await fetchGeneratedList();
       } else {
-        throw new Error(result.message || 'Generation failed');
+        setError('Generation completed but no timetable was returned');
       }
 
-    } catch (error: any) {
-      console.error('❌ Generation failed:', error);
-      setError(error.message || 'Failed to generate timetable');
+    } catch (err: any) {
+      console.error('Generate error', err);
+      setError(err?.message || 'Generation failed');
       clearInterval(progressInterval);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // list generated timetables
+  const [generatedList, setGeneratedList] = useState<any[]>([]);
+  const [departmentFilter, setDepartmentFilter] = useState<string>('');
+  const [selectedSemester, setSelectedSemester] = useState<string>('');
+  const [yearFilter, setYearFilter] = useState<string>(String(autoGenForm.academicYear));
+  const [divisionFilter, setDivisionFilter] = useState<string>('');
+  const [expandedId, setExpandedId] = useState<string>('');
+
+  const fetchGeneratedList = async () => {
+    try {
+      const resp = await timetableAPI.getGeneratedTimetables({ department: departmentFilter, year: yearFilter, division: divisionFilter });
+      const list = resp || resp.generatedTimetables || resp.data || [];
+      setGeneratedList(Array.isArray(list) ? list : (list.generatedTimetables || []));
+    } catch (err) {
+      console.error('Fetch generated list failed', err);
+    }
+  };
+
+  useEffect(() => { fetchGeneratedList(); }, []);
+
+  const handleAccept = async (id: string) => {
+    if (!user || user.role !== 'admin') { setError('Admin access required'); return; }
+    try {
+      await timetableAPI.acceptGeneratedTimetable(id);
+      setSuccess('Accepted generated timetable and saved to timetables.');
+      await fetchGeneratedList();
+    } catch (err: any) {
+      console.error('Accept failed', err);
+      setError(err?.message || 'Accept failed');
     }
   };
 
@@ -257,14 +292,14 @@ const TimetableGeneratorPage: React.FC = () => {
             <div>
               <label className="block text-sm font-medium mb-2">Semester</label>
               <select
-                value={autoGenForm.semester}
-                onChange={(e) => setAutoGenForm({...autoGenForm, semester: e.target.value})}
+                value={selectedSemester || autoGenForm.semester}
+                onChange={(e) => { setSelectedSemester(e.target.value); setAutoGenForm({...autoGenForm, semester: e.target.value}); }}
                 className="w-full p-2 border rounded-md"
                 aria-label="Select semester"
               >
                 <option value="">All Semesters</option>
                 {availableSemesters.map(sem => (
-                  <option key={sem.semester} value={sem.semester}>
+                  <option key={sem.semester} value={String(sem.semester)}>
                     Semester {sem.semester} ({sem.courseCount} courses)
                   </option>
                 ))}
@@ -280,6 +315,45 @@ const TimetableGeneratorPage: React.FC = () => {
                 className="w-full p-2 border rounded-md"
                 min="2020"
                 max="2030"
+              />
+            </div>
+          </div>
+
+          {/* Department / Year / Division Filters for departmental generation */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium mb-2">Department *</label>
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="">Select department</option>
+                {departments.map(dep => (
+                  <option key={dep} value={dep}>{dep}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Year</label>
+              <input
+                type="text"
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="w-full p-2 border rounded-md"
+                placeholder="e.g. 2025 or 1st Year"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Division</label>
+              <input
+                type="text"
+                value={divisionFilter}
+                onChange={(e) => setDivisionFilter(e.target.value)}
+                className="w-full p-2 border rounded-md"
+                placeholder="e.g. A"
               />
             </div>
           </div>
@@ -421,6 +495,86 @@ const TimetableGeneratorPage: React.FC = () => {
             </div>
           </Card>
         )}
+        
+        {/* Generated Timetables List */}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Generated Timetables</h3>
+            <div className="flex items-center gap-2">
+              <Button onClick={fetchGeneratedList} variant="secondary">Refresh</Button>
+            </div>
+          </div>
+
+          {generatedList.length === 0 ? (
+            <p className="text-sm text-gray-500">No generated timetables yet for the selected filters.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Department</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Year</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Division</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Fitness</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Created</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {generatedList.map((g: any) => (
+                    <tr key={g.id} className="border-t">
+                      <td className="px-4 py-2 text-sm">{g.department}</td>
+                      <td className="px-4 py-2 text-sm">{g.year}</td>
+                      <td className="px-4 py-2 text-sm">{g.division}</td>
+                      <td className="px-4 py-2 text-sm">{g.fitnessScore ?? g.fitness ?? '-'}</td>
+                      <td className="px-4 py-2 text-sm">{new Date(g.createdAt).toLocaleString()}</td>
+                      <td className="px-4 py-2 text-sm">
+                        <div className="flex gap-2">
+                          <Button onClick={() => setExpandedId(expandedId === g.id ? '' : g.id)} variant="secondary">
+                            <Eye className="mr-2 h-4 w-4" /> View
+                          </Button>
+                          <Button onClick={() => handleAccept(g.id)}>
+                            <CheckCircle className="mr-2 h-4 w-4" /> Accept
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {generatedList.map((g: any) => (
+                expandedId === g.id ? (
+                  <div key={g.id} className="mt-4 p-4 bg-gray-50 rounded-md">
+                    <h4 className="font-medium mb-2">Timetable Preview ({g.department} {g.year} {g.division})</h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full bg-white border">
+                        <thead className="bg-white">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-sm">Subject</th>
+                            <th className="px-3 py-2 text-left text-sm">Day</th>
+                            <th className="px-3 py-2 text-left text-sm">Time</th>
+                            <th className="px-3 py-2 text-left text-sm">Room</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(g.timetableData || g.timetable || []).slice(0, 20).map((row: any, i: number) => (
+                            <tr key={i} className="border-t">
+                              <td className="px-3 py-2 text-sm">{row.subject || row.courseName || row.subjectName}</td>
+                              <td className="px-3 py-2 text-sm">{row.dayOfWeek || row.day}</td>
+                              <td className="px-3 py-2 text-sm">{row.startTime ? `${row.startTime} - ${row.endTime}` : row.timeSlot}</td>
+                              <td className="px-3 py-2 text-sm">{row.room}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
  * Creates sample subjects for Mumbai University engineering college
  */
 
-const Subject = require('../src/models/Subject');
+const Subject = require('../models/Subject');
 
 /**
  * Generate comprehensive sample subjects for all departments and semesters

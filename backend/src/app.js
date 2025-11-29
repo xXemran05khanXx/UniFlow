@@ -83,7 +83,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/timetable', timetableRoutes);
-app.use('/api/timetable-simple', timetableSimpleRoutes);
+app.use('/api/timetable', timetableSimpleRoutes);
 
 console.log(' Mounting room routes...');
 app.use('/api/rooms', roomRoutes);

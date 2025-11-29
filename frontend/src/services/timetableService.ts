@@ -73,7 +73,7 @@ export interface TimetableGenerationResponse {
 export const timetableAPI = {
   // Generate new timetable
   generateTimetable: async (options: TimetableGenerationOptions = {}): Promise<TimetableGenerationResponse> => {
-    return apiRequest('POST', '/timetable/generate', options);
+    return apiRequest('POST', '/timetables/generate', options);
   },
 
   // Validate existing timetable
@@ -99,7 +99,7 @@ export const timetableAPI = {
       if (value) params.append(key, value);
     });
     
-    const url = `/timetable/view${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/timetables${params.toString() ? `?${params.toString()}` : ''}`;
     return apiRequest('GET', url);
   },
 
@@ -114,13 +114,28 @@ export const timetableAPI = {
       if (value) params.append(key, value);
     });
     
-    const url = `/timetable/export${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/timetables/export${params.toString() ? `?${params.toString()}` : ''}`;
     return apiRequest('GET', url);
   },
 
   // Get available time slots
   getTimeSlots: async (): Promise<TimeSlot[]> => {
-    return apiRequest('GET', '/timetable/timeslots');
+    return apiRequest('GET', '/timetables/timeslots');
+  }
+  ,
+  // Get generated timetables (department/year/division optional)
+  getGeneratedTimetables: async (opts: { department?: string; year?: string; division?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.department) params.append('department', opts.department);
+    if (opts.year) params.append('year', opts.year);
+    if (opts.division) params.append('division', opts.division);
+    const url = `/timetables/generated${params.toString() ? `?${params.toString()}` : ''}`;
+    return apiRequest<any>('GET', url);
+  },
+
+  // Accept generated timetable (save to main timetables table)
+  acceptGeneratedTimetable: async (id: string) => {
+    return apiRequest<any>('POST', `/timetables/accept/${id}`);
   }
 };
 

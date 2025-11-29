@@ -36,7 +36,7 @@ async function testSemesters(token) {
   console.log('\n📚 Testing Semesters API...');
   
   try {
-    const response = await fetch(`${API_BASE}/api/timetable-simple/semesters`, {
+    const response = await fetch(`${API_BASE}/api/timetable/semesters`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -75,7 +75,7 @@ async function testTimetableGeneration(token, semester = null) {
       payload.semester = semester;
     }
 
-    const response = await fetch(`${API_BASE}/api/timetable-simple/generate`, {
+    const response = await fetch(`${API_BASE}/api/timetable/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

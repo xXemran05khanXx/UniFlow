@@ -103,6 +103,7 @@
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^7.6.0",
+    "drizzle-kit": "^0.31.7",
     "tsx": "^4.20.3",
     "vite": "^7.1.0"
   }
