@@ -302,6 +302,72 @@ export const timetableUtils = {
       return a & a;
     }, 0);
     
+    
     return colors[Math.abs(hash) % colors.length];
   }
 };
+
+// Timetable service for CRUD operations
+export const timetableService = {
+  // Save a generated timetable to the database
+  saveTimetable: async (data: {
+    name: string;
+    department: string;
+    semester: number;
+    academicYear: string;
+    schedule: Array<{
+      subject: string;
+      subjectName: string;
+      teacher: string;
+      teacherName: string;
+      timeSlot: string;
+      day: number;
+      startTime: string;
+      endTime: string;
+      room?: string;
+    }>;
+  }) => {
+    return apiRequest('POST', '/timetable/save', data);
+  },
+
+  // Get all saved timetables with optional filters
+  getTimetables: async (filters?: {
+    department?: string;
+    semester?: number;
+    status?: string;
+  }) => {
+    const params = new URLSearchParams();
+    
+    if (filters?.department) {
+      params.append('department', filters.department);
+    }
+    
+    if (filters?.semester) {
+      params.append('semester', filters.semester.toString());
+    }
+    
+    if (filters?.status) {
+      params.append('status', filters.status);
+    }
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/timetable/list?${queryString}` : '/timetable/list';
+    return apiRequest('GET', endpoint);
+  },
+
+  // Get a specific timetable by ID
+  getTimetableById: async (id: string) => {
+    return apiRequest('GET', `/timetable/${id}`);
+  },
+
+  // Publish a timetable
+  publishTimetable: async (id: string) => {
+    return apiRequest('PATCH', `/timetable/${id}/publish`);
+  },
+
+  // Delete a timetable
+  deleteTimetable: async (id: string) => {
+    return apiRequest('DELETE', `/timetable/${id}`);
+  }
+};
+

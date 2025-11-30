@@ -19,13 +19,12 @@ import StudentNotificationsPage from './pages/Student/StudentNotificationsPage';
 import StudentProfilePage from './pages/Student/StudentProfilePage';
 import StudentMyTeachersPage from './pages/Student/StudentMyTeachersPage';
 import AdminMyTeachersPage from './pages/Admin/AdminMyTeachersPage';
-import GeneratePage from './pages/Timetable/TimetableGeneratorPage';
-import TimetableGeneratorPage from './pages/Timetable/TimetableGeneratorPage';
 import DataManagementPage from './pages/Admin/DataManagementPage';
 import UserManagementPage from './pages/Admin/UserManagementPage';
 import SubjectManagementPage from './pages/Admin/SubjectManagementPage';
 import RoomManagementPage from './pages/Admin/RoomManagementPage';
 import TimeSlotsPage from './pages/Timetable/TimeSlotsPage';
+import TimetableGenerationPage from './pages/Timetable/TimetableGenerationPage';
 import AdminSettingsPage from './pages/Admin/AdminSettingsPage';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import { ToastContainer } from "react-toastify";
@@ -109,26 +108,6 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
-            path="/generate"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <GeneratePage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/timetable-generator"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <TimetableGeneratorPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/data-management"
             element={
               <ProtectedRoute>
@@ -174,6 +153,16 @@ const AppContent: React.FC = () => {
               <ProtectedRoute>
                 <Layout>
                   <TimeSlotsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/timetable-generation"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <TimetableGenerationPage />
                 </Layout>
               </ProtectedRoute>
             }

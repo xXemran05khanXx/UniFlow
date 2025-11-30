@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { 
@@ -38,6 +39,7 @@ interface TimetableEntry {
 }
 
 const TimetablePage: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
@@ -570,7 +572,7 @@ const TimetablePage: React.FC = () => {
                 Analytics
               </Button>
               <Button className="flex items-center bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                onClick={() => setShowTimetableGenerator(true)}
+                onClick={() => navigate('/timetable-generation')}
               >
                 <Star className="h-4 w-4 mr-2" />
                 Generate

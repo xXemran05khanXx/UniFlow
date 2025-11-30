@@ -1,5 +1,6 @@
 const express = require('express');
 const TimetableGenerator = require('../services/timetable/TimetableGenerator');
+const Timetable = require('../models/Timetable');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -244,5 +245,238 @@ router.get('/departments/:department', async (req, res) => {
     });
   }
 });
+
+/**
+ * @route   POST /api/timetable/save
+ * @desc    Save generated timetable to database
+ * @access  Private (Admin only)
+ */
+router.post('/save', async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required to save timetables'
+      });
+    }
+
+    const { 
+      name, 
+      department, 
+      semester, 
+      academicYear,
+      schedule 
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !department || !semester || !schedule) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: name, department, semester, schedule'
+      });
+    }
+
+    // Create new timetable
+    const timetable = new Timetable({
+      name,
+      studentGroup: {
+        department,
+        year: Math.ceil(semester / 2), // Calculate year from semester
+        division: 'A' // Default division
+      },
+      status: 'Draft',
+      schedule: schedule.map(cls => ({
+        course: cls.subject,
+        teacher: cls.teacher,
+        room: cls.room || null,
+        dayOfWeek: getDayName(cls.day),
+        startTime: cls.startTime,
+        endTime: cls.endTime
+      }))
+    });
+
+    await timetable.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Timetable saved successfully',
+      data: timetable
+    });
+
+  } catch (error) {
+    console.error('❌ Error saving timetable:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to save timetable',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/timetable/list
+ * @desc    Get all saved timetables
+ * @access  Private
+ */
+router.get('/list', async (req, res) => {
+  try {
+    const { department, semester, status } = req.query;
+    
+    let query = {};
+    
+    if (department) {
+      query['studentGroup.department'] = department;
+    }
+    
+    if (semester) {
+      query['studentGroup.year'] = Math.ceil(parseInt(semester) / 2);
+    }
+    
+    if (status) {
+      query.status = status;
+    }
+
+    const timetables = await Timetable.find(query)
+      .populate('schedule.course')
+      .populate('schedule.teacher')
+      .populate('schedule.room')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: timetables
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching timetables:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch timetables',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/timetable/:id
+ * @desc    Get specific timetable by ID
+ * @access  Private
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const timetable = await Timetable.findById(req.params.id)
+      .populate('schedule.course')
+      .populate('schedule.teacher')
+      .populate('schedule.room');
+
+    if (!timetable) {
+      return res.status(404).json({
+        success: false,
+        message: 'Timetable not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: timetable
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching timetable:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch timetable',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/timetable/:id/publish
+ * @desc    Publish a timetable (change status from Draft to Published)
+ * @access  Private (Admin only)
+ */
+router.patch('/:id/publish', async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required to publish timetables'
+      });
+    }
+
+    const timetable = await Timetable.findByIdAndUpdate(
+      req.params.id,
+      { status: 'Published' },
+      { new: true }
+    );
+
+    if (!timetable) {
+      return res.status(404).json({
+        success: false,
+        message: 'Timetable not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Timetable published successfully',
+      data: timetable
+    });
+
+  } catch (error) {
+    console.error('❌ Error publishing timetable:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to publish timetable',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/timetable/:id
+ * @desc    Delete a timetable
+ * @access  Private (Admin only)
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required to delete timetables'
+      });
+    }
+
+    const timetable = await Timetable.findByIdAndDelete(req.params.id);
+
+    if (!timetable) {
+      return res.status(404).json({
+        success: false,
+        message: 'Timetable not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Timetable deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting timetable:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete timetable',
+      error: error.message
+    });
+  }
+});
+
+// Helper function to convert day number to name
+function getDayName(dayNumber) {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return days[dayNumber] || 'Monday';
+}
 
 module.exports = router;
