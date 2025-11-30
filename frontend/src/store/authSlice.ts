@@ -7,6 +7,7 @@ const initialState: AuthState = {
   token: localStorage.getItem('token'),
   isAuthenticated: !!localStorage.getItem('token'),
   isLoading: false,
+  error: null,
 };
 
 // Async thunks
@@ -20,10 +21,14 @@ export const loginUser = createAsyncThunk(
         localStorage.setItem('user', JSON.stringify(response.data.user));
         return response.data;
       } else {
-        return rejectWithValue(response.error || 'Login failed');
+        return rejectWithValue(response.error || response.message || 'Login failed');
       }
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Login failed');
+      const errorMessage = error.response?.data?.error 
+        || error.response?.data?.message 
+        || error.message 
+        || 'Login failed. Please check your credentials.';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -84,7 +89,7 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     clearError: (state) => {
-      // Clear any error state if needed
+      state.error = null;
     },
     initializeAuth: (state) => {
       const token = localStorage.getItem('token');
@@ -101,34 +106,40 @@ const authSlice = createSlice({
       // Login
       .addCase(loginUser.pending, (state) => {
         state.isLoading = true;
+        state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
         state.isAuthenticated = true;
+        state.error = null;
       })
-      .addCase(loginUser.rejected, (state) => {
+      .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
         state.user = null;
         state.token = null;
         state.isAuthenticated = false;
+        state.error = action.payload as string;
       })
       // Register
       .addCase(registerUser.pending, (state) => {
         state.isLoading = true;
+        state.error = null;
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
         state.isAuthenticated = true;
+        state.error = null;
       })
-      .addCase(registerUser.rejected, (state) => {
+      .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;
         state.user = null;
         state.token = null;
         state.isAuthenticated = false;
+        state.error = action.payload as string;
       })
       // Logout
       .addCase(logoutUser.pending, (state) => {

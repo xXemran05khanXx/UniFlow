@@ -57,7 +57,7 @@ const login = asyncHandler(async (req, res) => {
   }
 
   // Check for user and include password
-  const user = await User.findOne({ email }).select('+password');
+  const user = await User.findOne({ email }).select('+password +loginAttempts +lockUntil');
   
   if (!user) {
     throw new ApiError('Invalid credentials', 401);
@@ -65,7 +65,14 @@ const login = asyncHandler(async (req, res) => {
 
   // Check if account is locked
   if (user.isLocked) {
-    throw new ApiError('Account is temporarily locked due to too many failed login attempts', 423);
+    const remain = Math.ceil((user.lockUntil - Date.now()) / 60000);
+    const error = new ApiError(`Account locked. Try again in ${remain} minutes.`, 403);
+    error.data = {
+      isLocked: true,
+      lockUntil: user.lockUntil,
+      failedAttempts: user.loginAttempts
+    };
+    throw error;
   }
 
   // Check password
@@ -74,7 +81,17 @@ const login = asyncHandler(async (req, res) => {
   if (!isMatch) {
     // Increment login attempts
     await user.incLoginAttempts();
-    throw new ApiError('Invalid credentials', 401);
+    
+    // Reload user to get updated attempts count
+    const updatedUser = await User.findById(user._id).select('+loginAttempts +lockUntil');
+    
+    const error = new ApiError('Invalid credentials', 401);
+    error.data = {
+      isLocked: updatedUser.isLocked,
+      lockUntil: updatedUser.lockUntil,
+      failedAttempts: updatedUser.loginAttempts
+    };
+    throw error;
   }
 
   // Reset login attempts on successful login

@@ -8,6 +8,7 @@ import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useToast } from '../contexts/ToastContext';
+import AccountLockWarning from '../components/AccountLockWarning';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
@@ -16,6 +17,8 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState<Date | null>(null);
   
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -31,24 +34,35 @@ const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('🚀 Form submitted, prevented default');
+    
     setError('');
 
     if (!email || !password) {
-      setError('Please fill in all fields');
+      const errorMsg = 'Please fill in all fields';
+      setError(errorMsg);
+      addToast({ title: "Validation Error", message: errorMsg, type: "error" });
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address');
+      const errorMsg = 'Please enter a valid email address';
+      setError(errorMsg);
+      addToast({ title: "Validation Error", message: errorMsg, type: "error" });
       return;
     }
+
+    console.log('📝 Validation passed, attempting login...');
 
     try {
       console.log('Attempting login with:', { email, password });
       const result = await dispatch(loginUser({ email, password })).unwrap();
       console.log('Login successful, result:', result);
+      // Don't navigate immediately - let Redux handle it via useEffect
       
       // Save email if remember me is checked
       if (rememberMe) {
@@ -74,30 +88,88 @@ const LoginPage: React.FC = () => {
           navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
-      console.error('Login error:', err);
-      const raw = typeof err === 'string' ? err : err?.message || '';
-      let friendly = 'Login failed. Please check your credentials.';
-      if (raw.includes('Invalid credentials')) {
-        friendly = 'Invalid credentials. Please check your email and password.';
-      } else if (raw.includes('User not found')) {
-        friendly = 'No account found with that email. Please register first.';
+      console.log('⚠️ Entered catch block');
+      console.error('=== Login Error Caught ===');
+      console.error('Full error object:', err);
+      console.error('Error type:', typeof err);
+      console.error('Error.message:', err?.message);
+      console.error('Error.response:', err?.response);
+      console.error('Error.response.data:', err?.response?.data);
+      
+      // Extract lock/attempt data from error response
+      const errorData = err?.response?.data?.error?.data;
+      if (errorData) {
+        setFailedAttempts(errorData.failedAttempts || 0);
+        setLockUntil(errorData.lockUntil ? new Date(errorData.lockUntil) : null);
       }
+      
+      // Extract error message from various possible formats
+      let errorText = '';
+      
+      if (typeof err === 'string') {
+        errorText = err;
+      } else if (err?.response?.data?.error) {
+        errorText = err.response.data.error;
+      } else if (err?.response?.data?.message) {
+        errorText = err.response.data.message;
+      } else if (err?.message) {
+        errorText = err.message;
+      } else {
+        errorText = String(err);
+      }
+      
+      console.log('Extracted error text:', errorText);
+      
+      let friendly = 'Login failed. Please check your credentials.';
+      let errorTitle = 'Login Failed';
+
+      const lowerError = errorText.toLowerCase();
+
+      // Handle different error types
+      if (lowerError.includes('locked') || lowerError.includes('try again')) {
+        errorTitle = 'Account Locked';
+        friendly = errorText || 'Your account is temporarily locked due to too many failed login attempts. Please try again later.';
+      } else if (lowerError.includes('invalid credentials')) {
+        errorTitle = 'Invalid Credentials';
+        friendly = 'Invalid email or password. Please check your credentials and try again.';
+      } else if (lowerError.includes('user not found') || lowerError.includes('no user')) {
+        errorTitle = 'User Not Found';
+        friendly = 'No account found with that email. Please register first.';
+      } else if (lowerError.includes('network') || lowerError.includes('timeout')) {
+        errorTitle = 'Network Error';
+        friendly = 'Network error. Please check your connection and try again.';
+      } else if (errorText) {
+        friendly = errorText;
+      }
+
+      console.log('Setting error state to:', friendly);
       setError(friendly);
+      
+      console.log('Calling addToast with:', { title: errorTitle, message: friendly, type: 'error' });
+      
+      // Show toast notification
+      try {
+        addToast({
+          title: errorTitle,
+          message: friendly,
+          type: 'error',
+          duration: 6000
+        });
+        console.log('✅ Toast added successfully');
+      } catch (toastErr) {
+        console.error('❌ Failed to add toast:', toastErr);
+      }
+
       try {
         addNotification({
           type: 'general',
-          title: 'Login Error',
+          title: errorTitle,
           message: friendly,
           timestamp: new Date(),
           read: false,
         });
       } catch (notifyErr) {
         console.warn('Notification failed:', notifyErr);
-      }
-      try {
-        addToast({ title: 'Login Error', message: friendly, type: 'error', duration: 5000 });
-      } catch (toastErr) {
-        console.warn('Toast failed:', toastErr);
       }
     }
   };
@@ -129,6 +201,13 @@ const LoginPage: React.FC = () => {
 
         <Card>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Account Lock Warning */}
+            <AccountLockWarning 
+              failedAttempts={failedAttempts}
+              lockUntil={lockUntil}
+              maxAttempts={5}
+            />
+
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
                 <div className="flex items-center">
