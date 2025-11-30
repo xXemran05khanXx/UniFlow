@@ -13,7 +13,7 @@ const {
   getUserStats,
   bulkUpdateUsers,
   bulkDeleteUsers
-} = require('../controllers/userControllerNew');
+} = require('../controllers/userController');
 
 // Import auth middleware when available
 // const { protect, authorize } = require('../middleware/auth');

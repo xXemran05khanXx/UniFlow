@@ -134,15 +134,11 @@ const createUser = asyncHandler(async (req, res) => {
       });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create user
+    // Create user (password will be hashed by User model's pre-save hook)
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      password: hashedPassword,
+      password: password, // Pass plain password - model will hash it
       role,
       isActive,
       profile: {

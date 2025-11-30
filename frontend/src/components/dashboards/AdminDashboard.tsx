@@ -3,6 +3,7 @@ import { Users, Calendar, BookOpen, Settings, BarChart3, Plus } from 'lucide-rea
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { usersAPI, timetablesAPI } from '../../services/api';
+import { userManagementService, UserStats } from '../../services/userManagementService';
 import { User, Timetable } from '../../types';
 import TimetableGenerator from '../timetable/TimetableGenerator';
 import './AdminDashboard.css';
@@ -22,7 +23,13 @@ const AdminDashboard: React.FC = () => {
     totalTeachers: 0,
     totalStudents: 0,
     totalTimetables: 0,
-    activeTimetables: 0
+    activeTimetables: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
+    adminUsers: 0,
+    teacherUsers: 0,
+    studentUsers: 0,
+    recentSignups: 0
   });
   const [recentUsers, setRecentUsers] = useState<User[]>([]);
   const [recentTimetables, setRecentTimetables] = useState<Timetable[]>([]);
@@ -42,19 +49,32 @@ const AdminDashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
+      // Fetch user statistics from the API
+      const userStatsData = await userManagementService.getUserStats();
+      
+      // Fetch users and timetables data
       const [usersResponse, timetablesResponse] = await Promise.all([
         usersAPI.getAll(),
         timetablesAPI.getAll()
       ]);
 
+      // Update stats with real data from API
+      setStats({
+        totalUsers: userStatsData.totalUsers || 0,
+        activeUsers: userStatsData.activeUsers || 0,
+        inactiveUsers: userStatsData.inactiveUsers || 0,
+        adminUsers: userStatsData.adminUsers || 0,
+        totalTeachers: userStatsData.teacherUsers || 0,
+        totalStudents: userStatsData.studentUsers || 0,
+        teacherUsers: userStatsData.teacherUsers || 0,
+        studentUsers: userStatsData.studentUsers || 0,
+        recentSignups: userStatsData.recentSignups || 0,
+        totalTimetables: 0,
+        activeTimetables: 0
+      });
+
       if (usersResponse.success && usersResponse.data) {
         const users = usersResponse.data;
-        setStats(prev => ({
-          ...prev,
-          totalUsers: users.length,
-          totalTeachers: users.filter((u: User) => u.role === 'teacher').length,
-          totalStudents: users.filter((u: User) => u.role === 'student').length
-        }));
         setRecentUsers(users.slice(-5).reverse());
       }
 
@@ -80,28 +100,28 @@ const AdminDashboard: React.FC = () => {
       value: stats.totalUsers,
       icon: Users,
       color: 'bg-blue-500',
-      change: '+12%'
+      subtitle: `${stats.activeUsers} active`
     },
     {
       title: 'Teachers',
       value: stats.totalTeachers,
       icon: BookOpen,
       color: 'bg-green-500',
-      change: '+8%'
+      subtitle: 'Faculty members'
     },
     {
       title: 'Students',
       value: stats.totalStudents,
       icon: Users,
       color: 'bg-purple-500',
-      change: '+15%'
+      subtitle: `${stats.recentSignups} new (30 days)`
     },
     {
       title: 'Active Timetables',
       value: stats.activeTimetables,
       icon: Calendar,
       color: 'bg-orange-500',
-      change: '+5%'
+      subtitle: `${stats.totalTimetables} total`
     }
   ];
 
@@ -206,7 +226,7 @@ const AdminDashboard: React.FC = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                   <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-sm text-green-600 font-medium">{stat.change}</p>
+                  <p className="text-sm text-gray-500 font-medium">{stat.subtitle}</p>
                 </div>
                 <div className={`${stat.color} p-3 rounded-full`}>
                   <IconComponent className="h-6 w-6 text-white" />
