@@ -10,7 +10,7 @@ const {
   bulkCreateTimeSlots,
   toggleTimeSlotStatus
 } = require('../controllers/timeSlotController');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const { requireRole } = require('../middleware/roleAuth');
 
 const router = express.Router();

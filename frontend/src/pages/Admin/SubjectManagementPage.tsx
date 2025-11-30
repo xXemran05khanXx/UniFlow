@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { Plus, Download, BookA, CheckLine, Target, Users, BarChart2, Book } from 'lucide-react';
 import subjectManagementService, { 
   Subject, 
   SubjectFilters, 
@@ -334,7 +335,7 @@ const SubjectManagementPage: React.FC = () => {
             <p className="text-3xl font-bold text-blue-600">{stats?.totalSubjects || 0}</p>
           </div>
           <div className="p-3 bg-blue-100 rounded-full">
-            📚
+            <BookA className="h-8 w-8 text-blue-600" />
           </div>
         </div>
       </Card>
@@ -346,7 +347,7 @@ const SubjectManagementPage: React.FC = () => {
             <p className="text-3xl font-bold text-green-600">{stats?.activeSubjects || 0}</p>
           </div>
           <div className="p-3 bg-green-100 rounded-full">
-            ✅
+            <CheckLine className="h-8 w-8 text-green-600" />
           </div>
         </div>
       </Card>
@@ -360,7 +361,7 @@ const SubjectManagementPage: React.FC = () => {
             </p>
           </div>
           <div className="p-3 bg-purple-100 rounded-full">
-            🎯
+            <Target className="h-8 w-8 text-purple-600" />
           </div>
         </div>
       </Card>
@@ -374,7 +375,7 @@ const SubjectManagementPage: React.FC = () => {
             </p>
           </div>
           <div className="p-3 bg-orange-100 rounded-full">
-            🏢
+            <Users className="h-8 w-8 text-orange-600" />
           </div>
         </div>
       </Card>
@@ -539,19 +540,22 @@ const SubjectManagementPage: React.FC = () => {
             onClick={() => handleExport('csv')}
             variant="secondary"
           >
-            📤 Export CSV
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
           </Button>
           <Button
             onClick={() => handleExport('json')}
             variant="secondary"
           >
-            📤 Export JSON
+            <Download className="h-4 w-4 mr-2" />
+            Export JSON
           </Button>
           <Button
             onClick={() => setActiveTab('add')}
             variant="primary"
           >
-            ➕ Add Subject
+            <Plus className="h-4 w-4 mr-2" />
+            Add Subject
           </Button>
         </div>
       </div>
@@ -582,17 +586,17 @@ const SubjectManagementPage: React.FC = () => {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           {[
-            { id: 'overview', name: 'Overview', icon: '📊' },
-            { id: 'subjects', name: 'Subjects', icon: '📚' },
-            { id: 'add', name: 'Add Subject', icon: '➕' },
-            { id: 'import', name: 'Import', icon: '📥' }
+            { id: 'overview', name: 'Overview', icon: <BarChart2 className="h-4 w-4 text-gray-600" /> },
+            { id: 'subjects', name: 'Subjects', icon: <Book className="h-4 w-4 text-gray-600" /> },
+            { id: 'add', name: 'Add Subject', icon: <Plus className="h-4 w-4 text-gray-600" /> },
+            { id: 'import', name: 'Import', icon: <Download className="h-4 w-4 text-gray-600" /> }
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`${
                 activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
+                  ? 'border-blue-500 text-blue-600 '
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
             >

@@ -14,6 +14,7 @@ import roomManagementService, {
   RoomStats, 
   PaginatedRooms 
 } from '../../services/roomManagementService';
+import { BarChart2, BookPlus, Building2, Users, Building, Plus, Download, SquareChartGantt } from 'lucide-react';
 
 // Constants
 const BUILDINGS = [
@@ -477,7 +478,7 @@ const RoomManagementPage: React.FC = () => {
             <p className="text-3xl font-bold text-blue-600">{stats?.totalRooms || 0}</p>
           </div>
           <div className="p-3 bg-blue-100 rounded-full">
-            🏢
+            <Building2 className="h-8 w-8 text-blue-600" />
           </div>
         </div>
       </Card>
@@ -489,7 +490,7 @@ const RoomManagementPage: React.FC = () => {
             <p className="text-3xl font-bold text-green-600">{stats?.availableRooms || 0}</p>
           </div>
           <div className="p-3 bg-green-100 rounded-full">
-            ✅
+            <BookPlus className="h-8 w-8 text-green-600" />
           </div>
         </div>
       </Card>
@@ -501,7 +502,7 @@ const RoomManagementPage: React.FC = () => {
             <p className="text-3xl font-bold text-purple-600">{stats?.totalCapacity || 0}</p>
           </div>
           <div className="p-3 bg-purple-100 rounded-full">
-            👥
+            <Users className="h-8 w-8 text-purple-600" />
           </div>
         </div>
       </Card>
@@ -515,7 +516,7 @@ const RoomManagementPage: React.FC = () => {
             </p>
           </div>
           <div className="p-3 bg-orange-100 rounded-full">
-            📊
+            <BarChart2 className="h-8 w-8 text-orange-600" />
           </div>
         </div>
       </Card>
@@ -702,19 +703,22 @@ const RoomManagementPage: React.FC = () => {
             onClick={() => handleExport('csv')}
             variant="secondary"
           >
-            📤 Export CSV
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
           </Button>
           <Button
             onClick={() => handleExport('json')}
             variant="secondary"
           >
-            📤 Export JSON
+            <Download className="h-4 w-4 mr-2" />
+            Export JSON
           </Button>
           <Button
             onClick={() => setActiveTab('add')}
             variant="primary"
           >
-            ➕ Add Room
+            <Plus className="h-4 w-4 mr-2" />
+            Add Room
           </Button>
         </div>
       </div>
@@ -745,11 +749,11 @@ const RoomManagementPage: React.FC = () => {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           {[
-            { id: 'overview', name: 'Overview', icon: '📊' },
-            { id: 'rooms', name: 'Rooms', icon: '🏢' },
-            { id: 'add', name: 'Add Room', icon: '➕' },
-            { id: 'import', name: 'Import', icon: '📥' },
-            { id: 'utilization', name: 'Utilization', icon: '📈' }
+            { id: 'overview', name: 'Overview', icon: <SquareChartGantt className="h-4 w-4 text-gray-600" /> },
+            { id: 'rooms', name: 'Rooms', icon: <Building className="h-4 w-4 text-gray-600" /> },
+            { id: 'add', name: 'Add Room', icon: <Plus className="h-4 w-4 text-gray-600" /> },
+            { id: 'import', name: 'Import', icon: <Download className="h-4 w-4 text-gray-600" /> },
+            { id: 'utilization', name: 'Utilization', icon: <BarChart2 className="h-4 w-4 text-gray-600" /> }
           ].map((tab) => (
             <button
               key={tab.id}

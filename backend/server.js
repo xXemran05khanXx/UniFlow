@@ -61,6 +61,7 @@ const dataManagementRoutes = require('./src/routes/dataManagement');
 const userRoutes = require('./src/routes/userRoutes');
 const subjectRoutes = require('./src/routes/subjectRoutes');
 const roomRoutes = require('./src/routes/roomRoutes');
+const timeSlotRoutes = require('./src/routes/timeSlotRoutes');
 
 // Use routes
 console.log('🔧 Mounting API routes...');
@@ -70,8 +71,7 @@ app.use('/api/data', dataManagementRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/rooms', roomRoutes);
-// app.use('/api/timeslots', timeSlotRoutes);
-// app.use('/api/timetables', timetableRoutes);
+app.use('/api/timeslots', timeSlotRoutes);
 
 // Serve static files from React build (for production)
 if (process.env.NODE_ENV === 'production') {

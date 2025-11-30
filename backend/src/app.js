@@ -18,7 +18,7 @@ const timetableSimpleRoutes = require('./routes/timetableSimple');
 const roomRoutes = require('./routes/roomRoutes');
 const timeSlotRoutes = require('./routes/timeSlotRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
-const dataManagementRoutes = require('../routes/dataManagement');
+const dataManagementRoutes = require('./routes/dataManagement');
 
 // Import config
 const config = require('./config/config');

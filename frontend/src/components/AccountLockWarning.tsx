@@ -115,7 +115,7 @@ const AccountLockWarning: React.FC<AccountLockWarningProps> = ({
               </p>
               {isWarningLevel && (
                 <p className="mt-1 text-xs">
-                  Your account will be locked for 2 hours after {maxAttempts} failed attempts.
+                  Your account will be locked for 15 minutes after {maxAttempts} failed attempts.
                 </p>
               )}
             </div>

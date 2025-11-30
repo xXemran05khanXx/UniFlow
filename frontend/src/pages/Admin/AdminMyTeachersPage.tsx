@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Users, Search, Plus, ChevronDown, Loader2 } from 'lucide-react';
+import { dataManagementService } from '../../services/dataManagementService';
 
 interface Teacher {
   id: string;
@@ -198,32 +199,20 @@ const AdminMyTeachersPage: React.FC = () => {
 
   const fetchTeachers = async () => {
     try {
-      // Fetch real teachers from API
-      const response = await fetch('/api/data/teachers', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Use dataManagementService to fetch teachers
+      const teachersData = await dataManagementService.getTeachers();
       
-      if (response.ok) {
-        const data = await response.json();
-        const teachersData = data.data || data;
-        
-        // Map the teacher data to the expected format
-        const mappedTeachers = teachersData.map((teacher: any) => ({
-          id: teacher._id,
-          name: teacher.name || teacher.user?.name,
-          department: teacher.department,
-          email: teacher.user?.email || teacher.email,
-          subjects: teacher.qualifications || ['Subject Info Not Available'] // Using qualifications as subjects for now
-        }));
-        
-        setTeachers(mappedTeachers);
-      } else {
-        console.error('Failed to fetch teachers');
-        setTeachers([]);
-      }
+      // Map the teacher data to the expected format
+      const mappedTeachers = teachersData.map((teacher: any) => ({
+        id: teacher._id,
+        name: teacher.name,
+        department: teacher.department || 'Not Assigned',
+        email: teacher.email,
+        subjects: teacher.qualifications || []
+      }));
+      
+      setTeachers(mappedTeachers);
+      console.log('Fetched teachers:', mappedTeachers);
     } catch (error) {
       console.error('Error fetching teachers:', error);
       setTeachers([]);

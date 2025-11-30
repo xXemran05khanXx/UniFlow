@@ -61,14 +61,20 @@ const TimeSlotsPage: React.FC = () => {
   const fetchTimeSlots = async () => {
     try {
       setLoading(true);
+      console.log('Fetching time slots from API...');
       const response = await timeSlotsAPI.getAll();
+      console.log('Time slots response:', response);
       if (response.success && response.data) {
         setTimeSlots(response.data);
+        console.log('Time slots loaded:', response.data.length);
       } else {
         setError('Failed to fetch time slots');
+        console.error('Failed response:', response);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch time slots');
+      console.error('Error fetching time slots:', err);
+      console.error('Error response:', err.response);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch time slots');
     } finally {
       setLoading(false);
     }

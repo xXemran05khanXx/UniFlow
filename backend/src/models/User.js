@@ -200,7 +200,7 @@ userSchema.methods.incLoginAttempts = function() {
   
   // If we're at max attempts and not locked, lock the account
   if (this.loginAttempts + 1 >= 5 && !this.isLocked) {
-    updates.$set = { lockUntil: Date.now() + 2 * 60 * 60 * 1000 }; // 2 hours
+    updates.$set = { lockUntil: Date.now() + 15 * 60 * 1000 }; // 15 minutes
   }
   
   return this.updateOne(updates);

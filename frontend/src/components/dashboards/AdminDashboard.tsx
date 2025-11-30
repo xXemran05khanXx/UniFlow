@@ -5,7 +5,6 @@ import Button from '../ui/Button';
 import { usersAPI, timetablesAPI } from '../../services/api';
 import { userManagementService, UserStats } from '../../services/userManagementService';
 import { User, Timetable } from '../../types';
-import TimetableGenerator from '../timetable/TimetableGenerator';
 import './AdminDashboard.css';
 
 interface Department {
@@ -206,13 +205,6 @@ const AdminDashboard: React.FC = () => {
             <Settings className="h-4 w-4 mr-2" />
             Settings
           </Button>
-          <Button 
-            className="flex items-center"
-            onClick={() => setShowTimetableGenerator(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Generate Timetable
-          </Button>
         </div>
       </div>
 
@@ -342,27 +334,6 @@ const AdminDashboard: React.FC = () => {
           </Button>
         </div>
       </Card>
-
-      {/* Timetable Generator Modal/View */}
-      {showTimetableGenerator && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-6xl w-full max-h-screen overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">Timetable Generator</h2>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowTimetableGenerator(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </Button>
-            </div>
-            <div className="p-6">
-              <TimetableGenerator />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
