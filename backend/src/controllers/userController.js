@@ -1,4 +1,5 @@
 const asyncHandler = require('../middleware/asyncHandler');
+const { getUserStatsFromDB } = require("../services/userStatsService");
 const User = require('../models/User');
 const Teacher = require('../models/Teacher');
 const bcrypt = require('bcryptjs');
@@ -437,13 +438,27 @@ const getUserStats = asyncHandler(async (req, res) => {
     const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ isActive: true });
     const inactiveUsers = await User.countDocuments({ isActive: false });
-    const adminUsers = await User.countDocuments({ role: 'admin' });
-    const teacherUsers = await User.countDocuments({ role: 'teacher' });
-    const studentUsers = await User.countDocuments({ role: 'student' });
-    
+
+    const adminUsers = await User.countDocuments({ role: "admin" });
+    const teacherUsers = await User.countDocuments({ role: "teacher" });
+    const studentUsers = await User.countDocuments({ role: "student" });
+
+    const verifiedUsers = await User.countDocuments({ isEmailVerified: true });
+
+    // Group by department
+    const usersByDepartment = await User.aggregate([
+      { $group: { _id: "$department", count: { $sum: 1 } } }
+    ]);
+
+    // Group by semester
+    const usersBySemester = await User.aggregate([
+      { $group: { _id: "$semester", count: { $sum: 1 } } }
+    ]);
+
     // Recent signups (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     const recentSignups = await User.countDocuments({
       createdAt: { $gte: thirtyDaysAgo }
     });
@@ -454,20 +469,28 @@ const getUserStats = asyncHandler(async (req, res) => {
         totalUsers,
         activeUsers,
         inactiveUsers,
-        adminUsers,
-        teacherUsers,
-        studentUsers,
+        verifiedUsers,
+
+        roles: {
+          admins: adminUsers,
+          teachers: teacherUsers,
+          students: studentUsers
+        },
+
+        usersByDepartment,
+        usersBySemester,
         recentSignups
       }
     });
   } catch (error) {
-    console.error('Error fetching user stats:', error);
+    console.error("Error fetching user statistics:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch user statistics'
+      error: "Failed to fetch user statistics"
     });
   }
 });
+
 
 // @desc    Bulk update users
 // @route   PATCH /api/users/bulk-update

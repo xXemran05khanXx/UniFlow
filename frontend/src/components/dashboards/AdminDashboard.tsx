@@ -34,13 +34,17 @@ const AdminDashboard: React.FC = () => {
   const [recentTimetables, setRecentTimetables] = useState<Timetable[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTimetableGenerator, setShowTimetableGenerator] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
   
-  // Mock departments data - this would come from API
-  const [departments] = useState<Department[]>([
-    { id: 'cs', name: 'Computer Science', code: 'CS', totalStudents: 240, totalTeachers: 15, color: 'from-blue-500 to-cyan-500' },
-    { id: 'it', name: 'Information Technology', code: 'IT', totalStudents: 200, totalTeachers: 12, color: 'from-purple-500 to-pink-500' },
-    { id: 'fe', name: 'First Year', code: 'FE', totalStudents: 300, totalTeachers: 10, color: 'from-green-500 to-lime-500' },
-  ]);
+  // Department color mapping
+  const departmentColors: { [key: string]: string } = {
+    'Computer Science': 'from-blue-500 to-cyan-500',
+    'Information Technology': 'from-purple-500 to-pink-500',
+    'First Year Engineering': 'from-green-500 to-lime-500',
+    'IT': 'from-purple-500 to-pink-500',
+    'CS': 'from-blue-500 to-cyan-500',
+    'FE': 'from-green-500 to-lime-500'
+  };
 
   useEffect(() => {
     fetchDashboardData();
@@ -50,47 +54,141 @@ const AdminDashboard: React.FC = () => {
     try {
       // Fetch user statistics from the API
       const userStatsData = await userManagementService.getUserStats();
+      console.log('📊 User Stats Response:', userStatsData);
       
-      // Fetch users and timetables data
-      const [usersResponse, timetablesResponse] = await Promise.all([
-        usersAPI.getAll(),
-        timetablesAPI.getAll()
-      ]);
+      // Initialize variables
+      let totalTimetables = 0;
+      let activeTimetables = 0;
+      let recentUsersList: User[] = [];
+
+      // Fetch users data
+      try {
+        const usersResponse = await usersAPI.getAll();
+        console.log('👥 Users Response:', usersResponse);
+        
+        if (usersResponse.success && usersResponse.data) {
+          const users = usersResponse.data;
+          recentUsersList = users.slice(-5).reverse();
+          
+          // Calculate department statistics from users
+          calculateDepartmentStats(users);
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not fetch users list:', error);
+      }
+
+      // Try to fetch timetables data (may not exist yet)
+      try {
+        const timetablesResponse = await timetablesAPI.getAll();
+        console.log('📅 Timetables Response:', timetablesResponse);
+        
+        if (timetablesResponse.success && timetablesResponse.data) {
+          const timetables = timetablesResponse.data;
+          totalTimetables = timetables.length;
+          activeTimetables = timetables.filter((t: Timetable) => t.status === 'published').length;
+          setRecentTimetables(timetables.slice(-5).reverse());
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not fetch timetables (endpoint may not exist yet):', error);
+      }
 
       // Update stats with real data from API
-      setStats({
+      const newStats = {
         totalUsers: userStatsData.totalUsers || 0,
         activeUsers: userStatsData.activeUsers || 0,
         inactiveUsers: userStatsData.inactiveUsers || 0,
-        adminUsers: userStatsData.adminUsers || 0,
-        totalTeachers: userStatsData.teacherUsers || 0,
-        totalStudents: userStatsData.studentUsers || 0,
-        teacherUsers: userStatsData.teacherUsers || 0,
-        studentUsers: userStatsData.studentUsers || 0,
+
+        // NEW API structure
+        adminUsers: userStatsData.roles?.admins || 0,
+        totalTeachers: userStatsData.roles?.teachers || 0,
+        totalStudents: userStatsData.roles?.students || 0,
+
+        teacherUsers: userStatsData.roles?.teachers || 0,
+        studentUsers: userStatsData.roles?.students || 0,
+
         recentSignups: userStatsData.recentSignups || 0,
-        totalTimetables: 0,
-        activeTimetables: 0
-      });
 
-      if (usersResponse.success && usersResponse.data) {
-        const users = usersResponse.data;
-        setRecentUsers(users.slice(-5).reverse());
-      }
+        totalTimetables,
+        activeTimetables
+      };
+      
+      console.log('✅ Final Stats:', newStats);
+      setStats(newStats);
+      setRecentUsers(recentUsersList);
 
-      if (timetablesResponse.success && timetablesResponse.data) {
-        const timetables = timetablesResponse.data;
-        setStats(prev => ({
-          ...prev,
-          totalTimetables: timetables.length,
-          activeTimetables: timetables.filter((t: Timetable) => t.status === 'published').length
-        }));
-        setRecentTimetables(timetables.slice(-5).reverse());
-      }
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      console.error('❌ Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getDepartmentCode = (deptName: any): string => {
+    if (!deptName) return 'N/A';
+    const name = String(deptName);
+    if (name.includes('Computer Science') || name === 'CS') return 'CS';
+    if (name.includes('Information Technology') || name === 'IT') return 'IT';
+    if (name.includes('First Year') || name === 'FE') return 'FE';
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const calculateDepartmentStats = (users: User[]) => {
+    // Group users by department
+    const deptMap = new Map<string, { students: number; teachers: number }>();
+    
+    users.forEach((user: User) => {
+      if (!user.department) return;
+      
+      const deptKey = typeof user.department === 'string' 
+        ? user.department 
+        : user.department.name || user.department._id;
+      
+      if (!deptMap.has(deptKey)) {
+        deptMap.set(deptKey, { students: 0, teachers: 0 });
+      }
+      
+      const counts = deptMap.get(deptKey)!;
+      if (user.role === 'student') {
+        counts.students++;
+      } else if (user.role === 'teacher') {
+        counts.teachers++;
+      }
+    });
+    
+    // Always create all three default departments
+    const defaultDepartments = [
+      { id: 'cs', name: 'Computer Science', code: 'CS', color: 'from-blue-500 to-cyan-500' },
+      { id: 'it', name: 'Information Technology', code: 'IT', color: 'from-purple-500 to-pink-500' },
+      { id: 'fe', name: 'First Year Engineering', code: 'FE', color: 'from-green-500 to-lime-500' }
+    ];
+    
+    const updatedDepts: Department[] = defaultDepartments.map(dept => {
+      // Try to find matching data from the map
+      let counts = { students: 0, teachers: 0 };
+      
+      // Check for exact matches or variations
+      deptMap.forEach((deptCounts, deptName) => {
+        const normalizedName = deptName.toLowerCase();
+        if (normalizedName.includes(dept.name.toLowerCase()) || 
+            normalizedName === dept.code.toLowerCase() ||
+            deptName === dept.name ||
+            deptName === dept.code) {
+          counts = deptCounts;
+        }
+      });
+      
+      return {
+        id: dept.id,
+        name: dept.name,
+        code: dept.code,
+        totalStudents: counts.students,
+        totalTeachers: counts.teachers,
+        color: dept.color
+      };
+    });
+    
+    console.log('📊 Department Stats:', updatedDepts);
+    setDepartments(updatedDepts);
   };
 
   const statCards = [

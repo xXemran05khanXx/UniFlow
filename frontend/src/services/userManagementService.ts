@@ -106,11 +106,20 @@ export interface UserStats {
   totalUsers: number;
   activeUsers: number;
   inactiveUsers: number;
-  adminUsers: number;
-  teacherUsers: number;
-  studentUsers: number;
+  verifiedUsers: number;
+
+  roles: {
+    admins: number;
+    teachers: number;
+    students: number;
+  };
+
+  usersByDepartment: Array<{ _id: string; count: number }>;
+  usersBySemester: Array<{ _id: number; count: number }>;
+
   recentSignups: number;
 }
+
 
 export const userManagementService = {
   // User CRUD operations

@@ -352,7 +352,7 @@ const UserManagementPage: React.FC = () => {
             <Shield className="h-8 w-8 text-purple-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Admins</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.adminUsers}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.roles.admins}</p>
             </div>
           </div>
         </Card>
@@ -362,7 +362,7 @@ const UserManagementPage: React.FC = () => {
             <Users className="h-8 w-8 text-indigo-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Teachers</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.teacherUsers}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.roles.teachers}</p>
             </div>
           </div>
         </Card>
