@@ -19,6 +19,7 @@ const roomRoutes = require('./routes/roomRoutes');
 const timeSlotRoutes = require('./routes/timeSlotRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
 const dataManagementRoutes = require('./routes/dataManagement');
+const departmentRoutes = require('./routes/departmentRoutes');
 
 // Import config
 const config = require('./config/config');
@@ -82,6 +83,7 @@ console.log(' Mounting routes...');
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/departments', departmentRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/timetable', timetableSimpleRoutes);
 

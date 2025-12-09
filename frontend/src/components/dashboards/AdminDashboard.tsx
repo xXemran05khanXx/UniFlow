@@ -296,7 +296,7 @@ const AdminDashboard: React.FC = () => {
                 <div>
                   <p className="font-medium text-gray-900">{timetable.name}</p>
                   <p className="text-sm text-gray-500">
-                    {timetable.department} - Semester {timetable.semester}
+                    {typeof timetable.department === 'string' ? timetable.department : `${timetable.department.code} - ${timetable.department.name}`} - Semester {timetable.semester}
                   </p>
                 </div>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${

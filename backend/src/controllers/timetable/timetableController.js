@@ -56,6 +56,10 @@ class TimetableController {
       const options = {
         algorithm: req.body.algorithm || 'greedy',
         maxIterations: parseInt(req.body.maxIterations) || 1000,
+        semester: req.body.semester ? parseInt(req.body.semester) : null,
+        departmentId: req.body.departmentId || null,
+        departmentCode: req.body.departmentCode || null,
+        academicYear: req.body.academicYear || new Date().getFullYear(),
         timeSlotDuration: parseInt(req.body.timeSlotDuration) || 60,
         workingDays: req.body.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         workingHours: req.body.workingHours || { start: '08:00', end: '18:00' },
@@ -127,6 +131,10 @@ class TimetableController {
       const options = {
         algorithm: req.body.algorithm || 'greedy',
         maxIterations: parseInt(req.body.maxIterations) || 1000,
+        semester: req.body.semester ? parseInt(req.body.semester) : null,
+        departmentId: req.body.departmentId || null,
+        departmentCode: req.body.departmentCode || null,
+        academicYear: req.body.academicYear || new Date().getFullYear(),
         timeSlotDuration: parseInt(req.body.timeSlotDuration) || 60,
         workingDays: req.body.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         workingHours: req.body.workingHours || { start: '08:00', end: '18:00' },

@@ -43,8 +43,12 @@ const TimetableCalendar: React.FC<TimetableCalendarProps> = ({ viewMode = 'all' 
       }
 
       timetable.entries.forEach(entry => {
-        // Apply filters
-        if (filters.department !== 'all' && entry.department !== filters.department) {
+        // Apply filters - convert Department object to string for comparison
+        const entryDepartment = typeof entry.department === 'string' 
+          ? entry.department 
+          : `${entry.department.code} - ${entry.department.name}`;
+        
+        if (filters.department !== 'all' && entryDepartment !== filters.department) {
           return;
         }
         if (filters.semester !== 'all' && entry.semester.toString() !== filters.semester) {
@@ -192,7 +196,12 @@ const TimetableCalendar: React.FC<TimetableCalendarProps> = ({ viewMode = 'all' 
     }
   };
 
-  const uniqueDepartments = Array.from(new Set(timetables.flatMap(t => t.entries.map(e => e.department))));
+  // Extract unique departments and semesters, converting Department objects to strings
+  const uniqueDepartments = Array.from(new Set(
+    timetables.flatMap(t => t.entries.map(e => 
+      typeof e.department === 'string' ? e.department : `${e.department.code} - ${e.department.name}`
+    ))
+  ));
   const uniqueSemesters = Array.from(new Set(timetables.flatMap(t => t.entries.map(e => e.semester))));
 
   if (loading) {

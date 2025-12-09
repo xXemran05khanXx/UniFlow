@@ -240,6 +240,13 @@ const roomSchema = new mongoose.Schema({
     index: true
   },
   department: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department',
+    required: [true, 'Department is required'],
+    index: true
+  },
+  // Legacy field - kept for backward compatibility during migration
+  departmentLegacy: {
     type: String,
     trim: true,
     enum: [
@@ -253,8 +260,7 @@ const roomSchema = new mongoose.Schema({
       'Instrumentation Engineering',
       'General',
       ''
-    ],
-    index: true
+    ]
   },
   
   // Basic amenities

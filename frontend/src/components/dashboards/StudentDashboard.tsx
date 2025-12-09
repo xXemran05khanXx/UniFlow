@@ -153,7 +153,7 @@ const StudentDashboard: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Hello, {user?.name}!</h1>
           <p className="text-gray-600 mt-1">
-            {user?.department} - Semester {user?.semester}
+            {typeof user?.department === 'string' ? user.department : user?.department ? `${user.department.code} - ${user.department.name}` : 'N/A'} - Semester {user?.semester || 'N/A'}
           </p>
         </div>
         <div className="flex space-x-3">

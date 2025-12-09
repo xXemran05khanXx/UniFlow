@@ -5,6 +5,7 @@ const Teacher = require('./Teacher');
 const Room = require('./Room');
 const Timetable = require('./Timetable');
 const TimeSlot = require('./TimeSlot');
+const Department = require('./Department');
 
 module.exports = {
   User,
@@ -12,5 +13,6 @@ module.exports = {
   Teacher,
   Room,
   Timetable,
-  TimeSlot
+  TimeSlot,
+  Department
 };

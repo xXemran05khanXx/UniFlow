@@ -22,6 +22,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { userManagementService, User, UserForm, UserFilters, UserStats } from '../../services/userManagementService';
+import { DEPARTMENT_LIST } from '../../constants';
 
 const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -54,6 +55,8 @@ const UserManagementPage: React.FC = () => {
     email: '',
     password: '',
     role: 'student',
+    department: '',
+    semester: undefined,
     isActive: true,
     profile: {
       firstName: '',
@@ -117,6 +120,8 @@ const UserManagementPage: React.FC = () => {
         email: '',
         password: '',
         role: 'student',
+        department: '',
+        semester: undefined,
         isActive: true,
         profile: {
           firstName: '',
@@ -281,6 +286,8 @@ const UserManagementPage: React.FC = () => {
       name: user.name,
       email: user.email,
       role: user.role,
+      department: typeof user.department === 'string' ? user.department : user.department?.name || '',
+      semester: user.semester,
       isActive: user.isActive,
       profile: {
         firstName: user.profile?.firstName || '',
@@ -301,6 +308,8 @@ const UserManagementPage: React.FC = () => {
       email: '',
       password: '',
       role: 'student',
+      department: '',
+      semester: undefined,
       isActive: true,
       profile: {
         firstName: '',
@@ -487,39 +496,41 @@ const UserManagementPage: React.FC = () => {
                 })}
               />
 
-              <Input
-                label="Location"
-                value={userForm.profile.location}
-                onChange={(e) => setUserForm({ 
-                  ...userForm, 
-                  profile: { ...userForm.profile, location: e.target.value }
-                })}
-              />
-
-              <div className="md:col-span-2">
-                <Input
-                  label="Bio"
-                  value={userForm.profile.bio}
-                  onChange={(e) => setUserForm({ 
-                    ...userForm, 
-                    profile: { ...userForm.profile, bio: e.target.value }
-                  })}
-                  placeholder="User bio (max 500 characters)"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Department {(userForm.role === 'student' || userForm.role === 'teacher') && '*'}
+                </label>
+                <select
+                  value={userForm.department || ''}
+                  onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required={userForm.role === 'student' || userForm.role === 'teacher'}
+                >
+                  <option value="">Select Department</option>
+                  {DEPARTMENT_LIST.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
               </div>
 
-              <div className="md:col-span-2">
-                <Input
-                  label="Website"
-                  type="url"
-                  value={userForm.profile.website}
-                  onChange={(e) => setUserForm({ 
-                    ...userForm, 
-                    profile: { ...userForm.profile, website: e.target.value }
-                  })}
-                  placeholder="https://example.com"
-                />
-              </div>
+              {(userForm.role === 'student' || userForm.role === 'teacher') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Semester {userForm.role === 'student' && '*'}
+                  </label>
+                  <select
+                    value={userForm.semester || ''}
+                    onChange={(e) => setUserForm({ ...userForm, semester: e.target.value ? Number(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required={userForm.role === 'student'}
+                  >
+                    <option value="">Select Semester</option>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
+                      <option key={sem} value={sem}>Semester {sem}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="md:col-span-2">
                 <label className="flex items-center">

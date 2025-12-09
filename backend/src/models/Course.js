@@ -16,8 +16,14 @@ const courseSchema = new Schema({
         trim: true,
     },
     department: {
-        type: String,
+        type: Schema.Types.ObjectId,
+        ref: 'Department',
         required: [true, 'Department is required.'],
+        index: true,
+    },
+    // Legacy field - kept for backward compatibility during migration
+    departmentLegacy: {
+        type: String,
         enum: ['Computer Science', 'Information Technology', 'First Year'],
     },
     semester: { // Which semester the course belongs to
@@ -46,5 +52,11 @@ const courseSchema = new Schema({
     // assignedTeacher is now part of the TimetableEntry, not the course itself,
     // as different teachers might take the same course for different divisions.
 }, { timestamps: true });
+
+// Indexes for performance
+courseSchema.index({ courseCode: 1 });
+courseSchema.index({ department: 1 });
+courseSchema.index({ semester: 1 });
+courseSchema.index({ courseType: 1 });
 
 module.exports = mongoose.model('Course', courseSchema);

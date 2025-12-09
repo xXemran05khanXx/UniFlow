@@ -44,6 +44,8 @@ export interface User {
   name: string;
   email: string;
   role: 'student' | 'teacher' | 'admin';
+  department?: string | { _id: string; name: string; code: string };
+  semester?: number;
   isActive: boolean;
   isEmailVerified: boolean;
   avatar?: string;
@@ -77,6 +79,8 @@ export interface UserForm {
   email: string;
   password?: string;
   role: string;
+  department?: string;
+  semester?: number;
   isActive: boolean;
   profile: {
     firstName: string;

@@ -31,6 +31,25 @@ const userSchema = new mongoose.Schema({
     enum: ['student', 'teacher', 'admin'],
     default: 'student'
   },
+  department: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department',
+    required: function() {
+      // Department is required for students and teachers, optional for admins
+      return this.role === 'student' || this.role === 'teacher';
+    },
+    index: true
+  },
+  semester: {
+    type: Number,
+    min: [1, 'Semester must be between 1 and 8'],
+    max: [8, 'Semester must be between 1 and 8'],
+    required: function() {
+      // Semester is required for students, optional for teachers and admins
+      return this.role === 'student' || this.role === 'teacher';
+    },
+    index: true
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -91,6 +110,7 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 });
 userSchema.index({ isActive: 1 });
 userSchema.index({ role: 1 });
+userSchema.index({ department: 1 });
 userSchema.index({ createdAt: -1 });
 
 // Virtual for full name

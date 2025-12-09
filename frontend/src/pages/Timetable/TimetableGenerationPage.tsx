@@ -7,6 +7,7 @@ import { dataManagementService } from '../../services/dataManagementService';
 import { timeSlotsAPI } from '../../services/api';
 import { timetableService } from '../../services/timetableService';
 import { useToast } from '../../contexts/ToastContext';
+import { DEPARTMENT_LIST } from '../../constants';
 
 interface Teacher {
   _id: string;
@@ -77,14 +78,6 @@ const TimetableGenerationPage: React.FC = () => {
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
-  const departments = [
-    'Computer Science',
-    'Information Technology',
-    'Electronics',
-    'Mechanical',
-    'Civil',
-    'Electrical'
-  ];
 
   const semesters = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -458,7 +451,7 @@ const TimetableGenerationPage: React.FC = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="">Select Department</option>
-                    {departments.map(dept => (
+                    {DEPARTMENT_LIST.map(dept => (
                       <option key={dept} value={dept}>{dept}</option>
                     ))}
                   </select>
