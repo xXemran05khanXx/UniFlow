@@ -21,7 +21,8 @@ import {
   COURSE_TYPE_LIST,
   DepartmentType,
   SemesterType,
-  CourseType
+  CourseType,
+  getDepartmentCode
 } from '../../constants';
 
 const YEARS = [1, 2, 3, 4];
@@ -174,11 +175,16 @@ const SubjectManagementPage: React.FC = () => {
       setError(null);
       setSuccess(null);
       
+      const subjectData = {
+        ...subjectForm,
+        department: subjectForm.department ? getDepartmentCode(subjectForm.department as string) as DepartmentType : undefined
+      };
+      
       if (editingSubject) {
-        await subjectManagementService.updateSubject(editingSubject._id!, subjectForm);
+        await subjectManagementService.updateSubject(editingSubject._id!, subjectData as Partial<Subject>);
         setSuccess('Subject updated successfully');
       } else {
-        await subjectManagementService.createSubject(subjectForm as Omit<Subject, '_id' | 'createdAt' | 'updatedAt'>);
+        await subjectManagementService.createSubject(subjectData as Omit<Subject, '_id' | 'createdAt' | 'updatedAt'>);
         setSuccess('Subject created successfully');
       }
       
@@ -444,7 +450,7 @@ const SubjectManagementPage: React.FC = () => {
                 {subject.name}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {subject.department}
+                {typeof subject.department === 'object' ? (subject.department as any)?.name || (subject.department as any)?.code : subject.department}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 Sem {subject.semester}
@@ -1001,7 +1007,7 @@ const SubjectManagementPage: React.FC = () => {
                   <strong>Name:</strong> {showSubjectDetails.name}
                 </div>
                 <div>
-                  <strong>Department:</strong> {showSubjectDetails.department}
+                  <strong>Department:</strong> {typeof showSubjectDetails.department === 'object' ? (showSubjectDetails.department as any)?.name || (showSubjectDetails.department as any)?.code : showSubjectDetails.department}
                 </div>
                 <div>
                   <strong>Semester:</strong> {showSubjectDetails.semester}

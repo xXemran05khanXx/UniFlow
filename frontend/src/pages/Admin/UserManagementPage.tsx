@@ -22,7 +22,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { userManagementService, User, UserForm, UserFilters, UserStats } from '../../services/userManagementService';
-import { DEPARTMENT_LIST } from '../../constants';
+import { DEPARTMENT_LIST, getDepartmentCode } from '../../constants';
 
 const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -58,6 +58,8 @@ const UserManagementPage: React.FC = () => {
     department: '',
     semester: undefined,
     isActive: true,
+    employeeId: '',
+    designation: '',
     profile: {
       firstName: '',
       lastName: '',
@@ -113,7 +115,11 @@ const UserManagementPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await userManagementService.createUser(userForm);
+      const userData = {
+        ...userForm,
+        department: userForm.department ? getDepartmentCode(userForm.department) : undefined
+      };
+      await userManagementService.createUser(userData);
       showMessage('success', 'User created successfully');
       setUserForm({
         name: '',
@@ -123,6 +129,8 @@ const UserManagementPage: React.FC = () => {
         department: '',
         semester: undefined,
         isActive: true,
+        employeeId: '',
+        designation: '',
         profile: {
           firstName: '',
           lastName: '',
@@ -148,7 +156,11 @@ const UserManagementPage: React.FC = () => {
 
     setLoading(true);
     try {
-      await userManagementService.updateUser(editingUser._id!, userForm);
+      const userData = {
+        ...userForm,
+        department: userForm.department ? getDepartmentCode(userForm.department) : undefined
+      };
+      await userManagementService.updateUser(editingUser._id!, userData);
       showMessage('success', 'User updated successfully');
       setEditingUser(null);
       setShowAddForm(false);
@@ -530,6 +542,37 @@ const UserManagementPage: React.FC = () => {
                     ))}
                   </select>
                 </div>
+              )}
+
+              {/* Teacher-specific fields */}
+              {userForm.role === 'teacher' && (
+                <>
+                  <Input
+                    label="Employee ID *"
+                    value={userForm.employeeId || ''}
+                    onChange={(e) => setUserForm({ ...userForm, employeeId: e.target.value })}
+                    required
+                    placeholder="e.g., EMP001"
+                  />
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Designation *
+                    </label>
+                    <select
+                      value={userForm.designation || ''}
+                      onChange={(e) => setUserForm({ ...userForm, designation: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Select Designation</option>
+                      <option value="Professor">Professor</option>
+                      <option value="Associate Professor">Associate Professor</option>
+                      <option value="Assistant Professor">Assistant Professor</option>
+                      <option value="Lecturer">Lecturer</option>
+                    </select>
+                  </div>
+                </>
               )}
 
               <div className="md:col-span-2">

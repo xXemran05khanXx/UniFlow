@@ -299,7 +299,7 @@ const TeacherDashboard: React.FC = () => {
               <div className="flex items-center space-x-4 mt-2 text-blue-100">
                 <span className="flex items-center">
                   <Building2 className="h-4 w-4 mr-1" />
-                  {teacherProfile.department}
+                  {typeof teacherProfile.department === 'object' ? (teacherProfile.department as any)?.name || (teacherProfile.department as any)?.code : teacherProfile.department}
                 </span>
                 <span className="flex items-center">
                   <GraduationCap className="h-4 w-4 mr-1" />
@@ -372,7 +372,7 @@ const TeacherDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-green-600">Subjects Teaching</p>
               <p className="text-3xl font-bold text-green-900">{weeklyStats.subjects}</p>
-              <p className="text-xs text-green-500 mt-1">Across {teacherProfile.department}</p>
+              <p className="text-xs text-green-500 mt-1">Across {typeof teacherProfile.department === 'object' ? (teacherProfile.department as any)?.name || (teacherProfile.department as any)?.code : teacherProfile.department}</p>
             </div>
             <div className="bg-green-500 p-3 rounded-full">
               <BookOpen className="h-6 w-6 text-white" />

@@ -82,6 +82,9 @@ export interface UserForm {
   department?: string;
   semester?: number;
   isActive: boolean;
+  // Teacher-specific fields
+  employeeId?: string;
+  designation?: string;
   profile: {
     firstName: string;
     lastName: string;

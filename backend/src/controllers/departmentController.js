@@ -192,16 +192,16 @@ exports.getDepartmentStats = asyncHandler(async (req, res, next) => {
 
   // Import models here to avoid circular dependencies
   const User = require('../models/User');
-  const Teacher = require('../models/Teacher');
   const Course = require('../models/Course');
   const Subject = require('../models/Subject');
   const Room = require('../models/Room');
 
   const [studentCount, teacherCount, courseCount, subjectCount, roomCount] = await Promise.all([
     User.countDocuments({ department: department._id, role: 'student', isActive: true }),
-    Teacher.countDocuments({ 
+    User.countDocuments({ 
+      role: 'teacher',
       $or: [
-        { primaryDepartment: department._id },
+        { department: department._id },
         { allowedDepartments: department._id }
       ]
     }),

@@ -45,10 +45,57 @@ const userSchema = new mongoose.Schema({
     min: [1, 'Semester must be between 1 and 8'],
     max: [8, 'Semester must be between 1 and 8'],
     required: function() {
-      // Semester is required for students, optional for teachers and admins
+      // Semester is required for students and teachers, optional for admins
       return this.role === 'student' || this.role === 'teacher';
     },
     index: true
+  },
+  // Teacher-specific fields
+  employeeId: {
+    type: String,
+    unique: true,
+    sparse: true, // Only unique if not null
+    trim: true,
+    required: function() {
+      return this.role === 'teacher';
+    }
+  },
+  designation: {
+    type: String,
+    enum: ['Professor', 'Associate Professor', 'Assistant Professor', 'Lecturer', null],
+    required: function() {
+      return this.role === 'teacher';
+    }
+  },
+  qualifications: {
+    type: [String],
+    default: []
+  },
+  staffRoom: {
+    type: String,
+    trim: true
+  },
+  workload: {
+    maxHoursPerWeek: { type: Number, default: 18 },
+    minHoursPerWeek: { type: Number, default: 8 }
+  },
+  availability: [{
+    dayOfWeek: { 
+      type: String, 
+      enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] 
+    },
+    startTime: String,
+    endTime: String
+  }],
+  allowedDepartments: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department'
+  }],
+  performanceRating: {
+    type: Number,
+    min: 1,
+    max: 5,
+    default: null
   },
   isActive: {
     type: Boolean,

@@ -173,7 +173,7 @@ const TimetableCalendar: React.FC<TimetableCalendarProps> = ({ viewMode = 'all' 
       Teacher: ${entry.teacher.name}
       Room: ${entry.room.number}
       Type: ${entry.sessionType}
-      Department: ${entry.department}
+      Department: ${typeof entry.department === 'object' ? entry.department?.name || entry.department?.code : entry.department}
       Semester: ${entry.semester}
     `);
   };

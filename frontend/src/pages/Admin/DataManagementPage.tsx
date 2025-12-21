@@ -12,7 +12,8 @@ import {
   TEACHER_DESIGNATION_LIST,
   DepartmentType,
   SemesterType,
-  CourseType
+  CourseType,
+  getDepartmentCode
 } from '../../constants';
 
 const DataManagementPage: React.FC = () => {
@@ -99,6 +100,7 @@ const DataManagementPage: React.FC = () => {
     try {
       await dataManagementService.addTeacher({
         ...teacherForm,
+        department: getDepartmentCode(teacherForm.department),
         qualifications: teacherForm.qualifications.split(',').map(s => s.trim()).filter(s => s)
       });
       showMessage('success', 'Teacher added successfully');
@@ -153,7 +155,7 @@ const DataManagementPage: React.FC = () => {
       await dataManagementService.addCourse({
         courseCode: courseForm.courseCode,
         courseName: courseForm.courseName,
-        department: courseForm.department as DepartmentType,
+        department: getDepartmentCode(courseForm.department) as DepartmentType,
         semester: courseForm.semester,
         courseType: courseForm.courseType as CourseType,
         credits: courseForm.credits,
@@ -546,7 +548,7 @@ const DataManagementPage: React.FC = () => {
                     <>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.employeeId}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.department}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{typeof item.department === 'object' ? item.department?.name || item.department?.code : item.department}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.designation}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {item.workload?.minHoursPerWeek}-{item.workload?.maxHoursPerWeek} hrs/week
@@ -565,7 +567,7 @@ const DataManagementPage: React.FC = () => {
                     <>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.courseCode}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.courseName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.department}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{typeof item.department === 'object' ? item.department?.name || item.department?.code : item.department}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.semester}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.credits}</td>
                     </>

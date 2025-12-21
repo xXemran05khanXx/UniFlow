@@ -372,7 +372,7 @@ const TeacherSettingsPage: React.FC = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
                           <p className="px-4 py-3 bg-gray-50 rounded-xl text-gray-900 font-medium flex items-center">
                             <Building2 className="h-4 w-4 mr-2 text-gray-500" />
-                            {profile.department}
+                            {typeof profile.department === 'object' ? (profile.department as any)?.name || (profile.department as any)?.code : profile.department}
                           </p>
                         </div>
 

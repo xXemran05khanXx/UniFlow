@@ -242,7 +242,7 @@ const roomSchema = new mongoose.Schema({
   department: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Department',
-    required: [true, 'Department is required'],
+    required: false, // Optional - not all rooms belong to a specific department
     index: true
   },
   // Legacy field - kept for backward compatibility during migration

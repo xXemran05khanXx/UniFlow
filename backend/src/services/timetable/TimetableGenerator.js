@@ -1,5 +1,4 @@
 const Course = require('../../models/Course');
-const Teacher = require('../../models/Teacher');
 const Room = require('../../models/Room');
 const Timetable = require('../../models/Timetable');
 const User = require('../../models/User');
@@ -389,30 +388,28 @@ class TimetableGenerator {
 
   async fetchTeachers(departmentId = null) {
     try {
-      const filter = {};
+      const filter = { role: 'teacher' };
       if (departmentId) {
-        // Find teachers whose primary department OR allowed departments include the specified department
+        // Find teachers whose department OR allowed departments include the specified department
         filter.$or = [
-          { primaryDepartment: departmentId },
+          { department: departmentId },
           { allowedDepartments: departmentId }
         ];
       }
 
-      const teachers = await Teacher.find(filter)
-        .populate('user', 'name email')
-        .populate('primaryDepartment', 'code name')
+      const teachers = await User.find(filter)
+        .populate('department', 'code name')
         .populate('allowedDepartments', 'code name')
-        .select('employeeId name primaryDepartment allowedDepartments department designation qualifications workload');
+        .select('employeeId name department allowedDepartments designation qualifications workload');
 
       return teachers.map(teacher => ({
         teacherId: teacher.employeeId,
         _id: teacher._id,
-        name: teacher.name || teacher.user?.name,
-        primaryDepartment: teacher.primaryDepartment?._id,
-        primaryDepartmentCode: teacher.primaryDepartment?.code,
+        name: teacher.name,
+        primaryDepartment: teacher.department?._id,
+        primaryDepartmentCode: teacher.department?.code,
         allowedDepartments: teacher.allowedDepartments?.map(d => d._id) || [],
-        departmentLegacy: teacher.department, // Legacy string field for backward compatibility
-        specialization: teacher.qualifications?.join(';') || teacher.primaryDepartment?.name?.toLowerCase(),
+        specialization: teacher.qualifications?.join(';') || teacher.department?.name?.toLowerCase(),
         maxHours: teacher.workload?.maxHoursPerWeek || 18
       }));
     } catch (error) {

@@ -139,9 +139,21 @@ const AdminDashboard: React.FC = () => {
     users.forEach((user: User) => {
       if (!user.department) return;
       
-      const deptKey = typeof user.department === 'string' 
-        ? user.department 
-        : user.department.name || user.department._id;
+      // Extract department info - handle both string and object formats
+      let deptCode = '';
+      let deptName = '';
+      
+      if (typeof user.department === 'string') {
+        deptName = user.department;
+        deptCode = user.department;
+      } else if (user.department && typeof user.department === 'object') {
+        deptCode = (user.department as any).code || '';
+        deptName = (user.department as any).name || '';
+      }
+      
+      // Use code as primary key for grouping
+      const deptKey = deptCode || deptName;
+      if (!deptKey) return;
       
       if (!deptMap.has(deptKey)) {
         deptMap.set(deptKey, { students: 0, teachers: 0 });
@@ -155,6 +167,8 @@ const AdminDashboard: React.FC = () => {
       }
     });
     
+    console.log('🗺️ Department Map:', Array.from(deptMap.entries()));
+    
     // Always create all three default departments
     const defaultDepartments = [
       { id: 'cs', name: 'Computer Science', code: 'CS', color: 'from-blue-500 to-cyan-500' },
@@ -167,13 +181,18 @@ const AdminDashboard: React.FC = () => {
       let counts = { students: 0, teachers: 0 };
       
       // Check for exact matches or variations
-      deptMap.forEach((deptCounts, deptName) => {
-        const normalizedName = deptName.toLowerCase();
-        if (normalizedName.includes(dept.name.toLowerCase()) || 
-            normalizedName === dept.code.toLowerCase() ||
-            deptName === dept.name ||
-            deptName === dept.code) {
-          counts = deptCounts;
+      deptMap.forEach((deptCounts, deptKey) => {
+        const normalizedKey = deptKey.toLowerCase().trim();
+        const normalizedCode = dept.code.toLowerCase();
+        const normalizedName = dept.name.toLowerCase();
+        
+        // Match by code (priority) or name
+        if (normalizedKey === normalizedCode || 
+            normalizedKey === normalizedName ||
+            normalizedKey.includes(normalizedCode) ||
+            normalizedName.includes(normalizedKey)) {
+          counts.students += deptCounts.students;
+          counts.teachers += deptCounts.teachers;
         }
       });
       
@@ -272,7 +291,9 @@ const AdminDashboard: React.FC = () => {
                   Ratio
                 </div>
                 <div className="font-semibold text-sm text-gray-700">
-                  {Math.round(dept.totalStudents / dept.totalTeachers)}:1
+                  {dept.totalTeachers > 0 
+                    ? `${Math.round(dept.totalStudents / dept.totalTeachers)}:1`
+                    : 'N/A'}
                 </div>
               </div>
             </div>

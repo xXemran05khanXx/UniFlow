@@ -26,8 +26,12 @@ class DepartmentService {
    */
   async getAllDepartments(isActive?: boolean): Promise<Department[]> {
     const params = isActive !== undefined ? { isActive: String(isActive) } : {};
-    const response = await apiClient.get<Department[]>(this.basePath, { params });
-    return response.data;
+    const response = await apiClient.get<{ statusCode: number; data: Department[]; message: string }>(this.basePath, { params });
+    console.log('Department API response:', response.data);
+    // Extract data array from ApiResponse wrapper
+    const departments = response.data.data || response.data as unknown as Department[];
+    console.log('Extracted departments:', departments);
+    return departments;
   }
 
   /**

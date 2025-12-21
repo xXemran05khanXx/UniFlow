@@ -4,10 +4,11 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { dataManagementService } from '../../services/dataManagementService';
+import { subjectManagementService } from '../../services/subjectManagementService';
 import { timeSlotsAPI } from '../../services/api';
 import { timetableService } from '../../services/timetableService';
 import { useToast } from '../../contexts/ToastContext';
-import { DEPARTMENT_LIST } from '../../constants';
+import { DEPARTMENT_LIST, getDepartmentCode } from '../../constants';
 
 interface Teacher {
   _id: string;
@@ -19,12 +20,12 @@ interface Teacher {
 
 interface Subject {
   _id: string;
-  courseName: string;
-  courseCode: string;
-  department: string;
+  name: string;
+  code: string;
+  department: string | { code: string; name: string };
   semester: number;
   credits: number;
-  courseType: string;
+  type: string;
 }
 
 interface TimeSlot {
@@ -51,7 +52,264 @@ interface GeneratedClass {
   startTime: string;
   endTime: string;
   room?: string;
+  sessionType: 'theory' | 'practical';
 }
+
+// Color palette for different subjects
+const subjectColors = [
+  { bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-800', accent: 'bg-blue-500' },
+  { bg: 'bg-purple-100', border: 'border-purple-300', text: 'text-purple-800', accent: 'bg-purple-500' },
+  { bg: 'bg-emerald-100', border: 'border-emerald-300', text: 'text-emerald-800', accent: 'bg-emerald-500' },
+  { bg: 'bg-orange-100', border: 'border-orange-300', text: 'text-orange-800', accent: 'bg-orange-500' },
+  { bg: 'bg-pink-100', border: 'border-pink-300', text: 'text-pink-800', accent: 'bg-pink-500' },
+  { bg: 'bg-cyan-100', border: 'border-cyan-300', text: 'text-cyan-800', accent: 'bg-cyan-500' },
+  { bg: 'bg-amber-100', border: 'border-amber-300', text: 'text-amber-800', accent: 'bg-amber-500' },
+  { bg: 'bg-indigo-100', border: 'border-indigo-300', text: 'text-indigo-800', accent: 'bg-indigo-500' },
+  { bg: 'bg-rose-100', border: 'border-rose-300', text: 'text-rose-800', accent: 'bg-rose-500' },
+  { bg: 'bg-teal-100', border: 'border-teal-300', text: 'text-teal-800', accent: 'bg-teal-500' },
+];
+
+// Weekly Timetable Grid Component
+interface WeeklyTimetableGridProps {
+  classes: GeneratedClass[];
+  timeSlots: TimeSlot[];
+  daysOfWeek: string[];
+}
+
+const WeeklyTimetableGrid: React.FC<WeeklyTimetableGridProps> = ({ classes, timeSlots, daysOfWeek }) => {
+  const workingDays = [1, 2, 3, 4, 5]; // Monday to Friday
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+  // Get unique time slots sorted by start time
+  const uniqueTimeSlots = Array.from(
+    new Map(
+      classes
+        .map(c => ({ startTime: c.startTime, endTime: c.endTime }))
+        .sort((a, b) => a.startTime.localeCompare(b.startTime))
+        .map(slot => [`${slot.startTime}-${slot.endTime}`, slot])
+    ).values()
+  );
+
+  // Create a map of subject to color
+  const subjectColorMap = new Map<string, typeof subjectColors[0]>();
+  const uniqueSubjects = Array.from(new Set(classes.map(c => c.subject)));
+  uniqueSubjects.forEach((subject, index) => {
+    subjectColorMap.set(subject, subjectColors[index % subjectColors.length]);
+  });
+
+  // Get class for a specific day and time slot
+  const getClassForSlot = (day: number, startTime: string, endTime: string): GeneratedClass | undefined => {
+    return classes.find(c => c.day === day && c.startTime === startTime && c.endTime === endTime);
+  };
+
+  // Format time to be more readable
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const formattedHour = hour % 12 || 12;
+    return `${formattedHour}:${minutes} ${ampm}`;
+  };
+
+  if (classes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+        <Calendar className="w-16 h-16 mb-4 text-gray-300" />
+        <p className="text-lg font-medium">No classes scheduled yet</p>
+        <p className="text-sm">Generate a timetable to see the weekly view</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-4 pb-4 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-600">Subjects:</span>
+          {uniqueSubjects.map(subjectId => {
+            const cls = classes.find(c => c.subject === subjectId);
+            const colors = subjectColorMap.get(subjectId);
+            const subjectCode = cls?.subjectName.split(' - ')[0] || 'Unknown';
+            return (
+              <div key={subjectId} className="flex items-center gap-1.5">
+                <div className={`w-3 h-3 rounded-full ${colors?.accent}`}></div>
+                <span className="text-xs text-gray-600">{subjectCode}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="h-4 w-px bg-gray-300"></div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-600">Type:</span>
+          <div className="flex items-center gap-1.5">
+            <BookOpen className="w-3 h-3 text-blue-600" />
+            <span className="text-xs text-gray-600">Theory</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Settings className="w-3 h-3 text-green-600" />
+            <span className="text-xs text-gray-600">Practical</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Timetable Grid */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[800px]">
+          {/* Header Row - Days */}
+          <div className="grid grid-cols-6 gap-2 mb-2">
+            <div className="p-3"></div>
+            {workingDays.map((day, idx) => (
+              <div 
+                key={day} 
+                className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-4 text-center shadow-md"
+              >
+                <span className="text-white/80 text-xs font-medium uppercase tracking-wider">{dayNames[idx]}</span>
+                <p className="text-white font-bold text-sm mt-0.5">{fullDayNames[idx]}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Time Slots Rows */}
+          <div className="space-y-2">
+            {uniqueTimeSlots.map((slot, slotIdx) => (
+              <div key={`${slot.startTime}-${slot.endTime}`} className="grid grid-cols-6 gap-2">
+                {/* Time Column */}
+                <div className="bg-gray-50 rounded-xl p-3 flex flex-col justify-center items-center border border-gray-100">
+                  <span className="text-sm font-semibold text-gray-800">{formatTime(slot.startTime)}</span>
+                  <span className="text-xs text-gray-400 my-1">to</span>
+                  <span className="text-sm font-semibold text-gray-800">{formatTime(slot.endTime)}</span>
+                </div>
+
+                {/* Day Columns */}
+                {workingDays.map((day) => {
+                  const classItem = getClassForSlot(day, slot.startTime, slot.endTime);
+                  
+                  if (classItem) {
+                    const colors = subjectColorMap.get(classItem.subject);
+                    const [code, name] = classItem.subjectName.split(' - ');
+                    const isPractical = classItem.sessionType === 'practical';
+                    
+                    return (
+                      <div
+                        key={`${day}-${slot.startTime}`}
+                        className={`relative group ${colors?.bg} ${colors?.border} border-2 rounded-xl p-3 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer overflow-hidden`}
+                      >
+                        {/* Accent bar */}
+                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors?.accent} rounded-l-xl`}></div>
+                        
+                        {/* Session type badge */}
+                        <div className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          isPractical 
+                            ? 'bg-green-500 text-white' 
+                            : 'bg-blue-500 text-white'
+                        }`}>
+                          {isPractical ? 'LAB' : 'LEC'}
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="pl-2 pr-8">
+                          <div className={`font-bold text-sm ${colors?.text} truncate`}>
+                            {code}
+                          </div>
+                          <div className={`text-xs ${colors?.text} opacity-80 truncate mt-0.5`}>
+                            {name}
+                          </div>
+                          <div className="flex items-center mt-2 pt-2 border-t border-current/10">
+                            <Users className={`w-3 h-3 ${colors?.text} opacity-60 mr-1`} />
+                            <span className={`text-xs ${colors?.text} opacity-70 truncate`}>
+                              {classItem.teacherName}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Hover overlay with full details */}
+                        <div className="absolute inset-0 bg-gray-900/95 rounded-xl p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-center">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-white font-bold text-sm">{code}</p>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              isPractical ? 'bg-green-500' : 'bg-blue-500'
+                            } text-white`}>
+                              {isPractical ? 'Practical' : 'Theory'}
+                            </span>
+                          </div>
+                          <p className="text-gray-300 text-xs">{name}</p>
+                          <div className="mt-3 space-y-1">
+                            <div className="flex items-center text-gray-400 text-xs">
+                              <Users className="w-3 h-3 mr-2" />
+                              {classItem.teacherName}
+                            </div>
+                            <div className="flex items-center text-gray-400 text-xs">
+                              <Clock className="w-3 h-3 mr-2" />
+                              {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Empty slot
+                  return (
+                    <div
+                      key={`${day}-${slot.startTime}`}
+                      className="bg-gray-50/50 border-2 border-dashed border-gray-200 rounded-xl p-3 flex items-center justify-center min-h-[100px]"
+                    >
+                      <span className="text-gray-300 text-xs">Free</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Table - Compact View */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
+          <BookOpen className="w-4 h-4 mr-2" />
+          Detailed Schedule
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {classes
+            .sort((a, b) => a.day - b.day || a.startTime.localeCompare(b.startTime))
+            .map((cls, idx) => {
+              const colors = subjectColorMap.get(cls.subject);
+              const [code] = cls.subjectName.split(' - ');
+              const isPractical = cls.sessionType === 'practical';
+              return (
+                <div 
+                  key={idx} 
+                  className={`flex items-center p-3 rounded-lg ${colors?.bg} ${colors?.border} border`}
+                >
+                  <div className={`w-2 h-8 ${colors?.accent} rounded-full mr-3`}></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-semibold text-sm ${colors?.text}`}>{code}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                          isPractical ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'
+                        }`}>
+                          {isPractical ? 'LAB' : 'LEC'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500">{daysOfWeek[cls.day]?.slice(0, 3)}</span>
+                    </div>
+                    <div className="flex items-center mt-1 text-xs text-gray-600">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {formatTime(cls.startTime)} - {formatTime(cls.endTime)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const TimetableGenerationPage: React.FC = () => {
   const { addToast } = useToast();
@@ -98,7 +356,15 @@ const TimetableGenerationPage: React.FC = () => {
     try {
       setLoading(true);
       const teachersData = await dataManagementService.getTeachers();
-      const filteredTeachers = teachersData.filter(t => t.department === department);
+      // Convert selected department name (e.g., "Information Technology") to code (e.g., "IT")
+      const selectedDeptCode = getDepartmentCode(department);
+      const filteredTeachers = teachersData.filter(t => {
+        // Handle department as object (populated) or string
+        const deptCode = typeof t.department === 'object' && (t.department as any)?.code 
+          ? (t.department as any).code 
+          : t.department;
+        return deptCode === selectedDeptCode;
+      });
 
       // Normalize service teacher shape to the local Teacher interface to avoid type mismatches
       const normalizedTeachers: Teacher[] = filteredTeachers.map((t: any) => ({
@@ -121,20 +387,27 @@ const TimetableGenerationPage: React.FC = () => {
   const fetchSubjects = async () => {
     try {
       setLoading(true);
-      const coursesData = await dataManagementService.getCourses();
-      const filteredCourses = coursesData.filter(
-        (c: any) => c.department === department && c.semester === semester
+      // Convert selected department name (e.g., "Information Technology") to code (e.g., "IT")
+      const selectedDeptCode = getDepartmentCode(department);
+      
+      // Fetch subjects with filters
+      const result = await subjectManagementService.getAllSubjects(
+        { department: selectedDeptCode, semester },
+        1,
+        100 // Get up to 100 subjects
       );
       
-      // Map Course interface to Subject interface
-      const mappedSubjects: Subject[] = filteredCourses.map((c: any) => ({
-        _id: c._id,
-        courseName: c.courseName,
-        courseCode: c.courseCode,
-        department: c.department,
-        semester: c.semester,
-        credits: c.credits,
-        courseType: c.courseType
+      const subjectsData = result.subjects || [];
+      
+      // Map to local Subject interface
+      const mappedSubjects: Subject[] = subjectsData.map((s: any) => ({
+        _id: s._id,
+        name: s.name,
+        code: s.code,
+        department: s.department,
+        semester: s.semester,
+        credits: s.credits,
+        type: s.type
       }));
       
       setSubjects(mappedSubjects);
@@ -235,7 +508,7 @@ const TimetableGenerationPage: React.FC = () => {
     }
   };
 
-  // Constraint-based scheduling algorithm
+  // Advanced constraint-based scheduling algorithm
   const scheduleClasses = async (
     assignments: Assignment[],
     slots: TimeSlot[]
@@ -246,8 +519,17 @@ const TimetableGenerationPage: React.FC = () => {
     // Track usage to prevent conflicts
     const teacherSchedule = new Map<string, Set<string>>(); // teacherId -> Set of "day-timeSlot" keys
     const slotUsage = new Map<string, boolean>(); // "day-timeSlot" -> used
+    
+    // Track schedule per day for constraint checking
+    const daySchedule = new Map<number, GeneratedClass[]>(); // day -> classes scheduled that day
+    
+    // Working days (Monday to Friday)
+    const workingDays = [1, 2, 3, 4, 5];
+    
+    // Initialize day schedule tracking
+    workingDays.forEach(day => daySchedule.set(day, []));
 
-    // Group slots by day
+    // Group slots by day and sort by time
     const slotsByDay = new Map<number, TimeSlot[]>();
     slots.forEach(slot => {
       if (!slotsByDay.has(slot.dayOfWeek)) {
@@ -255,71 +537,315 @@ const TimetableGenerationPage: React.FC = () => {
       }
       slotsByDay.get(slot.dayOfWeek)!.push(slot);
     });
+    
+    // Sort slots by start time within each day
+    slotsByDay.forEach((daySlots, day) => {
+      daySlots.sort((a, b) => a.startTime.localeCompare(b.startTime));
+      slotsByDay.set(day, daySlots);
+    });
 
-    // Sort days to have consistent scheduling (Monday to Friday)
-    const workingDays = [1, 2, 3, 4, 5]; // Monday to Friday
+    // Separate theory and practical subjects
+    const theoryAssignments = assignments.filter(a => 
+      a.subject.type?.toLowerCase() !== 'practical' && a.subject.type?.toLowerCase() !== 'lab'
+    );
+    const practicalAssignments = assignments.filter(a => 
+      a.subject.type?.toLowerCase() === 'practical' || a.subject.type?.toLowerCase() === 'lab'
+    );
 
-    // For each assignment, schedule the required hours
-    for (const assignment of assignments) {
-      const { subject, teacher, allocatedHours } = assignment;
-      let hoursScheduled = 0;
+    // Calculate total theory hours needed per subject for equal distribution
+    const totalTheoryHours = theoryAssignments.reduce((sum, a) => sum + a.allocatedHours, 0);
+    const theoryHoursPerDay = Math.ceil(totalTheoryHours / workingDays.length);
+    
+    // Track remaining hours for each assignment
+    const remainingHours = new Map<string, number>();
+    assignments.forEach(a => remainingHours.set(a.subject._id, a.allocatedHours));
+
+    // Helper: Check if adding a class would create more than 2 consecutive same subjects
+    const wouldExceedConsecutiveLimit = (day: number, subjectId: string, slotIndex: number): boolean => {
+      const dayClasses = daySchedule.get(day) || [];
+      const sortedClasses = [...dayClasses].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      
+      // Find classes immediately before and after the proposed slot
+      let consecutiveCount = 1;
+      
+      // Check previous slots
+      for (let i = slotIndex - 1; i >= 0 && i >= slotIndex - 2; i--) {
+        const prevClass = sortedClasses.find(c => {
+          const slots = slotsByDay.get(day) || [];
+          return slots[i] && c.startTime === slots[i].startTime;
+        });
+        if (prevClass && prevClass.subject === subjectId) {
+          consecutiveCount++;
+        } else {
+          break;
+        }
+      }
+      
+      // Check next slots
+      for (let i = slotIndex + 1; i < (slotsByDay.get(day)?.length || 0) && i <= slotIndex + 2; i++) {
+        const nextClass = sortedClasses.find(c => {
+          const slots = slotsByDay.get(day) || [];
+          return slots[i] && c.startTime === slots[i].startTime;
+        });
+        if (nextClass && nextClass.subject === subjectId) {
+          consecutiveCount++;
+        } else {
+          break;
+        }
+      }
+      
+      return consecutiveCount > 2;
+    };
+
+    // Helper: Count practicals scheduled for a day
+    const getPracticalsForDay = (day: number): number => {
+      const dayClasses = daySchedule.get(day) || [];
+      return dayClasses.filter(c => c.sessionType === 'practical').length;
+    };
+
+    // Helper: Get subject occurrences for a day
+    const getSubjectCountForDay = (day: number, subjectId: string): number => {
+      const dayClasses = daySchedule.get(day) || [];
+      return dayClasses.filter(c => c.subject === subjectId).length;
+    };
+
+    // Helper: Schedule a class
+    const scheduleClass = (
+      assignment: Assignment,
+      slot: TimeSlot,
+      day: number,
+      sessionType: 'theory' | 'practical'
+    ): boolean => {
+      const { subject, teacher } = assignment;
+      const slotKey = `${day}-${slot._id}`;
+      const teacherSlotKey = `${day}-${slot.startTime}-${slot.endTime}`;
 
       // Initialize teacher schedule if not exists
       if (!teacherSchedule.has(teacher._id)) {
         teacherSchedule.set(teacher._id, new Set());
       }
 
-      // Try to schedule all required hours
-      outerLoop: for (const day of workingDays) {
-        const daySlots = slotsByDay.get(day) || [];
+      // Check if slot is already used
+      if (slotUsage.get(slotKey)) {
+        return false;
+      }
+
+      // Check if teacher is already scheduled at this time
+      if (teacherSchedule.get(teacher._id)!.has(teacherSlotKey)) {
+        return false;
+      }
+
+      const newClass: GeneratedClass = {
+        subject: subject._id,
+        subjectName: `${subject.code} - ${subject.name}`,
+        teacher: teacher._id,
+        teacherName: teacher.name,
+        timeSlot: slot._id,
+        day: day,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        sessionType: sessionType
+      };
+
+      schedule.push(newClass);
+      daySchedule.get(day)!.push(newClass);
+      slotUsage.set(slotKey, true);
+      teacherSchedule.get(teacher._id)!.add(teacherSlotKey);
+      
+      const currentRemaining = remainingHours.get(subject._id) || 0;
+      remainingHours.set(subject._id, currentRemaining - 1);
+      
+      return true;
+    };
+
+    // PHASE 1: Schedule practicals first (1-2 per day)
+    // Distribute practicals evenly across days
+    for (const day of workingDays) {
+      const daySlots = slotsByDay.get(day) || [];
+      let practicalsScheduledToday = 0;
+      
+      // Shuffle practical assignments for variety
+      const shuffledPracticals = [...practicalAssignments].sort(() => Math.random() - 0.5);
+      
+      for (const assignment of shuffledPracticals) {
+        if (practicalsScheduledToday >= 2) break; // Max 2 practicals per day
         
-        for (const slot of daySlots) {
-          if (hoursScheduled >= allocatedHours) {
-            break outerLoop;
+        const remaining = remainingHours.get(assignment.subject._id) || 0;
+        if (remaining <= 0) continue;
+        
+        // Find a suitable slot (preferably in the middle or end of day for practicals)
+        const preferredSlotIndices = daySlots.length > 4 
+          ? [Math.floor(daySlots.length / 2), Math.floor(daySlots.length / 2) + 1, daySlots.length - 1, daySlots.length - 2]
+          : daySlots.map((_, i) => i);
+        
+        for (const slotIdx of preferredSlotIndices) {
+          const slot = daySlots[slotIdx];
+          if (!slot) continue;
+          
+          if (scheduleClass(assignment, slot, day, 'practical')) {
+            practicalsScheduledToday++;
+            break;
           }
-
-          const slotKey = `${day}-${slot._id}`;
-          const teacherSlotKey = `${day}-${slot.startTime}-${slot.endTime}`;
-
-          // Check if slot is already used
-          if (slotUsage.get(slotKey)) {
-            continue;
-          }
-
-          // Check if teacher is already scheduled at this time
-          if (teacherSchedule.get(teacher._id)!.has(teacherSlotKey)) {
-            conflicts.push(
-              `Teacher ${teacher.name} conflict at ${daysOfWeek[day]} ${slot.startTime}-${slot.endTime}`
-            );
-            continue;
-          }
-
-          // Assign the slot
-          schedule.push({
-            subject: subject._id,
-            subjectName: `${subject.courseCode} - ${subject.courseName}`,
-            teacher: teacher._id,
-            teacherName: teacher.name,
-            timeSlot: slot._id,
-            day: day,
-            startTime: slot.startTime,
-            endTime: slot.endTime
-          });
-
-          // Mark as used
-          slotUsage.set(slotKey, true);
-          teacherSchedule.get(teacher._id)!.add(teacherSlotKey);
-          hoursScheduled++;
         }
       }
-
-      // Check if we scheduled all required hours
-      if (hoursScheduled < allocatedHours) {
-        conflicts.push(
-          `Could not schedule all hours for ${subject.courseName}. Scheduled ${hoursScheduled}/${allocatedHours}`
-        );
+      
+      // Ensure minimum 1 practical per day if we have practicals left
+      if (practicalsScheduledToday === 0) {
+        for (const assignment of shuffledPracticals) {
+          const remaining = remainingHours.get(assignment.subject._id) || 0;
+          if (remaining <= 0) continue;
+          
+          for (const slot of daySlots) {
+            if (scheduleClass(assignment, slot, day, 'practical')) {
+              practicalsScheduledToday++;
+              break;
+            }
+          }
+          if (practicalsScheduledToday > 0) break;
+        }
       }
     }
+
+    // PHASE 2: Schedule theory classes with equal distribution
+    // Calculate target hours per subject per day for even distribution
+    const subjectDayTargets = new Map<string, Map<number, number>>();
+    
+    theoryAssignments.forEach(assignment => {
+      const hoursPerSubjectPerDay = Math.ceil(assignment.allocatedHours / workingDays.length);
+      const dayTargets = new Map<number, number>();
+      workingDays.forEach(day => dayTargets.set(day, hoursPerSubjectPerDay));
+      subjectDayTargets.set(assignment.subject._id, dayTargets);
+    });
+
+    // Round-robin scheduling for theory to ensure variety
+    let schedulingComplete = false;
+    let iterations = 0;
+    const maxIterations = 100; // Prevent infinite loops
+    
+    while (!schedulingComplete && iterations < maxIterations) {
+      iterations++;
+      schedulingComplete = true;
+      
+      // Shuffle the order of subjects for each iteration to prevent clustering
+      const shuffledTheory = [...theoryAssignments].sort(() => Math.random() - 0.5);
+      
+      for (const day of workingDays) {
+        const daySlots = slotsByDay.get(day) || [];
+        
+        for (let slotIdx = 0; slotIdx < daySlots.length; slotIdx++) {
+          const slot = daySlots[slotIdx];
+          const slotKey = `${day}-${slot._id}`;
+          
+          // Skip if slot is already used
+          if (slotUsage.get(slotKey)) continue;
+          
+          // Find the best subject for this slot
+          let bestAssignment: Assignment | null = null;
+          let bestScore = -Infinity;
+          
+          for (const assignment of shuffledTheory) {
+            const subjectId = assignment.subject._id;
+            const remaining = remainingHours.get(subjectId) || 0;
+            
+            if (remaining <= 0) continue;
+            
+            // Check consecutive constraint
+            if (wouldExceedConsecutiveLimit(day, subjectId, slotIdx)) {
+              continue;
+            }
+            
+            // Check teacher availability
+            const teacherSlotKey = `${day}-${slot.startTime}-${slot.endTime}`;
+            if (!teacherSchedule.has(assignment.teacher._id)) {
+              teacherSchedule.set(assignment.teacher._id, new Set());
+            }
+            if (teacherSchedule.get(assignment.teacher._id)!.has(teacherSlotKey)) {
+              continue;
+            }
+            
+            // Calculate score based on various factors
+            let score = 0;
+            
+            // Prefer subjects with more remaining hours
+            score += remaining * 10;
+            
+            // Prefer subjects that haven't been scheduled much today (variation)
+            const todayCount = getSubjectCountForDay(day, subjectId);
+            score -= todayCount * 20;
+            
+            // Prefer subjects that are below their daily target
+            const dayTarget = subjectDayTargets.get(subjectId)?.get(day) || 0;
+            if (todayCount < dayTarget) {
+              score += 15;
+            }
+            
+            if (score > bestScore) {
+              bestScore = score;
+              bestAssignment = assignment;
+            }
+          }
+          
+          if (bestAssignment) {
+            scheduleClass(bestAssignment, slot, day, 'theory');
+            schedulingComplete = false; // We scheduled something, keep going
+          }
+        }
+      }
+      
+      // Check if any theory subjects still have remaining hours
+      const hasRemainingTheory = theoryAssignments.some(a => 
+        (remainingHours.get(a.subject._id) || 0) > 0
+      );
+      
+      if (!hasRemainingTheory) {
+        schedulingComplete = true;
+      }
+    }
+
+    // PHASE 3: Schedule any remaining practical hours
+    for (const assignment of practicalAssignments) {
+      const remaining = remainingHours.get(assignment.subject._id) || 0;
+      if (remaining <= 0) continue;
+      
+      for (const day of workingDays) {
+        const practicalsToday = getPracticalsForDay(day);
+        if (practicalsToday >= 2) continue; // Respect max 2 practicals per day
+        
+        const daySlots = slotsByDay.get(day) || [];
+        for (const slot of daySlots) {
+          const currentRemaining = remainingHours.get(assignment.subject._id) || 0;
+          if (currentRemaining <= 0) break;
+          if (getPracticalsForDay(day) >= 2) break;
+          
+          scheduleClass(assignment, slot, day, 'practical');
+        }
+      }
+    }
+
+    // Generate conflict reports for unscheduled hours
+    assignments.forEach(assignment => {
+      const remaining = remainingHours.get(assignment.subject._id) || 0;
+      if (remaining > 0) {
+        conflicts.push(
+          `Could not schedule all hours for ${assignment.subject.name}. ` +
+          `Scheduled ${assignment.allocatedHours - remaining}/${assignment.allocatedHours}`
+        );
+      }
+    });
+
+    // Validate practical constraints
+    workingDays.forEach(day => {
+      const practicalsToday = getPracticalsForDay(day);
+      if (practicalsToday === 0 && practicalAssignments.length > 0) {
+        conflicts.push(`Warning: No practical session scheduled for ${daysOfWeek[day]}`);
+      }
+    });
+
+    // Sort schedule by day and time for clean output
+    schedule.sort((a, b) => {
+      if (a.day !== b.day) return a.day - b.day;
+      return a.startTime.localeCompare(b.startTime);
+    });
 
     return { schedule, conflicts };
   };
@@ -535,10 +1061,10 @@ const TimetableGenerationPage: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
                         <div>
                           <div className="font-semibold text-gray-900">
-                            {assignment.subject.courseCode}
+                            {assignment.subject.code}
                           </div>
                           <div className="text-sm text-gray-600">
-                            {assignment.subject.courseName}
+                            {assignment.subject.name}
                           </div>
                         </div>
 
@@ -678,88 +1204,168 @@ const TimetableGenerationPage: React.FC = () => {
 
         {/* Step 4: Review */}
         {currentStep === 4 && (
-          <Card className="mb-6">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold flex items-center">
-                  <Calendar className="mr-2" />
-                  Generated Timetable
-                </h2>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={exportTimetable}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Export CSV
-                  </Button>
-                  <Button onClick={saveTimetable}>
-                    Save Timetable
-                  </Button>
-                </div>
-              </div>
-
-              {/* Conflicts Display */}
-              {conflicts.length > 0 && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold text-yellow-900 mb-2 flex items-center">
-                    <AlertCircle className="w-5 h-5 mr-2" />
-                    Conflicts Detected ({conflicts.length})
-                  </h3>
-                  <ul className="text-sm text-yellow-800 space-y-1">
-                    {conflicts.map((conflict, idx) => (
-                      <li key={idx}>• {conflict}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {conflicts.length === 0 && generatedTimetable.length > 0 && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center text-green-900">
-                    <CheckCircle2 className="w-5 h-5 mr-2" />
-                    <strong>Success! Zero conflicts detected</strong>
+          <div className="space-y-6">
+            {/* Header Card */}
+            <Card className="overflow-hidden">
+              <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-white/20 p-2 rounded-lg">
+                      <Calendar className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">Weekly Timetable</h2>
+                      <p className="text-primary-100 text-sm">{department} • Semester {semester} • {academicYear}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline" 
+                      onClick={exportTimetable}
+                      className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                    <Button 
+                      onClick={saveTimetable}
+                      className="bg-white text-primary-700 hover:bg-primary-50"
+                    >
+                      Save Timetable
+                    </Button>
                   </div>
                 </div>
-              )}
-
-              {/* Timetable Grid */}
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-300">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border border-gray-300 px-4 py-2 text-left font-semibold">Day</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left font-semibold">Time</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left font-semibold">Subject</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left font-semibold">Teacher</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {generatedTimetable
-                      .sort((a, b) => a.day - b.day || a.startTime.localeCompare(b.startTime))
-                      .map((cls, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="border border-gray-300 px-4 py-2">{daysOfWeek[cls.day]}</td>
-                          <td className="border border-gray-300 px-4 py-2">
-                            {cls.startTime} - {cls.endTime}
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2 font-medium">
-                            {cls.subjectName}
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2">{cls.teacherName}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
               </div>
+            </Card>
 
-              <div className="mt-6 flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(3)}>
-                  Back
-                </Button>
-                <Button onClick={() => setCurrentStep(1)} variant="outline">
-                  Start New Generation
-                </Button>
+            {/* Status Alerts */}
+            {conflicts.length > 0 && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-5 shadow-sm">
+                <div className="flex items-start space-x-3">
+                  <div className="bg-amber-100 p-2 rounded-lg">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-amber-900">Scheduling Conflicts Detected</h3>
+                    <p className="text-amber-700 text-sm mt-1">{conflicts.length} conflict(s) found during generation</p>
+                    <ul className="mt-3 space-y-1">
+                      {conflicts.map((conflict, idx) => (
+                        <li key={idx} className="text-sm text-amber-800 flex items-center">
+                          <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-2"></span>
+                          {conflict}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {conflicts.length === 0 && generatedTimetable.length > 0 && (
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-5 shadow-sm">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-emerald-100 p-2 rounded-lg">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-emerald-900">Perfect Schedule Generated</h3>
+                    <p className="text-emerald-700 text-sm">All {generatedTimetable.length} classes scheduled without any conflicts</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Weekly Timetable Grid */}
+            <Card className="overflow-hidden">
+              <div className="p-6">
+                <WeeklyTimetableGrid 
+                  classes={generatedTimetable} 
+                  timeSlots={timeSlots}
+                  daysOfWeek={daysOfWeek}
+                />
+              </div>
+            </Card>
+
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100 text-xs font-medium">Total Classes</p>
+                    <p className="text-2xl font-bold mt-1">{generatedTimetable.length}</p>
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-indigo-100 text-xs font-medium">Theory</p>
+                    <p className="text-2xl font-bold mt-1">{generatedTimetable.filter(c => c.sessionType === 'theory').length}</p>
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-100 text-xs font-medium">Practicals</p>
+                    <p className="text-2xl font-bold mt-1">{generatedTimetable.filter(c => c.sessionType === 'practical').length}</p>
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <Settings className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-100 text-xs font-medium">Subjects</p>
+                    <p className="text-2xl font-bold mt-1">{subjects.length}</p>
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-emerald-100 text-xs font-medium">Teachers</p>
+                    <p className="text-2xl font-bold mt-1">{new Set(assignments.map(a => a.teacher?._id)).size}</p>
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <Users className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-orange-100 text-xs font-medium">Weekly Hours</p>
+                    <p className="text-2xl font-bold mt-1">{assignments.reduce((sum, a) => sum + a.allocatedHours, 0)}</p>
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                </div>
               </div>
             </div>
-          </Card>
+
+            {/* Navigation */}
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                Back
+              </Button>
+              <Button onClick={() => setCurrentStep(1)} variant="outline">
+                Start New Generation
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>

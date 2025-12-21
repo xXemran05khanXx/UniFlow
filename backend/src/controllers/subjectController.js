@@ -5,6 +5,7 @@
 
 const Subject = require('../models/Subject');
 const User = require('../models/User');
+const Department = require('../models/Department');
 const asyncHandler = require('../middleware/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
@@ -42,7 +43,33 @@ const getAllSubjects = asyncHandler(async (req, res) => {
     ];
   }
   
-  if (department) filter.department = department;
+  // Convert department code to ObjectId if provided
+  if (department) {
+    // Check if it's already an ObjectId or if it's a department code
+    if (department.match(/^[0-9a-fA-F]{24}$/)) {
+      filter.department = department;
+    } else {
+      // It's a department code like "IT", "CS", "FE" - look up the ObjectId
+      const dept = await Department.findOne({ 
+        $or: [{ code: department }, { name: department }] 
+      });
+      if (dept) {
+        filter.department = dept._id;
+      } else {
+        // Department not found - return empty result
+        return res.status(200).json(
+          new ApiResponse(200, {
+            subjects: [],
+            totalCount: 0,
+            currentPage: 1,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPrevPage: false
+          }, 'No subjects found for the specified department')
+        );
+      }
+    }
+  }
   if (semester) filter.semester = parseInt(semester);
   if (year) filter.year = parseInt(year);
   if (type) filter.type = type;
@@ -131,13 +158,29 @@ const createSubject = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Subject code already exists');
   }
 
+  // Convert department code/name to ObjectId if needed
+  let departmentId = department;
+  if (department && !department.match(/^[0-9a-fA-F]{24}$/)) {
+    const escapedDept = department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const deptDoc = await Department.findOne({
+      $or: [
+        { name: { $regex: new RegExp(`^${escapedDept}$`, 'i') } },
+        { code: { $regex: new RegExp(`^${escapedDept}$`, 'i') } }
+      ]
+    });
+    if (!deptDoc) {
+      throw new ApiError(400, `Invalid department: ${department}`);
+    }
+    departmentId = deptDoc._id;
+  }
+
   // Create subject
   const subject = await Subject.create({
     code: code.toUpperCase(),
     name,
     credits,
     semester,
-    department,
+    department: departmentId,
     year,
     type,
     description,
@@ -193,6 +236,21 @@ const updateSubject = asyncHandler(async (req, res) => {
     updateFields.code = updateFields.code.toUpperCase();
   }
   updateFields.updatedBy = req.user._id;
+
+  // Convert department code/name to ObjectId if needed
+  if (updateFields.department && !updateFields.department.match(/^[0-9a-fA-F]{24}$/)) {
+    const escapedDept = updateFields.department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const deptDoc = await Department.findOne({
+      $or: [
+        { name: { $regex: new RegExp(`^${escapedDept}$`, 'i') } },
+        { code: { $regex: new RegExp(`^${escapedDept}$`, 'i') } }
+      ]
+    });
+    if (!deptDoc) {
+      throw new ApiError(400, `Invalid department: ${updateFields.department}`);
+    }
+    updateFields.department = deptDoc._id;
+  }
 
   const updatedSubject = await Subject.findByIdAndUpdate(
     req.params.id,
@@ -413,13 +471,31 @@ const importSubjects = asyncHandler(async (req, res) => {
                 continue;
               }
 
+              // Convert department code/name to ObjectId
+              let departmentId = row.department;
+              if (row.department && !row.department.match(/^[0-9a-fA-F]{24}$/)) {
+                const escapedDept = row.department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const deptDoc = await Department.findOne({
+                  $or: [
+                    { name: { $regex: new RegExp(`^${escapedDept}$`, 'i') } },
+                    { code: { $regex: new RegExp(`^${escapedDept}$`, 'i') } }
+                  ]
+                });
+                if (!deptDoc) {
+                  errors.push(`Row with code ${row.code}: Invalid department '${row.department}'`);
+                  failed++;
+                  continue;
+                }
+                departmentId = deptDoc._id;
+              }
+
               // Create subject
               await Subject.create({
                 code: row.code.toUpperCase(),
                 name: row.name,
                 credits: parseInt(row.credits),
                 semester: parseInt(row.semester),
-                department: row.department,
+                department: departmentId,
                 year: parseInt(row.year || Math.ceil(parseInt(row.semester) / 2)),
                 type: row.type || 'theory',
                 description: row.description || '',

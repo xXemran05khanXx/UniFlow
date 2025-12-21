@@ -289,47 +289,26 @@ export const dataManagementService = {
   // Course methods  
   async getCourses(): Promise<Course[]> {
     try {
-      console.log('🔍 DataManagement: Fetching courses from subjects endpoint...');
+      console.log('🔍 DataManagement: Fetching courses from /data/courses endpoint...');
       
-      // Use subjects endpoint with pagination like Subject Management service
-      const response = await apiClient.get('/subjects?page=1&limit=100&sortBy=name&sortOrder=asc');
+      // Use the correct courses endpoint
+      const response = await apiClient.get('/data/courses');
       
       console.log('🔍 DataManagement: Raw response:', response.data);
       
-      // Use unwrapApiData to handle the backend's inconsistent response format
-      const paginatedData = unwrapApiData<PaginatedSubjects>(response.data);
+      // Extract courses from response
+      const courses = response.data.data || response.data || [];
       
-      console.log('🔍 DataManagement: Unwrapped data:', paginatedData);
+      console.log('🔍 DataManagement: Extracted courses:', courses);
+      console.log('🔍 DataManagement: Is array?', Array.isArray(courses));
+      console.log('🔍 DataManagement: Number of courses found:', courses.length);
       
-      // Extract subjects array from paginated response
-      const subjects = paginatedData.subjects || [];
-      
-      console.log('🔍 DataManagement: Extracted subjects:', subjects);
-      console.log('🔍 DataManagement: Is array?', Array.isArray(subjects));
-      console.log('🔍 DataManagement: Number of subjects found:', subjects.length);
-      
-      if (!Array.isArray(subjects)) {
-        console.error('❌ DataManagement: subjects is not an array:', subjects);
+      if (!Array.isArray(courses)) {
+        console.error('❌ DataManagement: courses is not an array:', courses);
         return [];
       }
       
-      // Transform subject data to course format for display
-      const courses = subjects.map((subject: any) => ({
-        _id: subject._id,
-        courseCode: subject.code,
-        courseName: subject.name,
-        department: subject.department,
-        semester: subject.semester,
-        courseType: subject.type || 'Theory',
-        credits: subject.credits,
-        hoursPerWeek: subject.hoursPerWeek || 0,
-        syllabus: {
-          topics: Array.isArray(subject.syllabus?.topics) ? subject.syllabus.topics : [],
-          syllabusLink: subject.syllabus?.syllabusLink || ''
-        }
-      }));
-      
-      console.log('✅ DataManagement: Transformed courses:', courses);
+      console.log('✅ DataManagement: Courses:', courses);
       return courses;
     } catch (error) {
       console.error('❌ DataManagement: Error fetching courses:', error);
