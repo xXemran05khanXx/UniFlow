@@ -1,8 +1,8 @@
 const Course = require('../../models/Course');
-const Teacher = require('../../models/Teacher');
 const Room = require('../../models/Room');
 const Timetable = require('../../models/Timetable');
 const User = require('../../models/User');
+const Department = require('../../models/Department');
 
 class TimetableGenerator {
   constructor() {
@@ -29,16 +29,30 @@ class TimetableGenerator {
       maxIterations = 1000,
       semester = null, // Can be 1, 2, 3, 4, 5, 6, 7, 8 or null for all
       academicYear = new Date().getFullYear(),
-      targetSemester = semester // For backward compatibility
+      targetSemester = semester, // For backward compatibility
+      departmentId = null, // New: Filter by department ObjectId
+      departmentCode = null // New: Filter by department code (IT, CS, FE)
     } = options;
 
     try {
       console.log('🚀 Starting timetable generation...');
       
+      // Resolve department if code is provided
+      let resolvedDepartmentId = departmentId;
+      if (departmentCode && !departmentId) {
+        const department = await Department.getByCode(departmentCode);
+        if (department) {
+          resolvedDepartmentId = department._id;
+          console.log(`📌 Department resolved: ${departmentCode} -> ${department.name}`);
+        } else {
+          throw new Error(`Department with code ${departmentCode} not found`);
+        }
+      }
+      
       // Fetch all required data
-      let courses = await this.fetchCourses();
-      const teachers = await this.fetchTeachers();
-      const rooms = await this.fetchRooms();
+      let courses = await this.fetchCourses(resolvedDepartmentId);
+      const teachers = await this.fetchTeachers(resolvedDepartmentId);
+      const rooms = await this.fetchRooms(resolvedDepartmentId);
 
       // Filter courses by semester if specified
       if (semester || targetSemester) {
@@ -48,6 +62,9 @@ class TimetableGenerator {
       }
 
       console.log(`📊 Data loaded: ${courses.length} courses, ${teachers.length} teachers, ${rooms.length} rooms`);
+      if (resolvedDepartmentId) {
+        console.log(`🏛️  Department filter applied`);
+      }
 
       // Initialize empty timetable
       let timetable = this.initializeEmptyTimetable();
@@ -252,19 +269,45 @@ class TimetableGenerator {
   }
 
   canTeachCourse(teacher, course) {
-    // Check if teacher can teach this course based on department match
-    if (!teacher.department && !course.department) return true;
-    
-    // Primary match: same department
-    if (teacher.department === course.department) return true;
-    
-    // Secondary match: First Year teachers can teach basic courses to other departments
-    if (teacher.department === 'First Year' && course.semester <= 2) return true;
-    
-    // Tertiary match: CS teachers can teach some IT courses and vice versa
-    if ((teacher.department === 'Computer Science' && course.department === 'Information Technology') ||
-        (teacher.department === 'Information Technology' && course.department === 'Computer Science')) {
+    // Check if teacher can teach this course based on department
+    if (!teacher.primaryDepartment && !teacher.departmentLegacy && !course.department) {
       return true;
+    }
+    
+    // Handle new department structure (ObjectId)
+    if (teacher.primaryDepartment && course.department) {
+      const teacherPrimaryDept = teacher.primaryDepartment.toString();
+      const courseDept = course.department.toString();
+      
+      // Primary department match
+      if (teacherPrimaryDept === courseDept) {
+        return true;
+      }
+      
+      // Check allowed departments for cross-teaching
+      if (teacher.allowedDepartments && teacher.allowedDepartments.length > 0) {
+        const isAllowed = teacher.allowedDepartments.some(
+          dept => dept.toString() === courseDept
+        );
+        if (isAllowed) {
+          return true;
+        }
+      }
+    }
+    
+    // Legacy support: Handle old string-based department matching
+    if (teacher.departmentLegacy && course.departmentLegacy) {
+      // Primary match: same department
+      if (teacher.departmentLegacy === course.departmentLegacy) return true;
+      
+      // Secondary match: First Year teachers can teach basic courses to other departments
+      if (teacher.departmentLegacy === 'First Year' && course.semester <= 2) return true;
+      
+      // Tertiary match: CS teachers can teach some IT courses and vice versa
+      if ((teacher.departmentLegacy === 'Computer Science' && course.departmentLegacy === 'Information Technology') ||
+          (teacher.departmentLegacy === 'Information Technology' && course.departmentLegacy === 'Computer Science')) {
+        return true;
+      }
     }
     
     return false;
@@ -311,15 +354,24 @@ class TimetableGenerator {
     };
   }
 
-  async fetchCourses() {
+  async fetchCourses(departmentId = null) {
     try {
-      const courses = await Course.find({})
-        .select('courseCode courseName department semester courseType credits hoursPerWeek syllabus');
+      const filter = {};
+      if (departmentId) {
+        filter.department = departmentId;
+      }
+
+      const courses = await Course.find(filter)
+        .populate('department', 'code name')
+        .select('courseCode courseName department departmentLegacy semester courseType credits hoursPerWeek syllabus');
 
       return courses.map(course => ({
         courseCode: course.courseCode,
         courseName: course.courseName,
-        department: course.department,
+        department: course.department?._id || course.department,
+        departmentCode: course.department?.code,
+        departmentName: course.department?.name,
+        departmentLegacy: course.departmentLegacy, // For backward compatibility
         semester: course.semester,
         courseType: course.courseType,
         credits: course.credits,
@@ -334,18 +386,30 @@ class TimetableGenerator {
     }
   }
 
-  async fetchTeachers() {
+  async fetchTeachers(departmentId = null) {
     try {
-      const teachers = await Teacher.find({})
-        .populate('user', 'name email')
-        .select('employeeId name department designation qualifications workload');
+      const filter = { role: 'teacher' };
+      if (departmentId) {
+        // Find teachers whose department OR allowed departments include the specified department
+        filter.$or = [
+          { department: departmentId },
+          { allowedDepartments: departmentId }
+        ];
+      }
+
+      const teachers = await User.find(filter)
+        .populate('department', 'code name')
+        .populate('allowedDepartments', 'code name')
+        .select('employeeId name department allowedDepartments designation qualifications workload');
 
       return teachers.map(teacher => ({
         teacherId: teacher.employeeId,
         _id: teacher._id,
-        name: teacher.name || teacher.user?.name,
-        department: teacher.department,
-        specialization: teacher.qualifications?.join(';') || teacher.department?.toLowerCase(),
+        name: teacher.name,
+        primaryDepartment: teacher.department?._id,
+        primaryDepartmentCode: teacher.department?.code,
+        allowedDepartments: teacher.allowedDepartments?.map(d => d._id) || [],
+        specialization: teacher.qualifications?.join(';') || teacher.department?.name?.toLowerCase(),
         maxHours: teacher.workload?.maxHoursPerWeek || 18
       }));
     } catch (error) {
@@ -355,16 +419,25 @@ class TimetableGenerator {
     }
   }
 
-  async fetchRooms() {
+  async fetchRooms(departmentId = null) {
     try {
-      const rooms = await Room.find({})
-        .select('roomNumber floor capacity type availabilityNotes');
+      const filter = {};
+      if (departmentId) {
+        filter.department = departmentId;
+      }
+
+      const rooms = await Room.find(filter)
+        .populate('department', 'code name')
+        .select('roomNumber floor capacity type department availabilityNotes');
 
       return rooms.map(room => ({
         roomNumber: room.roomNumber,
+        _id: room._id,
         capacity: room.capacity,
         type: room.type,
         floor: room.floor,
+        department: room.department?._id,
+        departmentCode: room.department?.code,
         isLab: room.type === 'laboratory',
         availabilityNotes: room.availabilityNotes
       }));

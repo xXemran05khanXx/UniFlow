@@ -258,7 +258,7 @@ const StudentProfilePage: React.FC = () => {
               </p>
               <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full text-blue-700 font-medium">
                 <GraduationCap className="h-5 w-5 mr-2" />
-                {studentData.department}
+                {typeof studentData.department === 'object' ? (studentData.department as any)?.name || (studentData.department as any)?.code : studentData.department}
               </div>
             </div>
           </div>
@@ -278,7 +278,7 @@ const StudentProfilePage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center py-3 border-b border-gray-100">
                 <span className="text-gray-600 font-medium">Department:</span>
-                <span className="text-gray-900 font-semibold">{studentData.department}</span>
+                <span className="text-gray-900 font-semibold">{typeof studentData.department === 'object' ? (studentData.department as any)?.name || (studentData.department as any)?.code : studentData.department}</span>
               </div>
               <div className="flex justify-between items-center py-3 border-b border-gray-100">
                 <span className="text-gray-600 font-medium">Current Year:</span>

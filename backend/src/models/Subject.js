@@ -65,8 +65,14 @@ const subjectSchema = new mongoose.Schema({
     max: [8, 'Semester must be between 1 and 8']
   },
   department: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department',
     required: [true, 'Department is required'],
+    index: true
+  },
+  // Legacy field - kept for backward compatibility during migration
+  departmentLegacy: {
+    type: String,
     enum: {
       values: [
         'Computer Science',

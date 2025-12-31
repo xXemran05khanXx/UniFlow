@@ -4,6 +4,7 @@
  */
 
 const Room = require('../models/Room');
+const Department = require('../models/Department');
 const asyncHandler = require('../middleware/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
@@ -105,6 +106,7 @@ const getAllRooms = asyncHandler(async (req, res) => {
   try {
     // Execute query with pagination
     const rooms = await Room.find(query)
+      .populate('department', 'code name')
       .populate('createdBy', 'name email')
       .populate('updatedBy', 'name email')
       .sort(sortObj)
@@ -144,6 +146,7 @@ const getAllRooms = asyncHandler(async (req, res) => {
  */
 const getRoomById = asyncHandler(async (req, res) => {
   const room = await Room.findById(req.params.id)
+    .populate('department', 'code name')
     .populate('createdBy', 'name email')
     .populate('updatedBy', 'name email')
     .populate('bookings.userId', 'name email')
@@ -170,6 +173,22 @@ const createRoom = asyncHandler(async (req, res) => {
     ...req.body,
     createdBy: req.user._id
   };
+
+  // Convert department name/code to ObjectId if needed
+  if (roomData.department && !roomData.department.match?.(/^[0-9a-fA-F]{24}$/)) {
+    const dept = await Department.findOne({
+      $or: [
+        { code: roomData.department },
+        { name: roomData.department }
+      ]
+    });
+    if (dept) {
+      roomData.department = dept._id;
+    } else {
+      throw new ApiError(400, `Department '${roomData.department}' not found`);
+    }
+  }
+
   console.log('Final room data:', roomData);
 
   // Check if room number already exists
@@ -219,6 +238,21 @@ const updateRoom = asyncHandler(async (req, res) => {
 
     if (existingRoom) {
       throw new ApiError(400, 'Room number already exists');
+    }
+  }
+
+  // Convert department name/code to ObjectId if needed
+  if (req.body.department && !req.body.department.match?.(/^[0-9a-fA-F]{24}$/)) {
+    const dept = await Department.findOne({
+      $or: [
+        { code: req.body.department },
+        { name: req.body.department }
+      ]
+    });
+    if (dept) {
+      req.body.department = dept._id;
+    } else {
+      throw new ApiError(400, `Department '${req.body.department}' not found`);
     }
   }
 
@@ -617,6 +651,22 @@ const importRooms = asyncHandler(async (req, res) => {
           notes: row.notes?.trim() || '',
           createdBy: req.user._id
         };
+
+        // Convert department name/code to ObjectId if provided
+        if (roomData.department && !roomData.department.match?.(/^[0-9a-fA-F]{24}$/)) {
+          const dept = await Department.findOne({
+            $or: [
+              { code: roomData.department },
+              { name: roomData.department }
+            ]
+          });
+          if (dept) {
+            roomData.department = dept._id;
+          } else {
+            // Clear invalid department - room can still be created
+            roomData.department = undefined;
+          }
+        }
 
         // Parse accessibility features
         if (row.wheelchairAccessible || row.elevatorAccess || row.disabledParking || row.accessibleRestroom) {

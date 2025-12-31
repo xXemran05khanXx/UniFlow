@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Plus, Edit, Trash2, Search, Filter, Save, X } from 'lucide-react';
+import { Clock, Plus, Edit, Trash2, Search, Filter, Save, X, Copy } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -33,6 +33,8 @@ const TimeSlotsPage: React.FC = () => {
     dayOfWeek: 1,
     isActive: true
   });
+
+  const [copyingToDay, setCopyingToDay] = useState<number | null>(null);
 
   const daysOfWeek = [
     { value: 1, label: 'Monday' },
@@ -182,6 +184,75 @@ const TimeSlotsPage: React.FC = () => {
     }
   };
 
+  // Copy time slots from one day to another
+  const handleCopyFromDay = async (targetDay: number, sourceDay: number) => {
+    if (sourceDay === targetDay) {
+      setError('Cannot copy to the same day');
+      return;
+    }
+
+    const sourceSlots = timeSlots.filter(slot => slot.dayOfWeek === sourceDay);
+    
+    if (sourceSlots.length === 0) {
+      setError(`No time slots found for ${getDayName(sourceDay)} to copy`);
+      return;
+    }
+
+    // Check for existing slots on target day
+    const targetSlots = timeSlots.filter(slot => slot.dayOfWeek === targetDay);
+    if (targetSlots.length > 0) {
+      if (!window.confirm(`${getDayName(targetDay)} already has ${targetSlots.length} time slot(s). Do you want to add more from ${getDayName(sourceDay)}?`)) {
+        setCopyingToDay(null);
+        return;
+      }
+    }
+
+    setCopyingToDay(targetDay);
+    setError(null);
+
+    try {
+      let successCount = 0;
+      let skipCount = 0;
+
+      for (const slot of sourceSlots) {
+        // Check if this exact time slot already exists on target day
+        const exists = timeSlots.some(
+          existingSlot => 
+            existingSlot.dayOfWeek === targetDay && 
+            existingSlot.startTime === slot.startTime && 
+            existingSlot.endTime === slot.endTime
+        );
+
+        if (exists) {
+          skipCount++;
+          continue;
+        }
+
+        const response = await timeSlotsAPI.create({
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          dayOfWeek: targetDay,
+          isActive: slot.isActive
+        });
+
+        if (response.success) {
+          successCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        setSuccess(`Successfully copied ${successCount} time slot(s) from ${getDayName(sourceDay)} to ${getDayName(targetDay)}${skipCount > 0 ? ` (${skipCount} skipped - already exist)` : ''}`);
+        fetchTimeSlots();
+      } else if (skipCount > 0) {
+        setError(`All ${skipCount} time slots already exist on ${getDayName(targetDay)}`);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to copy time slots');
+    } finally {
+      setCopyingToDay(null);
+    }
+  };
+
   const filteredTimeSlots = timeSlots.filter(slot => {
     const matchesSearch = 
       getDayName(slot.dayOfWeek).toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -326,16 +397,58 @@ const TimeSlotsPage: React.FC = () => {
         <div className="grid gap-6">
           {daysOfWeek.map(day => {
             const daySlots = groupedTimeSlots[day.value];
+            // Get days that have time slots (to show in copy dropdown)
+            const daysWithSlots = daysOfWeek.filter(
+              d => d.value !== day.value && groupedTimeSlots[d.value]?.length > 0
+            );
+            
             if (daySlots.length === 0 && filterDay !== 'all' && filterDay !== day.value.toString()) {
               return null;
             }
 
             return (
-              <Card key={day.value} title={day.label} className="overflow-hidden">
+              <Card key={day.value} className="overflow-hidden">
+                {/* Day Header with Copy Option */}
+                <div className="flex items-center justify-between mb-4 pb-3 border-b">
+                  <h3 className="text-lg font-semibold text-gray-900">{day.label}</h3>
+                  
+                  {/* Copy from dropdown */}
+                  {daysWithSlots.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Copy className="h-4 w-4 text-gray-500" />
+                      <select
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleCopyFromDay(day.value, parseInt(e.target.value));
+                            e.target.value = '';
+                          }
+                        }}
+                        disabled={copyingToDay === day.value}
+                        title={`Copy time slots to ${day.label}`}
+                      >
+                        <option value="">Copy from...</option>
+                        {daysWithSlots.map(sourceDay => (
+                          <option key={sourceDay.value} value={sourceDay.value}>
+                            {sourceDay.label} ({groupedTimeSlots[sourceDay.value]?.length} slots)
+                          </option>
+                        ))}
+                      </select>
+                      {copyingToDay === day.value && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {daySlots.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                     <p>No time slots configured for {day.label}</p>
+                    {daysWithSlots.length > 0 && (
+                      <p className="text-sm mt-2">Use "Copy from" above to copy slots from another day</p>
+                    )}
                   </div>
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">

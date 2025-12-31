@@ -49,39 +49,59 @@ apiClient.interceptors.response.use(
     // Handle different types of errors
     if (error.response) {
       const { status, data } = error.response;
+      const errorData = data as { error?: string | { message?: string }; message?: string };
       
-      switch (status) {
-        case 401:
-          // Unauthorized - clear auth data and redirect to login
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-          }
-          break;
-        
-        case 403:
-          // Forbidden - show error message
-          console.error('Access forbidden:', data);
-          break;
-        
-        case 404:
-          // Not found
-          console.error('Resource not found:', error.config?.url);
-          break;
-        
-        case 422:
-          // Validation errors
-          console.error('Validation errors:', data);
-          break;
-        
-        case 500:
-          // Server error
-          console.error('Server error:', data);
-          break;
-        
-        default:
-          console.error(`HTTP ${status}:`, data);
+      // Get error message from various possible locations in the response
+      const errorMessage = errorData?.message || 
+                           (typeof errorData?.error === 'string' ? errorData?.error : errorData?.error?.message) || 
+                           '';
+      const isTokenExpired = errorMessage.toLowerCase().includes('token expired') || 
+                             errorMessage.toLowerCase().includes('jwt expired');
+      
+      console.log('🔍 API Client Error:', { status, message: errorMessage, isTokenExpired });
+      
+      // Check if this is an auth endpoint (don't redirect on login/register failures)
+      const isAuthEndpoint = error.config?.url?.includes('/auth/login') || 
+                             error.config?.url?.includes('/auth/register');
+      
+      // Handle token expiration or 401 unauthorized
+      if ((status === 401 || isTokenExpired) && !isAuthEndpoint) {
+        // Clear auth data and redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (!window.location.pathname.includes('/login')) {
+          console.log('🔐 Token expired or unauthorized - redirecting to login');
+          // Use replace to prevent back button issues and setTimeout to ensure it executes
+          setTimeout(() => {
+            window.location.replace('/login');
+          }, 100);
+          return new Promise(() => {}); // Return a never-resolving promise to stop further execution
+        }
+      } else if (status !== 401) {
+        switch (status) {
+          case 403:
+            // Forbidden - show error message
+            console.error('Access forbidden:', data);
+            break;
+          
+          case 404:
+            // Not found
+            console.error('Resource not found:', error.config?.url);
+            break;
+          
+          case 422:
+            // Validation errors
+            console.error('Validation errors:', data);
+            break;
+          
+          case 500:
+            // Server error
+            console.error('Server error:', data);
+            break;
+          
+          default:
+            console.error(`HTTP ${status}:`, data);
+        }
       }
     } else if (error.request) {
       // Network error

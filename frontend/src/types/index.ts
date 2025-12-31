@@ -1,13 +1,52 @@
+export interface Department {
+  _id: string;
+  code: 'IT' | 'CS' | 'FE';
+  name: 'Information Technology' | 'Computer Science' | 'First Year Engineering';
+  description?: string;
+  isActive: boolean;
+  studentCount?: number;
+  teacherCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   _id: string;
   name: string;
   email: string;
   role: 'admin' | 'teacher' | 'student';
-  department?: string;
+  department?: string | Department; // Can be string (legacy) or Department object
   semester?: number;
   employeeId?: string;
   studentId?: string;
   subjects?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Teacher {
+  _id: string;
+  user: string | User;
+  employeeId: string;
+  name: string;
+  primaryDepartment: string | Department; // ObjectId or populated Department
+  allowedDepartments?: (string | Department)[]; // For cross-teaching
+  department?: string; // Legacy field
+  designation: 'Professor' | 'Associate Professor' | 'Assistant Professor' | 'Lecturer';
+  qualifications?: string[];
+  contactInfo?: {
+    staffRoom?: string;
+  };
+  workload?: {
+    maxHoursPerWeek?: number;
+    minHoursPerWeek?: number;
+  };
+  availability?: Array<{
+    dayOfWeek: string;
+    startTime: string;
+    endTime: string;
+  }>;
+  performanceRating?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -17,7 +56,7 @@ export interface Subject {
   name: string;
   code: string;
   semester: number;
-  department: string;
+  department: string | Department; // Can be string (legacy) or Department object
   credits: number;
   type: 'theory' | 'practical' | 'lab';
   syllabus?: string;
@@ -31,6 +70,7 @@ export interface Room {
   building: string;
   capacity: number;
   type: 'classroom' | 'lab' | 'auditorium';
+  department?: string | Department; // Can be string (legacy) or Department object
   equipment: string[];
   isAvailable: boolean;
   createdAt: string;
@@ -50,11 +90,11 @@ export interface TimeSlot {
 export interface TimetableEntry {
   _id: string;
   subject: Subject;
-  teacher: User;
+  teacher: User | Teacher;
   room: Room;
   timeSlot: TimeSlot;
   semester: number;
-  department: string;
+  department: string | Department;
   sessionType: 'lecture' | 'practical' | 'lab';
   createdAt: string;
   updatedAt: string;
@@ -64,7 +104,7 @@ export interface Timetable {
   _id: string;
   name: string;
   semester: number;
-  department: string;
+  department: string | Department;
   academicYear: string;
   entries: TimetableEntry[];
   status: 'draft' | 'published' | 'archived';
@@ -91,11 +131,28 @@ export interface TimetableGeneration {
   qualityScore: number;
   parameters: {
     semester: number;
-    department: string;
+    department: string | Department;
+    departmentId?: string;
+    departmentCode?: 'IT' | 'CS' | 'FE';
     preferences?: any;
   };
   createdAt: string;
   completedAt?: string;
+}
+
+export interface DepartmentStats {
+  department: {
+    code: string;
+    name: string;
+    isActive: boolean;
+  };
+  counts: {
+    students: number;
+    teachers: number;
+    courses: number;
+    subjects: number;
+    rooms: number;
+  };
 }
 
 export interface ApiResponse<T> {

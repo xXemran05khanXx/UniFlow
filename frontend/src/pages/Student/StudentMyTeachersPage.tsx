@@ -211,7 +211,7 @@ const StudentMyTeachersPage: React.FC = () => {
                 </option>
                 {teachers.map((teacher) => (
                   <option key={teacher.id} value={teacher.id}>
-                    {teacher.name} - {teacher.department}
+                    {teacher.name} - {typeof teacher.department === 'object' ? (teacher.department as any)?.name || (teacher.department as any)?.code : teacher.department}
                   </option>
                 ))}
               </select>
@@ -233,7 +233,7 @@ const StudentMyTeachersPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-2xl font-bold text-gray-800">{selectedTeacher.name}</h3>
-                    <p className="text-gray-600">{selectedTeacher.designation}, {selectedTeacher.department}</p>
+                    <p className="text-gray-600">{selectedTeacher.designation}, {typeof selectedTeacher.department === 'object' ? (selectedTeacher.department as any)?.name || (selectedTeacher.department as any)?.code : selectedTeacher.department}</p>
                     <p className="text-gray-500">{selectedTeacher.email}</p>
                   </div>
                   <div className="text-right">

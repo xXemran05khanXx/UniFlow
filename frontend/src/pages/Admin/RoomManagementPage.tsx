@@ -14,6 +14,9 @@ import roomManagementService, {
   RoomStats, 
   PaginatedRooms 
 } from '../../services/roomManagementService';
+import { departmentService } from '../../services/departmentService';
+import { Department } from '../../types';
+import { getDepartmentCode, DepartmentType } from '../../constants';
 import { BarChart2, BookPlus, Building2, Users, Building, Plus, Download, SquareChartGantt } from 'lucide-react';
 
 // Constants
@@ -40,14 +43,7 @@ const ROOM_TYPES = [
   { value: 'other', label: 'Other' }
 ];
 
-const DEPARTMENTS = [
-  'Computer Science',
-  'Information Technology',
-  'Data Science',
-  'Artificial Intelligence & Machine Learning',
-  'Mechanical Engineering',
-  'Civil Engineering'
-];
+// Departments will be fetched from database
 
 const FEATURES = [
   'Air Conditioning',
@@ -70,6 +66,7 @@ const EQUIPMENT_CONDITIONS = [
 const RoomManagementPage: React.FC = () => {
   // State management
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [stats, setStats] = useState<RoomStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +98,7 @@ const RoomManagementPage: React.FC = () => {
     floor: 1,
     capacity: 30,
     type: 'classroom',
-    department: '',
+    department: undefined, 
     features: [],
     equipment: [],
     accessibility: {
@@ -168,6 +165,23 @@ const RoomManagementPage: React.FC = () => {
     }
   }, []);
 
+  /**
+   * Load departments from database
+   */
+  const loadDepartments = useCallback(async () => {
+    try {
+      console.log('Loading departments...');
+      // Get all departments (not just active ones)
+      const depts = await departmentService.getAllDepartments();
+      console.log('Departments loaded:', depts);
+      setDepartments(depts);
+    } catch (err) {
+      console.error('Error loading departments:', err);
+      // Fallback to empty array if fetch fails
+      setDepartments([]);
+    }
+  }, []);
+
   // Load data on component mount and when dependencies change
   useEffect(() => {
     loadRooms();
@@ -176,6 +190,10 @@ const RoomManagementPage: React.FC = () => {
   useEffect(() => {
     loadStats();
   }, [loadStats]);
+
+  useEffect(() => {
+    loadDepartments();
+  }, [loadDepartments]);
 
   /**
    * Handle search input change
@@ -279,12 +297,18 @@ const RoomManagementPage: React.FC = () => {
       setLoading(true);
       setError(null);
       setSuccess(null);
+
+      // Prepare room data with department code conversion
+      const roomData = {
+        ...roomForm,
+        department: roomForm.department ? getDepartmentCode(roomForm.department as string) as DepartmentType : undefined
+      };
       
       if (editingRoom) {
-        await roomManagementService.updateRoom(editingRoom._id!, roomForm);
+        await roomManagementService.updateRoom(editingRoom._id!, roomData);
         setSuccess('Room updated successfully');
       } else {
-        await roomManagementService.createRoom(roomForm as Omit<Room, '_id' | 'createdAt' | 'updatedAt'>);
+        await roomManagementService.createRoom(roomData as Omit<Room, '_id' | 'createdAt' | 'updatedAt'>);
         setSuccess('Room created successfully');
       }
       
@@ -852,8 +876,8 @@ const RoomManagementPage: React.FC = () => {
                 aria-label="Filter by department"
               >
                 <option value="">All Departments</option>
-                {DEPARTMENTS.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
+                {departments.map(dept => (
+                  <option key={dept._id} value={dept._id}>{dept.name} ({dept.code})</option>
                 ))}
               </select>
             </div>
@@ -1069,9 +1093,17 @@ const RoomManagementPage: React.FC = () => {
                   aria-label="Select department"
                 >
                   <option value="">No specific department</option>
-                  {DEPARTMENTS.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
+                  {departments && departments.length > 0 ? (
+                    departments.map(dept => (
+                      <option key={dept._id} value={dept.name}>{dept.name} ({dept.code})</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="Information Technology">Information Technology (IT)</option>
+                      <option value="Computer Science">Computer Science (CS)</option>
+                      <option value="First Year Engineering">First Year Engineering (FE)</option>
+                    </>
+                  )}
                 </select>
               </div>
               
@@ -1436,7 +1468,7 @@ const RoomManagementPage: React.FC = () => {
                   <div><strong>Type:</strong> {showRoomDetails.type.replace('_', ' ')}</div>
                   <div><strong>Capacity:</strong> {showRoomDetails.capacity}</div>
                   {showRoomDetails.department && (
-                    <div><strong>Department:</strong> {showRoomDetails.department}</div>
+                    <div><strong>Department:</strong> {typeof showRoomDetails.department === 'object' ? (showRoomDetails.department as any)?.name || (showRoomDetails.department as any)?.code : showRoomDetails.department}</div>
                   )}
                 </div>
               </div>

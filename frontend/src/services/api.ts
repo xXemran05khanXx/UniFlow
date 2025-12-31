@@ -39,18 +39,42 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Only handle 401 errors with redirect logic
-    if (error.response?.status === 401) {
+    // Get error message from various possible locations in the response
+    const responseData = error.response?.data;
+    const errorMessage = responseData?.message || 
+                         responseData?.error?.message || 
+                         (typeof responseData?.error === 'string' ? responseData?.error : '') || 
+                         '';
+    
+    const isTokenExpired = errorMessage.toLowerCase().includes('token expired') || 
+                           errorMessage.toLowerCase().includes('jwt expired');
+    
+    console.log('🔍 API Error:', { 
+      status: error.response?.status, 
+      message: errorMessage, 
+      isTokenExpired,
+      url: error.config?.url 
+    });
+    
+    // Handle 401 errors (unauthorized) and token expiration
+    if (error.response?.status === 401 || isTokenExpired) {
       // Don't redirect on login/register failures - let the component handle it
       const isAuthEndpoint = error.config?.url?.includes('/auth/login') || 
                              error.config?.url?.includes('/auth/register');
       
       if (!isAuthEndpoint) {
+        // Clear auth data
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        
         // Only redirect if not already on login page
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        if (!window.location.pathname.includes('/login')) {
+          console.log('🔐 Token expired or unauthorized - redirecting to login');
+          // Use replace to prevent back button issues and setTimeout to ensure it executes
+          setTimeout(() => {
+            window.location.replace('/login');
+          }, 100);
+          return new Promise(() => {}); // Return a never-resolving promise to stop further execution
         }
       }
     }

@@ -365,7 +365,7 @@ const AdminMyTeachersPage: React.FC = () => {
                           />
                           <div className="flex-1">
                             <div className="font-medium text-gray-900">{teacher.name}</div>
-                            <div className="text-sm text-gray-500">{teacher.department}</div>
+                            <div className="text-sm text-gray-500">{typeof teacher.department === 'object' ? (teacher.department as any)?.name || (teacher.department as any)?.code : teacher.department}</div>
                           </div>
                         </label>
                       ))}
@@ -513,7 +513,7 @@ const AdminMyTeachersPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{teacher.name}</h3>
-                    <p className="text-sm text-gray-600">{teacher.department}</p>
+                    <p className="text-sm text-gray-600">{typeof teacher.department === 'object' ? (teacher.department as any)?.name || (teacher.department as any)?.code : teacher.department}</p>
                   </div>
                 </div>
                 <p className="text-sm text-gray-600 mb-2">{teacher.email}</p>

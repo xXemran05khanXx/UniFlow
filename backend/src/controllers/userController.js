@@ -1,8 +1,10 @@
 const asyncHandler = require('../middleware/asyncHandler');
+const { getUserStatsFromDB } = require("../services/userStatsService");
 const User = require('../models/User');
-const Teacher = require('../models/Teacher');
+const Department = require('../models/Department');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 
 // @desc    Get all users with filtering and pagination
 // @route   GET /api/users
@@ -46,12 +48,26 @@ const getUsers = asyncHandler(async (req, res) => {
   sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
   try {
-    const users = await User.find(query)
+    // Fetch users without populate first to avoid cast errors
+    let users = await User.find(query)
       .select('-password -resetPasswordToken -emailVerificationToken')
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
+
+    // Manually populate department for each user
+    const Department = require('../models/Department');
+    for (let user of users) {
+      if (user.department && mongoose.Types.ObjectId.isValid(user.department)) {
+        try {
+          const dept = await Department.findById(user.department).select('code name').lean();
+          user.department = dept;
+        } catch (err) {
+          console.warn(`Could not populate department for user ${user.email}:`, err.message);
+        }
+      }
+    }
 
     const total = await User.countDocuments(query);
     const pages = Math.ceil(total / parseInt(limit));
@@ -80,14 +96,26 @@ const getUsers = asyncHandler(async (req, res) => {
 // @access  Private (Admin or own profile)
 const getUser = asyncHandler(async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .select('-password -resetPasswordToken -emailVerificationToken');
+    let user = await User.findById(req.params.id)
+      .select('-password -resetPasswordToken -emailVerificationToken')
+      .lean();
 
     if (!user) {
       return res.status(404).json({
         success: false,
         error: 'User not found'
       });
+    }
+
+    // Manually populate department if it's a valid ObjectId
+    if (user.department && mongoose.Types.ObjectId.isValid(user.department)) {
+      try {
+        const Department = require('../models/Department');
+        const dept = await Department.findById(user.department).select('code name').lean();
+        user.department = dept;
+      } catch (err) {
+        console.warn(`Could not populate department for user ${user.email}:`, err.message);
+      }
     }
 
     res.status(200).json({
@@ -113,8 +141,18 @@ const createUser = asyncHandler(async (req, res) => {
       email,
       password,
       role = 'student',
+      department,
+      semester,
       isActive = true,
-      profile = {}
+      profile = {},
+      // Teacher-specific fields
+      employeeId,
+      designation,
+      qualifications = [],
+      staffRoom,
+      workload,
+      availability = [],
+      allowedDepartments = []
     } = req.body;
 
     // Validation
@@ -123,6 +161,65 @@ const createUser = asyncHandler(async (req, res) => {
         success: false,
         error: 'Please provide name, email, and password'
       });
+    }
+
+    // Validate department for students and teachers
+    if ((role === 'student' || role === 'teacher') && !department) {
+      return res.status(400).json({
+        success: false,
+        error: `Department is required for ${role}s`
+      });
+    }
+
+    // Validate semester for students
+    if (role === 'student' && !semester) {
+      return res.status(400).json({
+        success: false,
+        error: 'Semester is required for students'
+      });
+    }
+
+    // Validate teacher-specific fields
+    if (role === 'teacher') {
+      if (!employeeId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Employee ID is required for teachers'
+        });
+      }
+      if (!designation) {
+        return res.status(400).json({
+          success: false,
+          error: 'Designation is required for teachers'
+        });
+      }
+    }
+
+    // Convert department name to ObjectId if department is provided
+    let departmentId = null;
+    if (department) {
+      // Check if department is already an ObjectId
+      if (department.match(/^[0-9a-fA-F]{24}$/)) {
+        departmentId = department;
+      } else {
+        // Escape special regex characters
+        const escapedDept = department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Find department by name or code (case-insensitive)
+        const deptDoc = await Department.findOne({
+          $or: [
+            { name: { $regex: new RegExp(`^${escapedDept}$`, 'i') } },
+            { code: { $regex: new RegExp(`^${escapedDept}$`, 'i') } }
+          ]
+        });
+        if (!deptDoc) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid department: ${department}`
+          });
+        }
+        departmentId = deptDoc._id;
+      }
     }
 
     // Check if user already exists
@@ -134,15 +231,11 @@ const createUser = asyncHandler(async (req, res) => {
       });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create user
-    const user = await User.create({
+    // Create user object (password will be hashed by pre-save hook)
+    const userData = {
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      password: hashedPassword,
+      password: password,
       role,
       isActive,
       profile: {
@@ -154,10 +247,74 @@ const createUser = asyncHandler(async (req, res) => {
         website: profile.website?.trim() || ''
       },
       isEmailVerified: true // Auto-verify for admin-created users
-    });
+    };
+
+    // Add department if provided (for students and teachers)
+    if (departmentId) {
+      userData.department = departmentId;
+    }
+
+    // Add semester if provided (for students)
+    if (semester) {
+      userData.semester = semester;
+    }
+
+    // Add teacher-specific fields if role is teacher
+    if (role === 'teacher') {
+      userData.employeeId = employeeId;
+      userData.designation = designation;
+      if (qualifications && qualifications.length > 0) {
+        userData.qualifications = qualifications;
+      }
+      if (staffRoom) {
+        userData.staffRoom = staffRoom;
+      }
+      if (workload) {
+        userData.workload = workload;
+      }
+      if (availability && availability.length > 0) {
+        userData.availability = availability;
+      }
+      if (allowedDepartments && allowedDepartments.length > 0) {
+        // Convert department names to ObjectIds if needed
+        const allowedDeptIds = [];
+        for (const dept of allowedDepartments) {
+          if (dept.match && dept.match(/^[0-9a-fA-F]{24}$/)) {
+            allowedDeptIds.push(dept);
+          } else {
+            const escapedDept = dept.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const deptDoc = await Department.findOne({
+              $or: [
+                { name: { $regex: new RegExp(`^${escapedDept}$`, 'i') } },
+                { code: { $regex: new RegExp(`^${escapedDept}$`, 'i') } }
+              ]
+            });
+            if (deptDoc) {
+              allowedDeptIds.push(deptDoc._id);
+            }
+          }
+        }
+        userData.allowedDepartments = allowedDeptIds;
+      }
+    }
+
+    // Create user
+    const user = await User.create(userData);
 
     // Remove password from response
-    const userResponse = await User.findById(user._id).select('-password');
+    let userResponse = await User.findById(user._id)
+      .select('-password')
+      .lean();
+
+    // Manually populate department if it's a valid ObjectId
+    if (userResponse.department && mongoose.Types.ObjectId.isValid(userResponse.department)) {
+      try {
+        const dept = await Department.findById(userResponse.department).select('code name').lean();
+        userResponse.department = dept;
+      } catch (err) {
+        console.warn(`Could not populate department:`, err.message);
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -181,6 +338,8 @@ const updateUser = asyncHandler(async (req, res) => {
       name,
       email,
       role,
+      department,
+      semester,
       isActive,
       profile = {}
     } = req.body;
@@ -208,11 +367,42 @@ const updateUser = asyncHandler(async (req, res) => {
       }
     }
 
+    // Convert department name to ObjectId if department is provided
+    let departmentId = undefined;
+    if (department !== undefined) {
+      if (department === null || department === '') {
+        departmentId = null;
+      } else if (department.match(/^[0-9a-fA-F]{24}$/)) {
+        // Already an ObjectId
+        departmentId = department;
+      } else {
+        // Escape special regex characters
+        const escapedDept = department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Find department by name or code (case-insensitive)
+        const deptDoc = await Department.findOne({
+          $or: [
+            { name: { $regex: new RegExp(`^${escapedDept}$`, 'i') } },
+            { code: { $regex: new RegExp(`^${escapedDept}$`, 'i') } }
+          ]
+        });
+        if (!deptDoc) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid department: ${department}`
+          });
+        }
+        departmentId = deptDoc._id;
+      }
+    }
+
     // Update fields
     const updateData = {};
     if (name) updateData.name = name.trim();
     if (email) updateData.email = email.toLowerCase().trim();
     if (role !== undefined) updateData.role = role;
+    if (departmentId !== undefined) updateData.department = departmentId;
+    if (semester !== undefined) updateData.semester = semester;
     if (isActive !== undefined) updateData.isActive = isActive;
 
     // Update profile fields
@@ -228,11 +418,23 @@ const updateUser = asyncHandler(async (req, res) => {
       };
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
+    let updatedUser = await User.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
-    ).select('-password');
+    )
+      .select('-password')
+      .lean();
+
+    // Manually populate department if it's a valid ObjectId
+    if (updatedUser.department && mongoose.Types.ObjectId.isValid(updatedUser.department)) {
+      try {
+        const dept = await Department.findById(updatedUser.department).select('code name').lean();
+        updatedUser.department = dept;
+      } catch (err) {
+        console.warn(`Could not populate department:`, err.message);
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -267,11 +469,6 @@ const deleteUser = asyncHandler(async (req, res) => {
         success: false,
         error: 'Cannot delete your own account'
       });
-    }
-
-    // Delete associated Teacher record if the user is a teacher
-    if (user.role === 'teacher') {
-      await Teacher.deleteOne({ user: req.params.id });
     }
 
     await User.findByIdAndDelete(req.params.id);
@@ -437,13 +634,27 @@ const getUserStats = asyncHandler(async (req, res) => {
     const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ isActive: true });
     const inactiveUsers = await User.countDocuments({ isActive: false });
-    const adminUsers = await User.countDocuments({ role: 'admin' });
-    const teacherUsers = await User.countDocuments({ role: 'teacher' });
-    const studentUsers = await User.countDocuments({ role: 'student' });
-    
+
+    const adminUsers = await User.countDocuments({ role: "admin" });
+    const teacherUsers = await User.countDocuments({ role: "teacher" });
+    const studentUsers = await User.countDocuments({ role: "student" });
+
+    const verifiedUsers = await User.countDocuments({ isEmailVerified: true });
+
+    // Group by department
+    const usersByDepartment = await User.aggregate([
+      { $group: { _id: "$department", count: { $sum: 1 } } }
+    ]);
+
+    // Group by semester
+    const usersBySemester = await User.aggregate([
+      { $group: { _id: "$semester", count: { $sum: 1 } } }
+    ]);
+
     // Recent signups (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     const recentSignups = await User.countDocuments({
       createdAt: { $gte: thirtyDaysAgo }
     });
@@ -454,20 +665,28 @@ const getUserStats = asyncHandler(async (req, res) => {
         totalUsers,
         activeUsers,
         inactiveUsers,
-        adminUsers,
-        teacherUsers,
-        studentUsers,
+        verifiedUsers,
+
+        roles: {
+          admins: adminUsers,
+          teachers: teacherUsers,
+          students: studentUsers
+        },
+
+        usersByDepartment,
+        usersBySemester,
         recentSignups
       }
     });
   } catch (error) {
-    console.error('Error fetching user stats:', error);
+    console.error("Error fetching user statistics:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch user statistics'
+      error: "Failed to fetch user statistics"
     });
   }
 });
+
 
 // @desc    Bulk update users
 // @route   PATCH /api/users/bulk-update
@@ -533,17 +752,6 @@ const bulkDeleteUsers = asyncHandler(async (req, res) => {
         success: false,
         error: 'Cannot delete your own account'
       });
-    }
-
-    // Find users to check which ones are teachers
-    const usersToDelete = await User.find({ _id: { $in: userIds } });
-    const teacherUserIds = usersToDelete
-      .filter(user => user.role === 'teacher')
-      .map(user => user._id);
-
-    // Delete associated Teacher records for users with teacher role
-    if (teacherUserIds.length > 0) {
-      await Teacher.deleteMany({ user: { $in: teacherUserIds } });
     }
 
     const result = await User.deleteMany({

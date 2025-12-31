@@ -277,7 +277,7 @@ const StudentTimetablePage: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">My Timetable</h1>
           <p className="text-gray-600 mt-1">
-            {user?.department} - Semester {user?.semester}
+            {typeof user?.department === 'string' ? user.department : user?.department ? `${user.department.code} - ${user.department.name}` : 'N/A'} - Semester {user?.semester || 'N/A'}
           </p>
         </div>
         

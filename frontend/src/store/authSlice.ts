@@ -79,6 +79,16 @@ export const getProfile = createAsyncThunk(
         return rejectWithValue(response.error || 'Failed to get profile');
       }
     } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || '';
+      const isTokenExpired = errorMessage.toLowerCase().includes('token expired') || 
+                             errorMessage.toLowerCase().includes('jwt expired');
+      
+      // Clear auth data if token expired or unauthorized
+      if (error.response?.status === 401 || isTokenExpired) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+      
       return rejectWithValue(error.response?.data?.error || 'Failed to get profile');
     }
   }

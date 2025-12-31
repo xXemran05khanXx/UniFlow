@@ -44,6 +44,8 @@ export interface User {
   name: string;
   email: string;
   role: 'student' | 'teacher' | 'admin';
+  department?: string | { _id: string; name: string; code: string };
+  semester?: number;
   isActive: boolean;
   isEmailVerified: boolean;
   avatar?: string;
@@ -77,7 +79,12 @@ export interface UserForm {
   email: string;
   password?: string;
   role: string;
+  department?: string;
+  semester?: number;
   isActive: boolean;
+  // Teacher-specific fields
+  employeeId?: string;
+  designation?: string;
   profile: {
     firstName: string;
     lastName: string;
@@ -102,11 +109,20 @@ export interface UserStats {
   totalUsers: number;
   activeUsers: number;
   inactiveUsers: number;
-  adminUsers: number;
-  teacherUsers: number;
-  studentUsers: number;
+  verifiedUsers: number;
+
+  roles: {
+    admins: number;
+    teachers: number;
+    students: number;
+  };
+
+  usersByDepartment: Array<{ _id: string; count: number }>;
+  usersBySemester: Array<{ _id: number; count: number }>;
+
   recentSignups: number;
 }
+
 
 export const userManagementService = {
   // User CRUD operations

@@ -22,6 +22,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { userManagementService, User, UserForm, UserFilters, UserStats } from '../../services/userManagementService';
+import { DEPARTMENT_LIST, getDepartmentCode } from '../../constants';
 
 const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -54,7 +55,11 @@ const UserManagementPage: React.FC = () => {
     email: '',
     password: '',
     role: 'student',
+    department: '',
+    semester: undefined,
     isActive: true,
+    employeeId: '',
+    designation: '',
     profile: {
       firstName: '',
       lastName: '',
@@ -110,14 +115,22 @@ const UserManagementPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await userManagementService.createUser(userForm);
+      const userData = {
+        ...userForm,
+        department: userForm.department ? getDepartmentCode(userForm.department) : undefined
+      };
+      await userManagementService.createUser(userData);
       showMessage('success', 'User created successfully');
       setUserForm({
         name: '',
         email: '',
         password: '',
         role: 'student',
+        department: '',
+        semester: undefined,
         isActive: true,
+        employeeId: '',
+        designation: '',
         profile: {
           firstName: '',
           lastName: '',
@@ -143,7 +156,11 @@ const UserManagementPage: React.FC = () => {
 
     setLoading(true);
     try {
-      await userManagementService.updateUser(editingUser._id!, userForm);
+      const userData = {
+        ...userForm,
+        department: userForm.department ? getDepartmentCode(userForm.department) : undefined
+      };
+      await userManagementService.updateUser(editingUser._id!, userData);
       showMessage('success', 'User updated successfully');
       setEditingUser(null);
       setShowAddForm(false);
@@ -281,6 +298,8 @@ const UserManagementPage: React.FC = () => {
       name: user.name,
       email: user.email,
       role: user.role,
+      department: typeof user.department === 'string' ? user.department : user.department?.name || '',
+      semester: user.semester,
       isActive: user.isActive,
       profile: {
         firstName: user.profile?.firstName || '',
@@ -301,6 +320,8 @@ const UserManagementPage: React.FC = () => {
       email: '',
       password: '',
       role: 'student',
+      department: '',
+      semester: undefined,
       isActive: true,
       profile: {
         firstName: '',
@@ -343,7 +364,7 @@ const UserManagementPage: React.FC = () => {
             <Shield className="h-8 w-8 text-purple-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Admins</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.adminUsers}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.roles.admins}</p>
             </div>
           </div>
         </Card>
@@ -353,7 +374,7 @@ const UserManagementPage: React.FC = () => {
             <Users className="h-8 w-8 text-indigo-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Teachers</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.teacherUsers}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.roles.teachers}</p>
             </div>
           </div>
         </Card>
@@ -487,39 +508,72 @@ const UserManagementPage: React.FC = () => {
                 })}
               />
 
-              <Input
-                label="Location"
-                value={userForm.profile.location}
-                onChange={(e) => setUserForm({ 
-                  ...userForm, 
-                  profile: { ...userForm.profile, location: e.target.value }
-                })}
-              />
-
-              <div className="md:col-span-2">
-                <Input
-                  label="Bio"
-                  value={userForm.profile.bio}
-                  onChange={(e) => setUserForm({ 
-                    ...userForm, 
-                    profile: { ...userForm.profile, bio: e.target.value }
-                  })}
-                  placeholder="User bio (max 500 characters)"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Department {(userForm.role === 'student' || userForm.role === 'teacher') && '*'}
+                </label>
+                <select
+                  value={userForm.department || ''}
+                  onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required={userForm.role === 'student' || userForm.role === 'teacher'}
+                >
+                  <option value="">Select Department</option>
+                  {DEPARTMENT_LIST.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
               </div>
 
-              <div className="md:col-span-2">
-                <Input
-                  label="Website"
-                  type="url"
-                  value={userForm.profile.website}
-                  onChange={(e) => setUserForm({ 
-                    ...userForm, 
-                    profile: { ...userForm.profile, website: e.target.value }
-                  })}
-                  placeholder="https://example.com"
-                />
-              </div>
+              {(userForm.role === 'student' || userForm.role === 'teacher') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Semester {userForm.role === 'student' && '*'}
+                  </label>
+                  <select
+                    value={userForm.semester || ''}
+                    onChange={(e) => setUserForm({ ...userForm, semester: e.target.value ? Number(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required={userForm.role === 'student'}
+                  >
+                    <option value="">Select Semester</option>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
+                      <option key={sem} value={sem}>Semester {sem}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Teacher-specific fields */}
+              {userForm.role === 'teacher' && (
+                <>
+                  <Input
+                    label="Employee ID *"
+                    value={userForm.employeeId || ''}
+                    onChange={(e) => setUserForm({ ...userForm, employeeId: e.target.value })}
+                    required
+                    placeholder="e.g., EMP001"
+                  />
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Designation *
+                    </label>
+                    <select
+                      value={userForm.designation || ''}
+                      onChange={(e) => setUserForm({ ...userForm, designation: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Select Designation</option>
+                      <option value="Professor">Professor</option>
+                      <option value="Associate Professor">Associate Professor</option>
+                      <option value="Assistant Professor">Assistant Professor</option>
+                      <option value="Lecturer">Lecturer</option>
+                    </select>
+                  </div>
+                </>
+              )}
 
               <div className="md:col-span-2">
                 <label className="flex items-center">

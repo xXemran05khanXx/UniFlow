@@ -6,10 +6,10 @@ const path = require('path');
 const { auth } = require('../middleware/auth');
 
 // Import MongoDB models
-const Teacher = require('../models/Teacher');
 const Course = require('../models/Course');
 const Room = require('../models/Room');
 const User = require('../models/User');
+const Department = require('../models/Department');
 
 const router = express.Router();
 
@@ -30,14 +30,29 @@ const upload = multer({
   }
 });
 
+// Debug endpoint to check departments
+router.get('/debug/departments', auth, async (req, res) => {
+  try {
+    const departments = await Department.find({});
+    res.json({
+      success: true,
+      count: departments.length,
+      departments: departments.map(d => ({ id: d._id, code: d.code, name: d.name }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ===== TEACHER ROUTES =====
 
 // Get all teachers
 router.get('/teachers', auth, async (req, res) => {
   try {
-    const teachers = await Teacher.find()
-      .populate('user', 'name email')
-      .select('-__v')
+    const teachers = await User.find({ role: 'teacher' })
+      .select('-password -resetPasswordToken -emailVerificationToken -__v')
+      .populate('department', 'code name')
+      .populate('allowedDepartments', 'code name')
       .sort({ createdAt: -1 });
     
     res.json({
@@ -60,6 +75,7 @@ router.post('/teachers', auth, async (req, res) => {
     const {
       name,
       email,
+      password = 'teacher123', // Default password
       department,
       designation,
       employeeId,
@@ -67,51 +83,79 @@ router.post('/teachers', auth, async (req, res) => {
       staffRoom,
       maxHoursPerWeek,
       minHoursPerWeek,
-      experience
+      allowedDepartments
     } = req.body;
 
     // Validate required fields
-    if (!name || !email || !department || !employeeId) {
+    if (!name || !email || !department || !employeeId || !designation) {
       return res.status(400).json({
         success: false,
-        error: 'Name, email, department, and employee ID are required'
+        error: 'Name, email, department, employee ID, and designation are required'
       });
     }
 
-    // Check if user with this email already exists
-    let user = await User.findOne({ email });
+    // Check if user with this email or employeeId already exists
+    const existingUser = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { employeeId }]
+    });
     
-    if (!user) {
-      // Create new user for the teacher
-      user = new User({
-        name,
-        email,
-        role: 'teacher',
-        password: 'temp123', // Teacher should change this on first login
-        isActive: true
-      });
-      await user.save();
-    }
-
-    // Check if teacher with this employee ID already exists
-    const existingTeacher = await Teacher.findOne({ employeeId });
-    if (existingTeacher) {
+    if (existingUser) {
       return res.status(400).json({
         success: false,
-        error: 'Teacher with this employee ID already exists'
+        error: 'User with this email or employee ID already exists'
       });
     }
 
-    const newTeacher = new Teacher({
-      user: user._id,
-      employeeId,
+    // Convert department name to ObjectId
+    let departmentId = department;
+    if (!department.match(/^[0-9a-fA-F]{24}$/)) {
+      // Debug: Log what we're searching for
+      console.log('🔍 Searching for department:', department);
+      
+      // First try exact match on code (most common case: IT, CS, FE)
+      let deptDoc = await Department.findOne({ code: department.toUpperCase() });
+      
+      // If not found by code, try by name
+      if (!deptDoc) {
+        deptDoc = await Department.findOne({ 
+          name: { $regex: new RegExp(`^${department}$`, 'i') }
+        });
+      }
+      
+      // Debug: Log available departments
+      if (!deptDoc) {
+        const allDepts = await Department.find({});
+        console.log('📋 All departments in DB:', allDepts.map(d => ({ code: d.code, name: d.name })));
+        
+        const deptList = allDepts.length > 0 
+          ? allDepts.map(d => `${d.code} (${d.name})`).join(', ')
+          : 'No departments found in database. Please run seed-departments.js script.';
+        return res.status(400).json({
+          success: false,
+          error: `Invalid department: ${department}. Valid departments are: ${deptList}`
+        });
+      }
+      
+      console.log('✅ Found department:', deptDoc.code, deptDoc.name);
+      departmentId = deptDoc._id;
+    }
+
+    // Hash password
+    const bcrypt = require('bcryptjs');
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create teacher user
+    const newTeacher = new User({
       name,
-      department,
-      designation: designation || 'Assistant Professor',
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role: 'teacher',
+      department: departmentId,
+      employeeId,
+      designation,
       qualifications: Array.isArray(qualifications) ? qualifications : (qualifications ? [qualifications] : []),
-      contactInfo: {
-        staffRoom: staffRoom || ''
-      },
+      staffRoom: staffRoom || '',
       workload: {
         maxHoursPerWeek: parseInt(maxHoursPerWeek) || 18,
         minHoursPerWeek: parseInt(minHoursPerWeek) || 8
@@ -122,18 +166,25 @@ router.post('/teachers', auth, async (req, res) => {
         { dayOfWeek: 'Wednesday', startTime: '09:00', endTime: '17:00' },
         { dayOfWeek: 'Thursday', startTime: '09:00', endTime: '17:00' },
         { dayOfWeek: 'Friday', startTime: '09:00', endTime: '17:00' }
-      ]
+      ],
+      allowedDepartments: allowedDepartments || [],
+      isActive: true,
+      isEmailVerified: true
     });
 
     await newTeacher.save();
 
-    // Populate user data for response
-    await newTeacher.populate('user', 'name email');
+    // Populate department for response
+    await newTeacher.populate('department', 'code name');
+
+    // Remove password from response
+    const teacherResponse = newTeacher.toObject();
+    delete teacherResponse.password;
 
     res.json({
       success: true,
       message: 'Teacher added successfully',
-      data: newTeacher
+      data: teacherResponse
     });
   } catch (error) {
     console.error('Error adding teacher:', error);
@@ -247,6 +298,7 @@ router.get('/courses', auth, async (req, res) => {
   try {
     const courses = await Course.find()
       .select('-__v')
+      .populate('department', 'code name')
       .sort({ department: 1, courseCode: 1 });
     
     res.json({
@@ -287,6 +339,25 @@ router.post('/courses', auth, async (req, res) => {
       });
     }
 
+    // Convert department code/name to ObjectId
+    let departmentId = department;
+    if (department && !department.match(/^[0-9a-fA-F]{24}$/)) {
+      const escapedDept = department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const deptDoc = await Department.findOne({
+        $or: [
+          { name: { $regex: new RegExp(`^${escapedDept}$`, 'i') } },
+          { code: { $regex: new RegExp(`^${escapedDept}$`, 'i') } }
+        ]
+      });
+      if (!deptDoc) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid department: ${department}`
+        });
+      }
+      departmentId = deptDoc._id;
+    }
+
     // Check if course already exists
     const existingCourse = await Course.findOne({ courseCode: courseCode.toUpperCase() });
     if (existingCourse) {
@@ -299,7 +370,7 @@ router.post('/courses', auth, async (req, res) => {
     const newCourse = new Course({
       courseCode: courseCode.toUpperCase(),
       courseName,
-      department,
+      department: departmentId,
       semester: parseInt(semester) || 1,
       courseType: courseType || 'Theory',
       credits: parseInt(credits),
@@ -325,6 +396,17 @@ router.post('/courses', auth, async (req, res) => {
 
 // ===== CSV UPLOAD ROUTES =====
 
+// Helper function to clean BOM and whitespace from CSV keys
+const cleanCsvRow = (row) => {
+  const cleaned = {};
+  for (const key of Object.keys(row)) {
+    // Remove BOM character (\ufeff) and trim whitespace from keys
+    const cleanKey = key.replace(/^\ufeff/, '').trim().toLowerCase();
+    cleaned[cleanKey] = row[key];
+  }
+  return cleaned;
+};
+
 // Upload teachers CSV
 router.post('/teachers/upload', auth, upload.single('file'), async (req, res) => {
   try {
@@ -335,89 +417,145 @@ router.post('/teachers/upload', auth, upload.single('file'), async (req, res) =>
       });
     }
 
-    const results = [];
+    console.log('📁 Processing uploaded file:', req.file.path);
+
+    // Parse CSV file into array using Promise
+    const results = await new Promise((resolve, reject) => {
+      const data = [];
+      fs.createReadStream(req.file.path)
+        .pipe(csv())
+        .on('data', (row) => {
+          // Clean BOM and whitespace from keys
+          const cleanedRow = cleanCsvRow(row);
+          console.log('📄 CSV Row (cleaned):', cleanedRow);
+          data.push(cleanedRow);
+        })
+        .on('end', () => {
+          console.log(`✅ CSV parsing complete. Found ${data.length} rows.`);
+          resolve(data);
+        })
+        .on('error', (error) => {
+          console.error('❌ CSV parsing error:', error);
+          reject(error);
+        });
+    });
+
     const errors = [];
     let processed = 0;
     let successful = 0;
 
-    // Parse CSV
-    fs.createReadStream(req.file.path)
-      .pipe(csv())
-      .on('data', (data) => {
-        results.push(data);
-      })
-      .on('end', async () => {
-        // Process each teacher record
-        for (const teacherData of results) {
-          processed++;
-          try {
-            const { name, email, department, employeeId, qualification, specialization, maxHours, experience } = teacherData;
+    // Process each teacher record
+    for (const teacherData of results) {
+      processed++;
+      try {
+        // All keys are now lowercase after cleaning
+        const name = teacherData.name;
+        const email = teacherData.email;
+        const password = teacherData.password;
+        const deptCode = teacherData.department;
+        const semester = teacherData.semester;
+        const employeeId = teacherData.employeeid; // lowercase after cleaning
+        const designation = teacherData.designation;
+        const qualifications = teacherData.qualifications;
+        const staffRoom = teacherData.staffroom; // lowercase after cleaning
+        const maxHoursPerWeek = teacherData.maxhoursperweek; // lowercase after cleaning
+        const minHoursPerWeek = teacherData.minhoursperweek; // lowercase after cleaning
 
-            if (!name || !email || !department || !employeeId) {
-              errors.push(`Row ${processed}: Missing required fields`);
-              continue;
-            }
+        console.log(`👤 Processing row ${processed}:`, { name, email, deptCode, semester, employeeId });
 
-            // Check if user exists
-            let user = await User.findOne({ email });
-            if (!user) {
-              user = new User({
-                name,
-                email,
-                role: 'teacher',
-                password: 'temp123',
-                isActive: true
-              });
-              await user.save();
-            }
-
-            // Check if teacher exists
-            const existingTeacher = await Teacher.findOne({ employeeId });
-            if (existingTeacher) {
-              errors.push(`Row ${processed}: Teacher with employee ID ${employeeId} already exists`);
-              continue;
-            }
-
-            const newTeacher = new Teacher({
-              user: user._id,
-              employeeId,
-              title: 'lecturer',
-              department: {
-                name: department,
-                code: department.substring(0, 3).toUpperCase()
-              },
-              qualifications: qualification ? [qualification] : ['MSc'],
-              specializations: Array.isArray(specialization) ? specialization : [specialization || department],
-              workload: {
-                maxHoursPerWeek: parseInt(maxHours) || 20,
-                currentHours: 0
-              },
-              experience: {
-                totalYears: parseInt(experience) || 1,
-                teachingYears: parseInt(experience) || 1
-              }
-            });
-
-            await newTeacher.save();
-            successful++;
-          } catch (error) {
-            errors.push(`Row ${processed}: ${error.message}`);
-          }
+        if (!name || !email || !deptCode || !employeeId || !semester) {
+          errors.push(`Row ${processed}: Missing required fields (name, email, department, semester, employeeId)`);
+          console.log(`⚠️ Row ${processed}: Missing required fields`);
+          continue;
         }
 
-        // Clean up uploaded file
-        fs.unlinkSync(req.file.path);
+        // Find department by code or name
+        const escapedDept = deptCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const department = await Department.findOne({
+          $or: [
+            { name: { $regex: new RegExp(`^${escapedDept}$`, 'i') } },
+            { code: { $regex: new RegExp(`^${escapedDept}$`, 'i') } }
+          ]
+        });
+        
+        if (!department) {
+          errors.push(`Row ${processed}: Department '${deptCode}' not found`);
+          console.log(`⚠️ Row ${processed}: Department '${deptCode}' not found`);
+          continue;
+        }
 
-        res.json({
-          success: true,
-          message: `Successfully processed ${successful}/${processed} teachers`,
-          data: {
-            processed,
-            successful,
-            errors
+        console.log(`✅ Found department: ${department.name} (${department._id})`);
+
+        // Check if teacher user exists
+        const existingTeacher = await User.findOne({ 
+          $or: [{ email: email.toLowerCase() }, { employeeId }]
+        });
+        
+        if (existingTeacher) {
+          errors.push(`Row ${processed}: Teacher with email '${email}' or employee ID '${employeeId}' already exists`);
+          console.log(`⚠️ Row ${processed}: Teacher already exists`);
+          continue;
+        }
+
+        // Validate designation
+        const validDesignations = ['Professor', 'Associate Professor', 'Assistant Professor', 'Lecturer'];
+        const finalDesignation = validDesignations.includes(designation) ? designation : 'Lecturer';
+
+        // Parse qualifications (semicolon separated)
+        const qualsList = qualifications 
+          ? qualifications.split(';').map(q => q.trim()).filter(q => q) 
+          : [];
+
+        // Create new teacher user (password will be hashed by pre-save hook)
+        const newTeacher = new User({
+          name: name.trim(),
+          email: email.toLowerCase().trim(),
+          password: password || 'teacher123',
+          role: 'teacher',
+          isActive: true,
+          isEmailVerified: true,
+          employeeId: employeeId.trim(),
+          department: department._id,
+          semester: parseInt(semester),
+          designation: finalDesignation,
+          qualifications: qualsList,
+          staffRoom: staffRoom ? staffRoom.trim() : '',
+          workload: {
+            maxHoursPerWeek: parseInt(maxHoursPerWeek) || 18,
+            minHoursPerWeek: parseInt(minHoursPerWeek) || 8
           }
         });
-      });
+
+        await newTeacher.save();
+        console.log(`✅ Row ${processed}: Teacher '${name}' created successfully`);
+        successful++;
+      } catch (error) {
+        errors.push(`Row ${processed}: ${error.message}`);
+        console.error(`❌ Row ${processed}: Error -`, error.message);
+      }
+    }
+
+    // Clean up uploaded file
+    try {
+      fs.unlinkSync(req.file.path);
+    } catch (e) {
+      console.warn('Could not delete temp file:', e.message);
+    }
+
+    console.log(`📊 Final result: ${successful}/${processed} teachers created`);
+    if (errors.length > 0) {
+      console.log('📋 Errors:', errors);
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully processed ${successful}/${processed} teachers`,
+      data: {
+        processed,
+        successful,
+        errors
+      }
+    });
   } catch (error) {
     console.error('Error uploading teachers:', error);
     res.status(500).json({
@@ -431,14 +569,11 @@ router.post('/teachers/upload', auth, upload.single('file'), async (req, res) =>
 
 // Download teacher template
 router.get('/teachers/template', auth, (req, res) => {
-  const template = 'name,email,department,employeeId,designation,qualifications,staffRoom,maxHoursPerWeek,minHoursPerWeek\n' +
-                   'Dr. Rajesh Kumar,rajesh.kumar@university.edu,Computer,CS001,Professor,"PhD Computer Science, MTech Software Engineering",Room 101,18,8\n' +
-                   'Prof. Priya Sharma,priya.sharma@university.edu,IT,IT002,Associate Professor,"MSc Information Technology, BTech IT",Room 102,20,10\n' +
-                   'Dr. Amit Patel,amit.patel@university.edu,EXTC,EX003,Assistant Professor,"PhD Electronics & Communication, BE Electronics",Room 201,16,8\n' +
-                   'Prof. Sunita Verma,sunita.verma@university.edu,Mechanical,ME004,Associate Professor,"MTech Mechanical Engineering, BE Mechanical",Room 202,18,10\n' +
-                   'Dr. Vikram Singh,vikram.singh@university.edu,Civil,CE005,Professor,"PhD Civil Engineering, MTech Structural Engineering",Room 301,20,12\n' +
-                   'Ms. Kavya Reddy,kavya.reddy@university.edu,AI & DS,AI006,Assistant Professor,"MSc Data Science, BTech Computer Science",Room 401,16,8\n' +
-                   'Prof. Ramesh Gupta,ramesh.gupta@university.edu,First Year,FY007,Associate Professor,"MSc Mathematics, BSc Mathematics",Room 501,22,14';
+  const template = 'name,email,password,department,semester,employeeId,designation,qualifications,staffRoom,maxHoursPerWeek,minHoursPerWeek\n' +
+                   'Dr. Rajesh Kumar,rajesh.kumar@university.edu,password123,IT,1,EMP001,Professor,"PhD Computer Science; MTech Software Engineering",Room 101,18,8\n' +
+                   'Prof. Priya Sharma,priya.sharma@university.edu,password123,CS,2,EMP002,Associate Professor,"MSc Information Technology; BTech IT",Room 102,20,10\n' +
+                   'Dr. Amit Patel,amit.patel@university.edu,password123,FE,1,EMP003,Assistant Professor,"PhD Electronics; BE Electronics",Room 201,16,8\n' +
+                   'Ms. Kavya Reddy,kavya.reddy@university.edu,password123,IT,3,EMP004,Lecturer,"MSc Data Science; BTech Computer Science",Room 401,16,8';
   
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename=teachers_template.csv');

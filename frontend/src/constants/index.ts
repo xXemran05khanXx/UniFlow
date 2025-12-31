@@ -8,13 +8,13 @@
 export const DEPARTMENTS = {
   CS: 'Computer Science',
   IT: 'Information Technology', 
-  FE: 'First Year'
+  FE: 'First Year Engineering'
 } as const;
 
 export const DEPARTMENT_CODES = {
   'Computer Science': 'CS',
   'Information Technology': 'IT',
-  'First Year': 'FE'
+  'First Year Engineering': 'FE'
 } as const;
 
 // Array of all departments for use in dropdowns and validation
@@ -99,8 +99,21 @@ export function isOddSemester(semester: SemesterType): boolean {
  * @param departmentName - Full department name
  * @returns Department code (CS, IT, FE)
  */
-export function getDepartmentCode(departmentName: DepartmentType): string {
-  return DEPARTMENT_CODES[departmentName];
+export function getDepartmentCode(departmentName: DepartmentType | string): string {
+  // If already a code, return as is
+  if (departmentName === 'CS' || departmentName === 'IT' || departmentName === 'FE') {
+    return departmentName;
+  }
+  return DEPARTMENT_CODES[departmentName as DepartmentType] || departmentName;
+}
+
+/**
+ * Get department name from department code
+ * @param code - Department code (CS, IT, FE)
+ * @returns Full department name
+ */
+export function getDepartmentName(code: string): DepartmentType {
+  return DEPARTMENTS[code as keyof typeof DEPARTMENTS] || code as DepartmentType;
 }
 
 /**
