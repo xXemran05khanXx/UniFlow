@@ -3,7 +3,7 @@ import { Upload, Plus, Users, Building, BookOpen, Download, AlertCircle, CheckCi
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import { dataManagementService, Room, Course, Teacher } from '../../services/dataManagementService';
+import { dataManagementService, Room, Subject, Teacher } from '../../services/dataManagementService';
 import { 
   DEPARTMENT_LIST, 
   SEMESTERS, 
@@ -17,10 +17,10 @@ import {
 } from '../../constants';
 
 const DataManagementPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'teachers' | 'rooms' | 'courses'>('teachers');
+  const [activeTab, setActiveTab] = useState<'teachers' | 'rooms' | 'subjects'>('teachers');
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -49,14 +49,16 @@ const DataManagementPage: React.FC = () => {
     availabilityNotes: 'Available during college hours'
   });
 
-  const [courseForm, setCourseForm] = useState({
-    courseCode: '',
-    courseName: '',
+  const [subjectForm, setSubjectForm] = useState({
+    code: '',
+    name: '',
     department: '' as DepartmentType | '',
     semester: 1 as SemesterType,
-    courseType: '' as CourseType | '',
+    type: '' as CourseType | '',
+    year: 1,
     credits: 4,
     hoursPerWeek: 4,
+    description: '',
     topics: '',
     syllabusLink: ''
   });
@@ -73,9 +75,9 @@ const DataManagementPage: React.FC = () => {
           const roomsData = await dataManagementService.getRooms();
           setRooms(roomsData);
           break;
-        case 'courses':
-          const coursesData = await dataManagementService.getCourses();
-          setCourses(coursesData);
+        case 'subjects':
+          const subjectsData = await dataManagementService.getSubjects();
+          setSubjects(subjectsData);
           break;
       }
     } catch (error) {
@@ -148,40 +150,45 @@ const DataManagementPage: React.FC = () => {
     }
   };
 
-  const handleAddCourse = async (e: React.FormEvent) => {
+  const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await dataManagementService.addCourse({
-        courseCode: courseForm.courseCode,
-        courseName: courseForm.courseName,
-        department: getDepartmentCode(courseForm.department) as DepartmentType,
-        semester: courseForm.semester,
-        courseType: courseForm.courseType as CourseType,
-        credits: courseForm.credits,
-        hoursPerWeek: courseForm.hoursPerWeek,
+      await dataManagementService.addSubject({
+        code: subjectForm.code,
+        name: subjectForm.name,
+        department: getDepartmentCode(subjectForm.department) as DepartmentType,
+        semester: subjectForm.semester,
+        year: Math.ceil(subjectForm.semester / 2),
+        type: subjectForm.type as CourseType,
+        credits: subjectForm.credits,
+        hoursPerWeek: subjectForm.hoursPerWeek,
+        description: subjectForm.description,
+        isActive: true,
         syllabus: {
-          topics: courseForm.topics.split(',').map(t => t.trim()).filter(t => t),
-          syllabusLink: courseForm.syllabusLink
+          topics: subjectForm.topics.split(',').map(t => t.trim()).filter(t => t),
+          syllabusLink: subjectForm.syllabusLink
         }
       });
-      showMessage('success', 'Course added successfully');
-      setCourseForm({
-        courseCode: '',
-        courseName: '',
+      showMessage('success', 'Subject added successfully');
+      setSubjectForm({
+        code: '',
+        name: '',
         department: 'Computer Science' as DepartmentType,
         semester: 1 as SemesterType,
-        courseType: 'Theory' as CourseType,
+        type: 'Theory' as CourseType,
+        year: 1,
         credits: 4,
         hoursPerWeek: 4,
+        description: '',
         topics: '',
         syllabusLink: ''
       });
       setShowAddForm(false);
       fetchData();
     } catch (error: any) {
-      console.error('Add course error:', error);
-      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to add course';
+      console.error('Add subject error:', error);
+      const errorMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to add subject';
       showMessage('error', errorMessage);
     } finally {
       setLoading(false);
@@ -381,29 +388,29 @@ const DataManagementPage: React.FC = () => {
             </form>
           )}
 
-          {activeTab === 'courses' && (
-            <form onSubmit={handleAddCourse} className="space-y-4">
+          {activeTab === 'subjects' && (
+            <form onSubmit={handleAddSubject} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
-                  label="Course Code"
-                  value={courseForm.courseCode}
-                  onChange={(e) => setCourseForm({ ...courseForm, courseCode: e.target.value })}
+                  label="Subject Code"
+                  value={subjectForm.code}
+                  onChange={(e) => setSubjectForm({ ...subjectForm, code: e.target.value })}
                   placeholder="CS101"
                   required
                 />
                 <Input
-                  label="Course Name"
-                  value={courseForm.courseName}
-                  onChange={(e) => setCourseForm({ ...courseForm, courseName: e.target.value })}
+                  label="Subject Name"
+                  value={subjectForm.name}
+                  onChange={(e) => setSubjectForm({ ...subjectForm, name: e.target.value })}
                   required
                 />
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
                   <select
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={courseForm.department}
-                    onChange={(e) => setCourseForm({ ...courseForm, department: e.target.value as DepartmentType })}
-                    aria-label="Course Department"
+                    value={subjectForm.department}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, department: e.target.value as DepartmentType })}
+                    aria-label="Subject Department"
                   >
                     <option value="">Select Department</option>
                     {DEPARTMENT_LIST.map((dept) => (
@@ -415,9 +422,9 @@ const DataManagementPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Semester</label>
                   <select
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={courseForm.semester}
-                    onChange={(e) => setCourseForm({ ...courseForm, semester: parseInt(e.target.value) as SemesterType })}
-                    aria-label="Course Semester"
+                    value={subjectForm.semester}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, semester: parseInt(e.target.value) as SemesterType, year: Math.ceil(parseInt(e.target.value) / 2) })}
+                    aria-label="Subject Semester"
                   >
                     <option value="">Select Semester</option>
                     {SEMESTERS.map((sem) => (
@@ -426,12 +433,12 @@ const DataManagementPage: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Course Type</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject Type</label>
                   <select
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={courseForm.courseType}
-                    onChange={(e) => setCourseForm({ ...courseForm, courseType: e.target.value as CourseType })}
-                    aria-label="Course Type"
+                    value={subjectForm.type}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, type: e.target.value as CourseType })}
+                    aria-label="Subject Type"
                   >
                     <option value="">Select Course Type</option>
                     {COURSE_TYPE_LIST.map((type) => (
@@ -442,8 +449,8 @@ const DataManagementPage: React.FC = () => {
                 <Input
                   label="Credits"
                   type="number"
-                  value={courseForm.credits}
-                  onChange={(e) => setCourseForm({ ...courseForm, credits: parseInt(e.target.value) })}
+                    value={subjectForm.credits}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, credits: parseInt(e.target.value) })}
                   min="1"
                   max="6"
                   required
@@ -451,17 +458,23 @@ const DataManagementPage: React.FC = () => {
                 <Input
                   label="Hours per Week"
                   type="number"
-                  value={courseForm.hoursPerWeek}
-                  onChange={(e) => setCourseForm({ ...courseForm, hoursPerWeek: parseInt(e.target.value) })}
+                    value={subjectForm.hoursPerWeek}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, hoursPerWeek: parseInt(e.target.value) })}
                   min="1"
                   max="10"
                   required
                 />
+                  <Input
+                    label="Description"
+                    value={subjectForm.description}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, description: e.target.value })}
+                    placeholder="Subject overview"
+                  />
                 <div className="md:col-span-2">
                   <Input
                     label="Topics (comma-separated)"
-                    value={courseForm.topics}
-                    onChange={(e) => setCourseForm({ ...courseForm, topics: e.target.value })}
+                    value={subjectForm.topics}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, topics: e.target.value })}
                     placeholder="Introduction, Basic Concepts, Advanced Topics"
                   />
                 </div>
@@ -469,8 +482,8 @@ const DataManagementPage: React.FC = () => {
                   <Input
                     label="Syllabus Link (optional)"
                     type="url"
-                    value={courseForm.syllabusLink}
-                    onChange={(e) => setCourseForm({ ...courseForm, syllabusLink: e.target.value })}
+                    value={subjectForm.syllabusLink}
+                    onChange={(e) => setSubjectForm({ ...subjectForm, syllabusLink: e.target.value })}
                     placeholder="https://university.edu/syllabus/cs101.pdf"
                   />
                 </div>
@@ -484,7 +497,7 @@ const DataManagementPage: React.FC = () => {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  Add Course
+                  Add Subject
                 </Button>
               </div>
             </form>
@@ -495,7 +508,7 @@ const DataManagementPage: React.FC = () => {
   };
 
   const renderDataTable = () => {
-    const data = activeTab === 'teachers' ? teachers : activeTab === 'rooms' ? rooms : courses;
+    const data = activeTab === 'teachers' ? teachers : activeTab === 'rooms' ? rooms : subjects;
 
     if (data.length === 0) {
       return (
@@ -530,10 +543,10 @@ const DataManagementPage: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
                   </>
                 )}
-                {activeTab === 'courses' && (
+                {activeTab === 'subjects' && (
                   <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course Code</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject Code</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Semester</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
@@ -563,11 +576,11 @@ const DataManagementPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.capacity}</td>
                     </>
                   )}
-                  {activeTab === 'courses' && (
+                  {activeTab === 'subjects' && (
                     <>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.courseCode}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.courseName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{typeof item.department === 'object' ? item.department?.name || item.department?.code : item.department}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.code || item.courseCode}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.name || item.courseName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.department?.name || 'N/A'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.semester}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.credits}</td>
                     </>
@@ -602,7 +615,7 @@ const DataManagementPage: React.FC = () => {
       {/* Tab Navigation */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="-mb-px flex space-x-8">
-          {(['teachers', 'rooms', 'courses'] as const).map((tab) => (
+          {(['teachers', 'rooms', 'subjects'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -615,7 +628,7 @@ const DataManagementPage: React.FC = () => {
               <div className="flex items-center">
                 {tab === 'teachers' && <Users className="h-5 w-5 mr-2" />}
                 {tab === 'rooms' && <Building className="h-5 w-5 mr-2" />}
-                {tab === 'courses' && <BookOpen className="h-5 w-5 mr-2" />}
+                {tab === 'subjects' && <BookOpen className="h-5 w-5 mr-2" />}
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </div>
             </button>

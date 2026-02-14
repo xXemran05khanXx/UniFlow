@@ -1,9 +1,10 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppDispatch } from '../hooks/redux';
 import { logoutUser } from '../store/authSlice';
 import NotificationBell from './NotificationBell';
+import Sidebar, { SidebarNavItem } from './navigation/Sidebar';
 import { 
   Home, 
   Calendar, 
@@ -14,9 +15,10 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X,
   Bell,
-  User
+  User,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -27,15 +29,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, isAdmin, isTeacher, isStudent } = useAuth();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
     navigate('/login');
   };
 
-  const navigation = [
+  const navigation: SidebarNavItem[] = [
     { name: 'Dashboard', href: '/', icon: Home, show: true },
     // Admin menu options
     { name: 'Timetables', href: '/timetables', icon: Calendar, show: isAdmin },
@@ -55,92 +57,36 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'My Teachers', href: '/student-teachers', icon: Users, show: isStudent },
     { name: 'My Notifications', href: '/student-notifications', icon: Bell, show: isStudent },
     { name: 'My Profile', href: '/student-profile', icon: User, show: isStudent },
-  ].filter(item => item.show);
-
-  const isActive = (href: string) => {
-    if (href === '/') {
-      return location.pathname === '/';
-    }
-    return location.pathname.startsWith(href);
-  };
+  ].filter(item => item.show) as SidebarNavItem[];
 
   return (
     <div className="min-h-screen bg-secondary-50">
-      {/* Mobile sidebar */}
-      <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-secondary-600 bg-opacity-75" onClick={() => setSidebarOpen(false)}></div>
-        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
-          <div className="flex h-16 shrink-0 items-center justify-between px-6 border-b border-secondary-200">
-            <h1 className="text-xl font-bold text-primary-600">UniFlow</h1>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="text-secondary-500 hover:text-secondary-700"
-              title="Close sidebar"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-          <nav className="flex-1 px-6 py-6">
-            <ul className="space-y-2">
-              {navigation.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    to={item.href}
-                    onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive(item.href)
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'text-secondary-700 hover:bg-secondary-100'
-                    }`}
-                  >
-                    <item.icon className="mr-3 h-5 w-5" />
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
-      </div>
-
-      {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col bg-white border-r border-secondary-200 shadow-sm">
-          <div className="flex h-16 shrink-0 items-center px-6 border-b border-secondary-200">
-            <h1 className="text-xl font-bold text-primary-600">UniFlow</h1>
-          </div>
-          <nav className="flex-1 px-6 py-6">
-            <ul className="space-y-2">
-              {navigation.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    to={item.href}
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive(item.href)
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'text-secondary-700 hover:bg-secondary-100'
-                    }`}
-                  >
-                    <item.icon className="mr-3 h-5 w-5" />
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
-      </div>
+      <Sidebar
+        navigation={navigation}
+        mobileOpen={sidebarOpen}
+        onMobileClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+      />
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className={`transition-all duration-200 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
         {/* Top bar */}
         <div className="flex h-16 items-center bg-white border-b border-secondary-200 px-4 lg:px-8">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-secondary-500 hover:text-secondary-700 lg:hidden"
-            title="Open sidebar"
+            className="text-secondary-500 hover:text-secondary-700 lg:hidden transition-colors duration-200"
+            aria-label="Open sidebar"
           >
             <Menu className="h-6 w-6" />
+          </button>
+
+          <button
+            onClick={() => setSidebarCollapsed(prev => !prev)}
+            className="hidden lg:inline-flex ml-1 p-1.5 rounded-md text-secondary-500 hover:text-secondary-700 hover:bg-secondary-100 transition-all duration-200"
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </button>
           
           <div className="flex items-center space-x-4 ml-auto">
@@ -158,8 +104,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
             <button
               onClick={handleLogout}
-              className="text-secondary-500 hover:text-secondary-700 p-1"
-              title="Logout"
+              className="text-secondary-500 hover:text-secondary-700 hover:bg-secondary-100 rounded-md p-1.5 transition-colors duration-200"
+              aria-label="Logout"
             >
               <LogOut className="h-5 w-5" />
             </button>

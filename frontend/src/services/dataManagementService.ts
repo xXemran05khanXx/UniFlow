@@ -103,39 +103,50 @@ export interface Room {
   availabilityNotes?: string;
 }
 
-// Course interfaces matching refined schema
-export interface Course {
+// Subject interfaces (canonical academic catalog)
+export interface Subject {
   _id?: string;
-  courseCode: string;
-  courseName: string;
+  code: string;
+  name: string;
   department: DepartmentType;
   semester: SemesterType; // 1-8
-  courseType: CourseType;
+  year: number;
+  type: CourseType;
   credits: number;
-  hoursPerWeek: number;
+  hoursPerWeek?: number;
+  description?: string;
+  isActive?: boolean;
   syllabus: {
     topics: string[];
     syllabusLink?: string;
   };
 }
 
-export interface CourseForm {
-  courseCode: string;
-  courseName: string;
+// Backward-compatible aliases
+export type Course = Subject;
+
+export interface SubjectForm {
+  code: string;
+  name: string;
   department: DepartmentType;
   semester: SemesterType;
-  courseType: CourseType;
+  year: number;
+  type: CourseType;
   credits: number;
-  hoursPerWeek: number;
+  hoursPerWeek?: number;
+  description?: string;
+  isActive?: boolean;
   syllabus: {
     topics: string[];
     syllabusLink?: string;
   };
 }
+
+export type CourseForm = SubjectForm;
 
 // Interface for paginated subjects response (like in subjectManagementService)
 export interface PaginatedSubjects {
-  subjects: Course[];
+  subjects: Subject[];
   totalPages: number;
   currentPage: number;
   totalCount: number;
@@ -286,72 +297,108 @@ export const dataManagementService = {
     }
   },
 
-  // Course methods  
-  async getCourses(): Promise<Course[]> {
+  // Subject methods
+  async getSubjects(): Promise<Subject[]> {
     try {
-      console.log('🔍 DataManagement: Fetching courses from /data/courses endpoint...');
+      console.log('🔍 DataManagement: Fetching subjects from /subjects endpoint...');
       
-      // Use the correct courses endpoint
-      const response = await apiClient.get('/data/courses');
+      const response = await apiClient.get('/subjects');
       
-      console.log('🔍 DataManagement: Raw response:', response.data);
+      console.log('🔍 DataManagement: Raw subject response:', response.data);
+
+      // Handle both correct and legacy ApiResponse shapes
+      const unwrapped = unwrapApiData<any>(response.data);
+      const subjects = Array.isArray(unwrapped)
+        ? unwrapped
+        : (unwrapped?.subjects
+          || response.data?.data?.subjects
+          || response.data?.message?.subjects
+          || []);
       
-      // Extract courses from response
-      const courses = response.data.data || response.data || [];
+      console.log('🔍 DataManagement: Extracted subjects:', subjects);
+      console.log('🔍 DataManagement: Is array?', Array.isArray(subjects));
+      console.log('🔍 DataManagement: Number of subjects found:', subjects.length);
       
-      console.log('🔍 DataManagement: Extracted courses:', courses);
-      console.log('🔍 DataManagement: Is array?', Array.isArray(courses));
-      console.log('🔍 DataManagement: Number of courses found:', courses.length);
-      
-      if (!Array.isArray(courses)) {
-        console.error('❌ DataManagement: courses is not an array:', courses);
+      if (!Array.isArray(subjects)) {
+        console.error('❌ DataManagement: subjects is not an array:', subjects);
         return [];
       }
       
-      console.log('✅ DataManagement: Courses:', courses);
-      return courses;
+      console.log('✅ DataManagement: Subjects:', subjects);
+      return subjects;
     } catch (error) {
-      console.error('❌ DataManagement: Error fetching courses:', error);
-      throw new Error('Failed to fetch courses');
+      console.error('❌ DataManagement: Error fetching subjects:', error);
+      throw new Error('Failed to fetch subjects');
     }
+  },
+
+  async addSubject(subjectData: SubjectForm): Promise<Subject> {
+    try {
+      const payload = {
+        code: subjectData.code,
+        name: subjectData.name,
+        department: subjectData.department,
+        semester: subjectData.semester,
+        year: subjectData.year,
+        type: subjectData.type,
+        credits: subjectData.credits,
+        description: subjectData.description || '',
+        isActive: subjectData.isActive ?? true,
+        syllabus: subjectData.syllabus
+      };
+      const response = await apiClient.post('/subjects', payload);
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error('Error adding subject:', error);
+      throw error;
+    }
+  },
+
+  async updateSubject(id: string, subjectData: Partial<SubjectForm>): Promise<Subject> {
+    try {
+      const response = await apiClient.put(`/subjects/${id}`, subjectData);
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error('Error updating subject:', error);
+      throw error;
+    }
+  },
+
+  async deleteSubject(id: string): Promise<void> {
+    try {
+      await apiClient.delete(`/subjects/${id}`);
+    } catch (error) {
+      console.error('Error deleting subject:', error);
+      throw error;
+    }
+  },
+
+  // Backward-compatible course methods mapped to subject APIs
+  async getCourses(): Promise<Course[]> {
+    return this.getSubjects();
   },
 
   async addCourse(courseData: CourseForm): Promise<Course> {
-    try {
-      const response = await apiClient.post('/data/courses', courseData);
-      return response.data.data || response.data;
-    } catch (error) {
-      console.error('Error adding course:', error);
-      throw error;
-    }
+    return this.addSubject(courseData);
   },
 
   async updateCourse(id: string, courseData: Partial<CourseForm>): Promise<Course> {
-    try {
-      const response = await apiClient.put(`/data/courses/${id}`, courseData);
-      return response.data.data || response.data;
-    } catch (error) {
-      console.error('Error updating course:', error);
-      throw error;
-    }
+    return this.updateSubject(id, courseData);
   },
 
   async deleteCourse(id: string): Promise<void> {
-    try {
-      await apiClient.delete(`/data/courses/${id}`);
-    } catch (error) {
-      console.error('Error deleting course:', error);
-      throw error;
-    }
+    return this.deleteSubject(id);
   },
 
   // File upload methods
-  async uploadFile(dataType: 'teachers' | 'rooms' | 'courses', file: File): Promise<any> {
+  async uploadFile(dataType: 'teachers' | 'rooms' | 'subjects' | 'courses', file: File): Promise<any> {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
-      const response = await apiClient.post(`/data/${dataType}/upload`, formData, {
+
+      const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
+
+      const response = await apiClient.post(`/${normalizedType}/import`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -363,9 +410,15 @@ export const dataManagementService = {
     }
   },
 
-  async downloadTemplate(dataType: 'teachers' | 'rooms' | 'courses'): Promise<void> {
+  async downloadTemplate(dataType: 'teachers' | 'rooms' | 'subjects' | 'courses'): Promise<void> {
     try {
-      const response = await apiClient.get(`/data/${dataType}/template`, {
+      const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
+
+      const endpoint = normalizedType === 'subjects'
+        ? '/subjects/template'
+        : `/data/${normalizedType}/template`;
+
+      const response = await apiClient.get(endpoint, {
         responseType: 'blob',
       });
       
@@ -373,7 +426,7 @@ export const dataManagementService = {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${dataType}_template.csv`);
+      link.setAttribute('download', `${normalizedType}_template.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -385,16 +438,22 @@ export const dataManagementService = {
   },
 
   // Export methods
-  async exportData(dataType: 'teachers' | 'rooms' | 'courses', format: 'csv' | 'json' = 'csv'): Promise<void> {
+  async exportData(dataType: 'teachers' | 'rooms' | 'subjects' | 'courses', format: 'csv' | 'json' = 'csv'): Promise<void> {
     try {
-      const response = await apiClient.get(`/data/${dataType}/export?format=${format}`, {
+      const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
+
+      const endpoint = normalizedType === 'subjects'
+        ? `/subjects/export?format=${format}`
+        : `/data/${normalizedType}/export?format=${format}`;
+
+      const response = await apiClient.get(endpoint, {
         responseType: 'blob',
       });
       
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${dataType}_export.${format}`);
+      link.setAttribute('download', `${normalizedType}_export.${format}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -406,9 +465,23 @@ export const dataManagementService = {
   },
 
   // Bulk operations
-  async bulkDelete(dataType: 'teachers' | 'rooms' | 'courses', ids: string[]): Promise<void> {
+  async bulkDelete(dataType: 'teachers' | 'rooms' | 'subjects' | 'courses', ids: string[]): Promise<void> {
     try {
-      await apiClient.delete(`/data/${dataType}/bulk`, {
+      const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
+
+      const endpoint = normalizedType === 'subjects'
+        ? '/subjects/bulk-update'
+        : `/data/${normalizedType}/bulk`;
+
+      if (normalizedType === 'subjects') {
+        await apiClient.patch(endpoint, {
+          subjectIds: ids,
+          action: 'delete'
+        });
+        return;
+      }
+
+      await apiClient.delete(endpoint, {
         data: { ids }
       });
     } catch (error) {
@@ -418,9 +491,10 @@ export const dataManagementService = {
   },
 
   // Validation methods
-  async validateData(dataType: 'teachers' | 'rooms' | 'courses', data: any[]): Promise<any> {
+  async validateData(dataType: 'teachers' | 'rooms' | 'subjects' | 'courses', data: any[]): Promise<any> {
     try {
-      const response = await apiClient.post(`/data/${dataType}/validate`, { data });
+      const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
+      const response = await apiClient.post(`/data/${normalizedType}/validate`, { data });
       return response.data;
     } catch (error) {
       console.error(`Error validating ${dataType} data:`, error);

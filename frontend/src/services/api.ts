@@ -253,7 +253,20 @@ export const timeSlotsAPI = {
 // Timetables API
 export const timetablesAPI = {
   getAll: async (): Promise<ApiResponse<Timetable[]>> => {
-    const response: AxiosResponse<ApiResponse<Timetable[]>> = await api.get('/timetables');
+    const response: AxiosResponse<ApiResponse<Timetable[]>> = await api.get('/timetable/list');
+    return response.data;
+  },
+
+  getDashboardStats: async (): Promise<ApiResponse<{
+    totalTimetables: number;
+    activeTimetables: number;
+    statusCounts: {
+      Draft: number;
+      Published: number;
+      Archived: number;
+    };
+  }>> => {
+    const response = await api.get('/timetable/dashboard-stats');
     return response.data;
   },
 

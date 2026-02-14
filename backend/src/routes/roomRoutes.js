@@ -18,6 +18,8 @@ const {
   getRoomStats,
   findAvailableRooms,
   getRoomUtilization,
+  getRoomHeatmap,
+  getRoomPeakHours,
   scheduleRoomMaintenance,
   getMaintenanceSchedule,
   importRooms,
@@ -64,6 +66,8 @@ router.use(auth);
 router.get('/available', findAvailableRooms);
 router.get('/stats', getRoomStats);
 router.get('/utilization', getRoomUtilization);
+router.get('/heatmap', getRoomHeatmap);
+router.get('/peak-hours', getRoomPeakHours);
 router.get('/maintenance/schedule', getMaintenanceSchedule);
 router.get('/export', exportRooms);
 router.get('/template', getRoomTemplate);

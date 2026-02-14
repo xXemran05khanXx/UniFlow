@@ -12,12 +12,18 @@ import roomManagementService, {
   Room, 
   RoomFilters, 
   RoomStats, 
-  PaginatedRooms 
+  PaginatedRooms,
+  RoomUtilizationAnalyticsItem,
+  RoomHeatmapResponse,
+  PeakHourItem
 } from '../../services/roomManagementService';
 import { departmentService } from '../../services/departmentService';
 import { Department } from '../../types';
 import { getDepartmentCode, DepartmentType } from '../../constants';
 import { BarChart2, BookPlus, Building2, Users, Building, Plus, Download, SquareChartGantt } from 'lucide-react';
+import UtilizationTable from '../../components/rooms/analytics/UtilizationTable';
+import HeatmapView from '../../components/rooms/analytics/HeatmapView';
+import PeakHoursView from '../../components/rooms/analytics/PeakHoursView';
 
 // Constants
 const BUILDINGS = [
@@ -72,6 +78,7 @@ const RoomManagementPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'rooms' | 'add' | 'import' | 'utilization'>('overview');
+  const [analyticsTab, setAnalyticsTab] = useState<'utilizationTable' | 'heatmap' | 'peakHours'>('utilizationTable');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -127,6 +134,10 @@ const RoomManagementPage: React.FC = () => {
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [utilizationData, setUtilizationData] = useState<RoomUtilizationAnalyticsItem[]>([]);
+  const [heatmapData, setHeatmapData] = useState<RoomHeatmapResponse | null>(null);
+  const [peakHoursData, setPeakHoursData] = useState<PeakHourItem[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   /**
    * Load rooms with current filters and pagination
@@ -194,6 +205,30 @@ const RoomManagementPage: React.FC = () => {
   useEffect(() => {
     loadDepartments();
   }, [loadDepartments]);
+
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      if (activeTab !== 'utilization') return;
+      try {
+        setAnalyticsLoading(true);
+        const [utilization, heatmap, peakHours] = await Promise.all([
+          roomManagementService.getRoomUtilization(),
+          roomManagementService.getRoomHeatmap(),
+          roomManagementService.getRoomPeakHours()
+        ]);
+        setUtilizationData(Array.isArray(utilization) ? utilization : []);
+        setHeatmapData(heatmap);
+        setPeakHoursData(Array.isArray(peakHours) ? peakHours : []);
+      } catch (err) {
+        console.error('Error loading room analytics:', err);
+        setError('Failed to load room analytics');
+      } finally {
+        setAnalyticsLoading(false);
+      }
+    };
+
+    loadAnalytics();
+  }, [activeTab]);
 
   /**
    * Handle search input change
@@ -1434,10 +1469,41 @@ const RoomManagementPage: React.FC = () => {
 
       {activeTab === 'utilization' && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-6">Room Utilization Report</h3>
-          <p className="text-gray-600">
-            Room utilization reporting will be available once the timetable system is integrated.
-          </p>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold">Room Utilization Report</h3>
+            <div className="inline-flex bg-gray-100 rounded-lg p-1">
+              <button
+                className={`px-3 py-1.5 rounded-md text-sm ${analyticsTab === 'utilizationTable' ? 'bg-white shadow text-gray-900' : 'text-gray-600'}`}
+                onClick={() => setAnalyticsTab('utilizationTable')}
+              >
+                Utilization Table
+              </button>
+              <button
+                className={`px-3 py-1.5 rounded-md text-sm ${analyticsTab === 'heatmap' ? 'bg-white shadow text-gray-900' : 'text-gray-600'}`}
+                onClick={() => setAnalyticsTab('heatmap')}
+              >
+                Heatmap View
+              </button>
+              <button
+                className={`px-3 py-1.5 rounded-md text-sm ${analyticsTab === 'peakHours' ? 'bg-white shadow text-gray-900' : 'text-gray-600'}`}
+                onClick={() => setAnalyticsTab('peakHours')}
+              >
+                Peak Hours
+              </button>
+            </div>
+          </div>
+
+          {analyticsLoading ? (
+            <div className="py-10 flex items-center justify-center">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <>
+              {analyticsTab === 'utilizationTable' && <UtilizationTable data={utilizationData} />}
+              {analyticsTab === 'heatmap' && <HeatmapView data={heatmapData} />}
+              {analyticsTab === 'peakHours' && <PeakHoursView data={peakHoursData} />}
+            </>
+          )}
         </Card>
       )}
 

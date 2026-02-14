@@ -5,7 +5,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { dataManagementService } from '../../services/dataManagementService';
 import { subjectManagementService } from '../../services/subjectManagementService';
-import { timeSlotsAPI } from '../../services/api';
+import { timeSlotsAPI, roomsAPI } from '../../services/api';
 import { timetableService } from '../../services/timetableService';
 import { useToast } from '../../contexts/ToastContext';
 import { DEPARTMENT_LIST, getDepartmentCode } from '../../constants';
@@ -323,6 +323,7 @@ const TimetableGenerationPage: React.FC = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   
   // Generation State
@@ -343,6 +344,7 @@ const TimetableGenerationPage: React.FC = () => {
 
   useEffect(() => {
     fetchTimeSlots();
+    fetchRooms();
   }, []);
 
   useEffect(() => {
@@ -381,6 +383,17 @@ const TimetableGenerationPage: React.FC = () => {
       addToast({ title: 'Error', message: 'Failed to fetch teachers', type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRooms = async () => {
+    try {
+      const response = await roomsAPI.getAll();
+      const roomData = (response as any)?.data || [];
+      setRooms(Array.isArray(roomData) ? roomData : []);
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+      setRooms([]);
     }
   };
 
@@ -644,6 +657,7 @@ const TimetableGenerationPage: React.FC = () => {
         day: day,
         startTime: slot.startTime,
         endTime: slot.endTime,
+        room: rooms[0]?._id,
         sessionType: sessionType
       };
 
@@ -853,6 +867,11 @@ const TimetableGenerationPage: React.FC = () => {
   const saveTimetable = async () => {
     if (generatedTimetable.length === 0) {
       addToast({ title: 'Error', message: 'No timetable to save', type: 'error' });
+      return;
+    }
+
+    if (!rooms.length) {
+      addToast({ title: 'Error', message: 'No rooms available. Please create rooms first.', type: 'error' });
       return;
     }
 
