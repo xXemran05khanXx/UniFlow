@@ -5,12 +5,94 @@
 
 const Room = require('../models/Room');
 const Department = require('../models/Department');
+const Timetable = require('../models/Timetable');
+const TimeSlot = require('../models/TimeSlot');
 const asyncHandler = require('../middleware/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
+
+const DAY_INDEX_TO_NAME = {
+  0: 'Sunday',
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday'
+};
+
+const sortTimeLabels = (a, b) => {
+  const [aStart] = String(a || '').split('-');
+  const [bStart] = String(b || '').split('-');
+  return aStart.localeCompare(bStart);
+};
+
+const normalizeDay = (dayValue) => {
+  if (typeof dayValue === 'number' && DAY_INDEX_TO_NAME[dayValue] !== undefined) {
+    return DAY_INDEX_TO_NAME[dayValue];
+  }
+  const day = String(dayValue || '').trim();
+  if (!day) return null;
+  const normalized = day.charAt(0).toUpperCase() + day.slice(1).toLowerCase();
+  return normalized;
+};
+
+const getSchedulingDimensions = async () => {
+  const activeSlots = await TimeSlot.find({ isActive: true })
+    .select('dayOfWeek startTime endTime')
+    .lean();
+
+  if (activeSlots.length > 0) {
+    const daySet = new Set();
+    const timeSet = new Set();
+
+    activeSlots.forEach(slot => {
+      const dayName = normalizeDay(slot.dayOfWeek);
+      if (dayName) daySet.add(dayName);
+      timeSet.add(`${slot.startTime}-${slot.endTime}`);
+    });
+
+    return {
+      days: Array.from(daySet),
+      timeSlots: Array.from(timeSet).sort(sortTimeLabels),
+      totalSlotsPerRoom: activeSlots.length
+    };
+  }
+
+  const fallback = await Timetable.aggregate([
+    { $match: { status: { $ne: 'Archived' } } },
+    { $unwind: '$schedule' },
+    {
+      $group: {
+        _id: {
+          dayOfWeek: '$schedule.dayOfWeek',
+          startTime: '$schedule.startTime',
+          endTime: '$schedule.endTime'
+        }
+      }
+    }
+  ]);
+
+  const daySet = new Set();
+  const timeSet = new Set();
+
+  fallback.forEach(item => {
+    const dayName = normalizeDay(item?._id?.dayOfWeek);
+    if (dayName) daySet.add(dayName);
+    if (item?._id?.startTime && item?._id?.endTime) {
+      timeSet.add(`${item._id.startTime}-${item._id.endTime}`);
+    }
+  });
+
+  return {
+    days: Array.from(daySet),
+    timeSlots: Array.from(timeSet).sort(sortTimeLabels),
+    totalSlotsPerRoom: fallback.length
+  };
+};
 
 /**
  * @desc    Get all rooms with filtering, pagination and search
@@ -508,37 +590,244 @@ const findAvailableRooms = asyncHandler(async (req, res) => {
  * @access  Private (Admin/Staff)
  */
 const getRoomUtilization = asyncHandler(async (req, res) => {
-  const { startDate, endDate, roomId } = req.query;
+  const { roomId } = req.query;
 
-  const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const end = endDate ? new Date(endDate) : new Date();
-
-  try {
-    let utilizationData;
-
-    if (roomId) {
-      // Get utilization for specific room
-      const room = await Room.findById(roomId);
-      if (!room) {
-        throw new ApiError(404, 'Room not found');
+  const [{ totalSlotsPerRoom }, bookedByRoom, rooms] = await Promise.all([
+    getSchedulingDimensions(),
+    Timetable.aggregate([
+      { $match: { status: { $ne: 'Archived' } } },
+      { $unwind: '$schedule' },
+      {
+        $match: {
+          'schedule.room': { $exists: true, $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: '$schedule.room',
+          bookedSlots: { $sum: 1 }
+        }
       }
+    ]),
+    Room.find(roomId ? { _id: roomId } : {})
+      .select('_id name roomNumber')
+      .lean()
+  ]);
 
-      utilizationData = room.utilizationHistory.filter(
-        util => util.date >= start && util.date <= end
-      );
-    } else {
-      // Get utilization report for all rooms
-      utilizationData = await Room.getUtilizationReport(start, end);
+  const bookedMap = new Map(
+    bookedByRoom.map(item => [String(item._id), item.bookedSlots || 0])
+  );
+
+  const utilization = rooms.map(room => {
+    const bookedSlots = bookedMap.get(String(room._id)) || 0;
+    const utilizationPercentage = totalSlotsPerRoom > 0
+      ? Number(((bookedSlots / totalSlotsPerRoom) * 100).toFixed(2))
+      : 0;
+
+    return {
+      roomId: room._id,
+      roomName: room.name,
+      roomNumber: room.roomNumber,
+      bookedSlots,
+      totalSlots: totalSlotsPerRoom,
+      utilizationPercentage,
+      underUtilized: utilizationPercentage < 30
+    };
+  }).sort((a, b) => b.utilizationPercentage - a.utilizationPercentage);
+
+  res.status(200).json(new ApiResponse(
+    true,
+    'Room utilization data retrieved successfully',
+    utilization,
+    200
+  ));
+});
+
+/**
+ * @desc    Get room occupancy heatmap data
+ * @route   GET /api/rooms/heatmap
+ * @access  Private (Admin/Staff)
+ */
+const getRoomHeatmap = asyncHandler(async (_req, res) => {
+  const [dimensions, rooms, occupancyRows] = await Promise.all([
+    getSchedulingDimensions(),
+    Room.find({}).select('_id name roomNumber').lean(),
+    Timetable.aggregate([
+      { $match: { status: { $ne: 'Archived' } } },
+      { $unwind: '$schedule' },
+      {
+        $match: {
+          'schedule.room': { $exists: true, $ne: null }
+        }
+      },
+      {
+        $lookup: {
+          from: 'courses',
+          localField: 'schedule.course',
+          foreignField: '_id',
+          as: 'courseDoc'
+        }
+      },
+      {
+        $lookup: {
+          from: 'subjects',
+          localField: 'schedule.course',
+          foreignField: '_id',
+          as: 'subjectDoc'
+        }
+      },
+      {
+        $lookup: {
+          from: 'teachers',
+          localField: 'schedule.teacher',
+          foreignField: '_id',
+          as: 'teacherDoc'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'schedule.teacher',
+          foreignField: '_id',
+          as: 'userDoc'
+        }
+      },
+      {
+        $project: {
+          roomId: '$schedule.room',
+          dayOfWeek: '$schedule.dayOfWeek',
+          startTime: '$schedule.startTime',
+          endTime: '$schedule.endTime',
+          subjectName: {
+            $ifNull: [
+              { $arrayElemAt: ['$courseDoc.courseName', 0] },
+              { $arrayElemAt: ['$subjectDoc.name', 0] }
+            ]
+          },
+          teacherName: {
+            $ifNull: [
+              { $arrayElemAt: ['$teacherDoc.name', 0] },
+              { $arrayElemAt: ['$userDoc.name', 0] }
+            ]
+          }
+        }
+      }
+    ])
+  ]);
+
+  const days = dimensions.days;
+  const timeSlots = dimensions.timeSlots;
+
+  const heatmapByRoom = new Map();
+
+  rooms.forEach(room => {
+    const matrix = {};
+    const details = {};
+
+    days.forEach(day => {
+      matrix[day] = {};
+      details[day] = {};
+      timeSlots.forEach(slot => {
+        matrix[day][slot] = 0;
+        details[day][slot] = null;
+      });
+    });
+
+    heatmapByRoom.set(String(room._id), {
+      roomId: room._id,
+      roomName: room.name,
+      roomNumber: room.roomNumber,
+      matrix,
+      details
+    });
+  });
+
+  occupancyRows.forEach(row => {
+    const roomKey = String(row.roomId);
+    const day = normalizeDay(row.dayOfWeek);
+    const slot = `${row.startTime}-${row.endTime}`;
+
+    if (!heatmapByRoom.has(roomKey)) return;
+
+    const roomHeat = heatmapByRoom.get(roomKey);
+
+    if (!roomHeat.matrix[day]) {
+      roomHeat.matrix[day] = {};
+      roomHeat.details[day] = {};
+    }
+    if (roomHeat.matrix[day][slot] === undefined) {
+      roomHeat.matrix[day][slot] = 0;
+      roomHeat.details[day][slot] = null;
     }
 
-    res.status(200).json(new ApiResponse(
-      200,
-      utilizationData,
-      'Room utilization data retrieved successfully'
-    ));
-  } catch (error) {
-    throw new ApiError(500, 'Error retrieving utilization data');
-  }
+    roomHeat.matrix[day][slot] = 1;
+    roomHeat.details[day][slot] = {
+      subjectName: row.subjectName || 'N/A',
+      teacherName: row.teacherName || 'N/A'
+    };
+  });
+
+  const response = {
+    days,
+    timeSlots,
+    rooms: Array.from(heatmapByRoom.values())
+  };
+
+  res.status(200).json(new ApiResponse(
+    true,
+    'Room heatmap data retrieved successfully',
+    response,
+    200
+  ));
+});
+
+/**
+ * @desc    Get peak hour analysis from timetable bookings
+ * @route   GET /api/rooms/peak-hours
+ * @access  Private (Admin/Staff)
+ */
+const getRoomPeakHours = asyncHandler(async (_req, res) => {
+  const peakHours = await Timetable.aggregate([
+    { $match: { status: { $ne: 'Archived' } } },
+    { $unwind: '$schedule' },
+    {
+      $match: {
+        'schedule.room': { $exists: true, $ne: null }
+      }
+    },
+    {
+      $group: {
+        _id: {
+          dayOfWeek: '$schedule.dayOfWeek',
+          startTime: '$schedule.startTime'
+        },
+        bookingCount: { $sum: 1 }
+      }
+    },
+    { $sort: { bookingCount: -1 } },
+    { $limit: 3 },
+    {
+      $project: {
+        _id: 0,
+        dayOfWeek: '$_id.dayOfWeek',
+        startTime: '$_id.startTime',
+        bookingCount: 1
+      }
+    }
+  ]);
+
+  const normalized = peakHours.map(item => ({
+    dayOfWeek: normalizeDay(item.dayOfWeek),
+    startTime: item.startTime,
+    bookingCount: item.bookingCount
+  }));
+
+  res.status(200).json(new ApiResponse(
+    true,
+    'Peak hour analysis retrieved successfully',
+    normalized,
+    200
+  ));
 });
 
 /**
@@ -870,6 +1159,8 @@ module.exports = {
   getRoomStats,
   findAvailableRooms,
   getRoomUtilization,
+  getRoomHeatmap,
+  getRoomPeakHours,
   scheduleRoomMaintenance,
   getMaintenanceSchedule,
   importRooms,

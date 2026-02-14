@@ -147,6 +147,41 @@ export interface BulkRoomOperation {
   };
 }
 
+export interface RoomUtilizationAnalyticsItem {
+  roomId: string;
+  roomName: string;
+  roomNumber: string;
+  bookedSlots: number;
+  totalSlots: number;
+  utilizationPercentage: number;
+  underUtilized: boolean;
+}
+
+export interface RoomHeatmapCellDetails {
+  subjectName: string;
+  teacherName: string;
+}
+
+export interface RoomHeatmapRoom {
+  roomId: string;
+  roomName: string;
+  roomNumber: string;
+  matrix: Record<string, Record<string, 0 | 1>>;
+  details: Record<string, Record<string, RoomHeatmapCellDetails | null>>;
+}
+
+export interface RoomHeatmapResponse {
+  days: string[];
+  timeSlots: string[];
+  rooms: RoomHeatmapRoom[];
+}
+
+export interface PeakHourItem {
+  dayOfWeek: string;
+  startTime: string;
+  bookingCount: number;
+}
+
 // Room Management Service Class
 // Helper to unwrap mis-ordered ApiResponse instances
 function unwrapRoomData<T>(raw: any): T {
@@ -480,15 +515,7 @@ class RoomManagementService {
     roomId?: string,
     startDate?: string,
     endDate?: string
-  ): Promise<{
-    roomId: string;
-    roomNumber: string;
-    utilizationPercentage: number;
-    totalHours: number;
-    bookedHours: number;
-    peakUsageHours: string[];
-    departmentUsage: Record<string, number>;
-  }[]> {
+  ): Promise<RoomUtilizationAnalyticsItem[]> {
     try {
       const params = new URLSearchParams();
       if (roomId) params.append('roomId', roomId);
@@ -500,6 +527,32 @@ class RoomManagementService {
     } catch (error) {
       console.error('Error fetching room utilization:', error);
       throw new Error('Failed to fetch room utilization');
+    }
+  }
+
+  /**
+   * Get weekly occupancy heatmap data for all rooms
+   */
+  async getRoomHeatmap(): Promise<RoomHeatmapResponse> {
+    try {
+      const response = await apiClient.get('/rooms/heatmap');
+      return unwrapRoomData<RoomHeatmapResponse>(response.data);
+    } catch (error) {
+      console.error('Error fetching room heatmap:', error);
+      throw new Error('Failed to fetch room heatmap');
+    }
+  }
+
+  /**
+   * Get top 3 busiest day/time slots across all rooms
+   */
+  async getRoomPeakHours(): Promise<PeakHourItem[]> {
+    try {
+      const response = await apiClient.get('/rooms/peak-hours');
+      return unwrapRoomData<PeakHourItem[]>(response.data);
+    } catch (error) {
+      console.error('Error fetching peak hour analysis:', error);
+      throw new Error('Failed to fetch peak hour analysis');
     }
   }
 
