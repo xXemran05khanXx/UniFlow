@@ -450,7 +450,7 @@ const SubjectManagementPage: React.FC = () => {
                 {subject.name}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {typeof subject.department === 'object' ? (subject.department as any)?.name || (subject.department as any)?.code : subject.department}
+                {(subject.department as any)?.name || 'N/A'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 Sem {subject.semester}

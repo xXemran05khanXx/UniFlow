@@ -71,6 +71,17 @@ export interface TimetableGenerationResponse {
 }
 
 export const timetableAPI = {
+  // Fetch saved timetables (persisted in DB)
+  getSavedTimetables: async (filters: { department?: string; semester?: string; status?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.department) params.append('department', filters.department);
+    if (filters.semester) params.append('semester', filters.semester);
+    if (filters.status) params.append('status', filters.status);
+
+    const url = `/timetable/list${params.toString() ? `?${params.toString()}` : ''}`;
+    return apiRequest<any>('GET', url);
+  },
+
   // Generate new timetable
   generateTimetable: async (options: TimetableGenerationOptions = {}): Promise<TimetableGenerationResponse> => {
     return apiRequest('POST', '/timetables/generate', options);

@@ -79,13 +79,28 @@ const AdminDashboard: React.FC = () => {
 
       // Try to fetch timetables data (may not exist yet)
       try {
-        const timetablesResponse = await timetablesAPI.getAll();
+        const [timetableStatsResponse, timetablesResponse] = await Promise.all([
+          timetablesAPI.getDashboardStats(),
+          timetablesAPI.getAll()
+        ]);
+
+        console.log('📈 Timetable Stats Response:', timetableStatsResponse);
         console.log('📅 Timetables Response:', timetablesResponse);
-        
+
+        if (timetableStatsResponse.success && timetableStatsResponse.data) {
+          totalTimetables = timetableStatsResponse.data.totalTimetables || 0;
+          activeTimetables = timetableStatsResponse.data.activeTimetables || 0;
+        }
+
         if (timetablesResponse.success && timetablesResponse.data) {
           const timetables = timetablesResponse.data;
-          totalTimetables = timetables.length;
-          activeTimetables = timetables.filter((t: Timetable) => t.status === 'published').length;
+          if (!timetableStatsResponse.success || !timetableStatsResponse.data) {
+            totalTimetables = timetables.length;
+            activeTimetables = timetables.filter((t: Timetable) => {
+              const normalizedStatus = String((t as any).status || '').toLowerCase();
+              return normalizedStatus === 'published';
+            }).length;
+          }
           setRecentTimetables(timetables.slice(-5).reverse());
         }
       } catch (error) {
@@ -415,12 +430,24 @@ const AdminDashboard: React.FC = () => {
                 <div>
                   <p className="font-medium text-gray-900">{timetable.name}</p>
                   <p className="text-sm text-gray-500">
-                    {typeof timetable.department === 'string' ? timetable.department : `${timetable.department.code} - ${timetable.department.name}`} - Semester {timetable.semester}
+                    {(() => {
+                      const dept = (timetable as any)?.department ?? (timetable as any)?.studentGroup?.department;
+                      const deptLabel = typeof dept === 'string'
+                        ? dept
+                        : ((dept as any)?.code && (dept as any)?.name
+                            ? `${(dept as any).code} - ${(dept as any).name}`
+                            : ((dept as any)?.name || (dept as any)?.code || 'N/A'));
+
+                      const semesterValue = (timetable as any)?.semester
+                        ?? ((timetable as any)?.studentGroup?.year ? Number((timetable as any).studentGroup.year) * 2 - 1 : null);
+
+                      return `${deptLabel} - Semester ${semesterValue ?? 'N/A'}`;
+                    })()}
                   </p>
                 </div>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  timetable.status === 'published' ? 'bg-green-100 text-green-800' :
-                  timetable.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                  String((timetable as any)?.status || '').toLowerCase() === 'published' ? 'bg-green-100 text-green-800' :
+                  String((timetable as any)?.status || '').toLowerCase() === 'draft' ? 'bg-yellow-100 text-yellow-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>
                   {timetable.status}

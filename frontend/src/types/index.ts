@@ -107,7 +107,7 @@ export interface Timetable {
   department: string | Department;
   academicYear: string;
   entries: TimetableEntry[];
-  status: 'draft' | 'published' | 'archived';
+  status: 'draft' | 'published' | 'archived' | 'Draft' | 'Published' | 'Archived';
   generatedAt?: string;
   publishedAt?: string;
   createdBy: User;

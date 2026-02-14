@@ -88,6 +88,7 @@ const getAllSubjects = asyncHandler(async (req, res) => {
   // Execute queries
   const [subjects, totalCount] = await Promise.all([
     Subject.find(filter)
+      .populate('department', 'name code')
       .populate('createdBy', 'name email')
       .populate('updatedBy', 'name email')
       .sort(sort)
