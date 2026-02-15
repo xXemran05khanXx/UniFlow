@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LucideIcon, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LucideIcon, X } from 'lucide-react';
 
 export interface SidebarNavItem {
   name: string;
@@ -13,7 +13,6 @@ interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
   collapsed: boolean;
-  onToggleCollapse: () => void;
 }
 
 const linkBaseClass =
@@ -23,8 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   navigation,
   mobileOpen,
   onMobileClose,
-  collapsed,
-  onToggleCollapse
+  collapsed
 }) => {
   return (
     <>
@@ -106,13 +104,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           )}
-          <button
-            onClick={onToggleCollapse}
-            className="p-1.5 rounded-md text-secondary-500 hover:text-secondary-700 hover:bg-secondary-100 transition-colors duration-200"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-          </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Primary navigation">

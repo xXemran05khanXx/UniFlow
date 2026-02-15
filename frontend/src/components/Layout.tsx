@@ -66,7 +66,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         mobileOpen={sidebarOpen}
         onMobileClose={() => setSidebarOpen(false)}
         collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
       />
 
       {/* Main content */}
