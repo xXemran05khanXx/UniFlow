@@ -5,7 +5,7 @@ const Schema = mongoose.Schema;
 // The structure for holding the final generated schedule.
 const timetableEntrySchema = new Schema({
     course: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
-    teacher: { type: Schema.Types.ObjectId, ref: 'Teacher', required: true },
+    teacher: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     room: { type: Schema.Types.ObjectId, ref: 'Room', required: true },
     dayOfWeek: {
         type: String,
@@ -26,9 +26,12 @@ const timetableSchema = new Schema({
     },
     status: {
         type: String,
-        enum: ['Draft', 'Published', 'Archived'],
-        default: 'Draft',
+        enum: ['draft', 'active', 'archived'],
+        default: 'draft',
     },
+    academicYear: { type: String },
+    semester: { type: Number },
+    department: { type: Schema.Types.ObjectId, ref: 'Department' },
     schedule: [timetableEntrySchema]
 }, { timestamps: true });
 

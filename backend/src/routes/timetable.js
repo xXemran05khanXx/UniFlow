@@ -9,11 +9,200 @@ const User = require('../models/User');
 const Room = require('../models/Room');
 const Department = require('../models/Department');
 const { auth } = require('../middleware/auth');
+const { requireRole } = require('../middleware/roleAuth');
 
 const router = express.Router();
 
 // Middleware to ensure user is authenticated for all timetable operations
 router.use(auth);
+
+const normalizeDay = value => {
+  if (!value) return null;
+  const lower = value.toString().toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+};
+
+const extractObjectId = value => {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    const raw = value.trim();
+    if (mongoose.isValidObjectId(raw)) return raw;
+    const extracted = raw.match(/[a-f\d]{24}/i);
+    return extracted && mongoose.isValidObjectId(extracted[0]) ? extracted[0] : null;
+  }
+
+  if (typeof value === 'object') {
+    if (value.$oid) return extractObjectId(value.$oid);
+    if (value._id && value._id !== value) return extractObjectId(value._id);
+    if (value.id) return extractObjectId(value.id);
+  }
+
+  if (typeof value?.toString === 'function') {
+    const asString = value.toString();
+    if (mongoose.isValidObjectId(asString)) return asString;
+  }
+
+  return null;
+};
+
+const normalizeScheduleEntries = (schedule) => {
+  return schedule.map((cls, idx) => {
+    const roomId = extractObjectId(
+      cls.room?._id
+      || cls.room?.id
+      || cls.room?.roomId
+      || cls.roomId
+      || cls.timeSlot?.roomId
+      || cls.timeSlot?.room?._id
+      || cls.timeSlot?.room
+      || cls.room
+    );
+
+    const courseId = extractObjectId(cls.subject || cls.course || cls.courseId);
+    const teacherId = extractObjectId(cls.teacher || cls.teacherId || cls.instructor);
+    const dayName = normalizeDay(cls.dayOfWeek) || getDayName(cls.day);
+
+    if (!roomId) {
+      throw new Error(`Schedule item ${idx} missing room id`);
+    }
+    if (!courseId) {
+      throw new Error(`Schedule item ${idx} missing course/subject id`);
+    }
+    if (!teacherId) {
+      throw new Error(`Schedule item ${idx} missing teacher id`);
+    }
+
+    return {
+      course: courseId,
+      teacher: teacherId,
+      room: roomId,
+      dayOfWeek: dayName,
+      startTime: cls.startTime,
+      endTime: cls.endTime
+    };
+  });
+};
+
+const ensureValidRooms = async (normalizedSchedule) => {
+  const uniqueRoomIds = [...new Set(normalizedSchedule.map(s => s.room))];
+  const existingRooms = await Room.find({ _id: { $in: uniqueRoomIds } }).select('_id').lean();
+  const existingRoomSet = new Set(existingRooms.map(r => r._id.toString()));
+  const missingRoomIds = uniqueRoomIds.filter(id => !existingRoomSet.has(id.toString()));
+
+  if (missingRoomIds.length > 0) {
+    throw new Error(`Invalid room reference(s) in schedule: ${missingRoomIds.join(', ')}`);
+  }
+};
+
+const resolveDepartmentId = async (department) => {
+  if (!department) return null;
+
+  if (mongoose.isValidObjectId(String(department))) {
+    const byId = await Department.findById(department).select('_id').lean();
+    return byId?._id || null;
+  }
+
+  const byCodeOrName = await Department.findOne({
+    $or: [
+      { code: new RegExp(`^${String(department)}$`, 'i') },
+      { name: new RegExp(`^${String(department)}$`, 'i') }
+    ]
+  }).select('_id').lean();
+
+  return byCodeOrName?._id || null;
+};
+
+// Save timetable as draft
+router.post('/save-draft', requireRole('admin'), async (req, res) => {
+  try {
+    const {
+      name,
+      department,
+      semester,
+      academicYear,
+      schedule
+    } = req.body;
+
+    if (!name || !department || !semester || !schedule) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: name, department, semester, schedule'
+      });
+    }
+
+    const normalizedSchedule = normalizeScheduleEntries(schedule);
+    await ensureValidRooms(normalizedSchedule);
+    const departmentId = await resolveDepartmentId(department);
+
+    const timetable = new Timetable({
+      name,
+      studentGroup: {
+        department,
+        year: Math.ceil(semester / 2),
+        division: 'A'
+      },
+      status: 'draft',
+      academicYear,
+      semester,
+      department: departmentId,
+      schedule: normalizedSchedule
+    });
+
+    await timetable.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Draft saved',
+      data: timetable,
+      timetable
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Publish timetable (set active and archive previous active)
+router.patch('/:id/publish', requireRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await Timetable.updateMany(
+      { status: 'active' },
+      { status: 'archived' }
+    );
+
+    const timetable = await Timetable.findByIdAndUpdate(
+      id,
+      { status: 'active' },
+      { new: true }
+    );
+
+    if (!timetable) {
+      return res.status(404).json({ message: 'Timetable not found' });
+    }
+
+    res.json({ message: 'Timetable published', timetable });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Delete timetable
+router.delete('/:id', requireRole('admin'), async (req, res) => {
+  try {
+    const deleted = await Timetable.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Timetable not found' });
+    }
+    res.json({ message: 'Timetable deleted successfully' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
 
 /**
  * @route   POST /api/timetable/generate
@@ -231,8 +420,7 @@ router.get('/dashboard-stats', async (req, res) => {
       return acc;
     }, {});
 
-    // Production definition: only Published timetables are considered active.
-    const activeTimetables = statusCounts.Published || 0;
+    const activeTimetables = statusCounts.active || 0;
 
     res.status(200).json({
       success: true,
@@ -240,9 +428,9 @@ router.get('/dashboard-stats', async (req, res) => {
         totalTimetables,
         activeTimetables,
         statusCounts: {
-          Draft: statusCounts.Draft || 0,
-          Published: statusCounts.Published || 0,
-          Archived: statusCounts.Archived || 0
+          draft: statusCounts.draft || 0,
+          active: statusCounts.active || 0,
+          archived: statusCounts.archived || 0
         }
       }
     });
@@ -333,83 +521,9 @@ router.post('/save', async (req, res) => {
       });
     }
 
-    const normalizeDay = value => {
-      if (!value) return null;
-      const lower = value.toString().toLowerCase();
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
-    };
-
-    const extractObjectId = value => {
-      if (!value) return null;
-
-      if (typeof value === 'string') {
-        const raw = value.trim();
-        if (mongoose.isValidObjectId(raw)) return raw;
-        const extracted = raw.match(/[a-f\d]{24}/i);
-        return extracted && mongoose.isValidObjectId(extracted[0]) ? extracted[0] : null;
-      }
-
-      if (typeof value === 'object') {
-        if (value.$oid) return extractObjectId(value.$oid);
-        if (value._id && value._id !== value) return extractObjectId(value._id);
-        if (value.id) return extractObjectId(value.id);
-      }
-
-      if (typeof value?.toString === 'function') {
-        const asString = value.toString();
-        if (mongoose.isValidObjectId(asString)) return asString;
-      }
-
-      return null;
-    };
-
-    const normalizedSchedule = schedule.map((cls, idx) => {
-      const roomId = extractObjectId(
-        cls.room?._id
-        || cls.room?.id
-        || cls.room?.roomId
-        || cls.roomId
-        || cls.timeSlot?.roomId
-        || cls.timeSlot?.room?._id
-        || cls.timeSlot?.room
-        || cls.room
-      );
-
-      const courseId = extractObjectId(cls.subject || cls.course || cls.courseId);
-      const teacherId = extractObjectId(cls.teacher || cls.teacherId || cls.instructor);
-      const dayName = normalizeDay(cls.dayOfWeek) || getDayName(cls.day);
-
-      if (!roomId) {
-        throw new Error(`Schedule item ${idx} missing room id`);
-      }
-      if (!courseId) {
-        throw new Error(`Schedule item ${idx} missing course/subject id`);
-      }
-      if (!teacherId) {
-        throw new Error(`Schedule item ${idx} missing teacher id`);
-      }
-
-      return {
-        course: courseId,
-        teacher: teacherId,
-        room: roomId,
-        dayOfWeek: dayName,
-        startTime: cls.startTime,
-        endTime: cls.endTime
-      };
-    });
-
-    // Validate that referenced entities exist (especially room to avoid TBD rendering)
-    const uniqueRoomIds = [...new Set(normalizedSchedule.map(s => s.room))];
-    const existingRooms = await Room.find({ _id: { $in: uniqueRoomIds } }).select('_id').lean();
-    const existingRoomSet = new Set(existingRooms.map(r => r._id.toString()));
-    const missingRoomIds = uniqueRoomIds.filter(id => !existingRoomSet.has(id.toString()));
-    if (missingRoomIds.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid room reference(s) in schedule: ${missingRoomIds.join(', ')}`
-      });
-    }
+    const normalizedSchedule = normalizeScheduleEntries(schedule);
+    await ensureValidRooms(normalizedSchedule);
+    const departmentId = await resolveDepartmentId(department);
 
     // Create new timetable
     const timetable = new Timetable({
@@ -419,7 +533,10 @@ router.post('/save', async (req, res) => {
         year: Math.ceil(semester / 2), // Calculate year from semester
         division: 'A' // Default division
       },
-      status: 'Draft',
+      status: 'draft',
+      academicYear,
+      semester,
+      department: departmentId,
       schedule: normalizedSchedule
     });
 
@@ -487,7 +604,9 @@ router.get('/list', async (req, res) => {
     }
     
     if (status) {
-      query.status = status;
+      const statusValue = String(status).toLowerCase();
+      const mappedStatus = statusValue === 'published' ? 'active' : statusValue;
+      query.status = mappedStatus;
     }
 
     const timetables = await Timetable.find(query)
@@ -692,86 +811,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-/**
- * @route   PATCH /api/timetable/:id/publish
- * @desc    Publish a timetable (change status from Draft to Published)
- * @access  Private (Admin only)
- */
-router.patch('/:id/publish', async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required to publish timetables'
-      });
-    }
-
-    const timetable = await Timetable.findByIdAndUpdate(
-      req.params.id,
-      { status: 'Published' },
-      { new: true }
-    );
-
-    if (!timetable) {
-      return res.status(404).json({
-        success: false,
-        message: 'Timetable not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Timetable published successfully',
-      data: timetable
-    });
-
-  } catch (error) {
-    console.error('❌ Error publishing timetable:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to publish timetable',
-      error: error.message
-    });
-  }
-});
-
-/**
- * @route   DELETE /api/timetable/:id
- * @desc    Delete a timetable
- * @access  Private (Admin only)
- */
-router.delete('/:id', async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required to delete timetables'
-      });
-    }
-
-    const timetable = await Timetable.findByIdAndDelete(req.params.id);
-
-    if (!timetable) {
-      return res.status(404).json({
-        success: false,
-        message: 'Timetable not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Timetable deleted successfully'
-    });
-
-  } catch (error) {
-    console.error('❌ Error deleting timetable:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete timetable',
-      error: error.message
-    });
-  }
-});
+// (Old publish/delete handlers removed; see admin routes above for current lifecycle endpoints)
 
 // Helper function to convert day number to name
 function getDayName(dayNumber) {

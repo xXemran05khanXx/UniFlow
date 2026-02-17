@@ -20,7 +20,7 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
 
   // Generation options
   const [options, setOptions] = useState({
-    algorithm: 'greedy' as 'greedy' | 'genetic' | 'constraint',
+    algorithm: 'generic' as 'greedy' | 'genetic' | 'constraint',
     maxIterations: 1000,
     semester: 'fall',
     academicYear: new Date().getFullYear()

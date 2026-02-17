@@ -341,6 +341,18 @@ export const timetableService = {
     return apiRequest('POST', '/timetable/save', data);
   },
 
+  saveDraft: async (data: any) => {
+    return apiRequest('POST', '/timetable/save-draft', data);
+  },
+
+  publishTimetable: async (id: string) => {
+    return apiRequest('PATCH', `/timetable/${id}/publish`);
+  },
+
+  deleteTimetable: async (id: string) => {
+    return apiRequest('DELETE', `/timetable/${id}`);
+  },
+
   // Get all saved timetables with optional filters
   getTimetables: async (filters?: {
     department?: string;
@@ -371,14 +383,5 @@ export const timetableService = {
     return apiRequest('GET', `/timetable/${id}`);
   },
 
-  // Publish a timetable
-  publishTimetable: async (id: string) => {
-    return apiRequest('PATCH', `/timetable/${id}/publish`);
-  },
-
-  // Delete a timetable
-  deleteTimetable: async (id: string) => {
-    return apiRequest('DELETE', `/timetable/${id}`);
-  }
 };
 

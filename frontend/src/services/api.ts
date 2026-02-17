@@ -196,8 +196,8 @@ export const subjectsAPI = {
 
 // Rooms API
 export const roomsAPI = {
-  getAll: async (): Promise<ApiResponse<Room[]>> => {
-    const response: AxiosResponse<ApiResponse<Room[]>> = await api.get('/rooms');
+  getAll: async (): Promise<ApiResponse<{ rooms: Room[]; pagination?: any } | Room[]>> => {
+    const response: AxiosResponse<ApiResponse<{ rooms: Room[]; pagination?: any } | Room[]>> = await api.get('/rooms');
     return response.data;
   },
 

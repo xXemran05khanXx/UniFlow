@@ -207,6 +207,7 @@ export const dataManagementService = {
           maxHoursPerWeek: user.maxHoursPerWeek || 18,
           minHoursPerWeek: user.minHoursPerWeek || 8
         },
+        availability: user.availability || [],
         user: user._id
       }));
     } catch (error) {

@@ -20,6 +20,9 @@ const timeSlotRoutes = require('./routes/timeSlotRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
 const dataManagementRoutes = require('./routes/dataManagement');
 const departmentRoutes = require('./routes/departmentRoutes');
+const roomBookingRoutes = require('./routes/roomBookingRoutes');
+const teacherAvailabilityRoutes = require('./routes/teacherAvailabilityRoutes');
+const teacherMeetingRoutes = require('./routes/teacherMeetingRoutes');
 
 
 // Import config
@@ -88,8 +91,12 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/timetable', timetableSimpleRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/room-bookings', roomBookingRoutes);
 app.use('/api/timeslots', timeSlotRoutes);
 app.use('/api/subjects', subjectRoutes);
+app.use('/api/teacher-availability', teacherAvailabilityRoutes);
+app.use('/api/teachers/availability', teacherAvailabilityRoutes); // legacy path
+app.use('/api/teacher-meetings', teacherMeetingRoutes);
 app.use('/api/data', dataManagementRoutes);
 console.log(' All routes mounted successfully');
 

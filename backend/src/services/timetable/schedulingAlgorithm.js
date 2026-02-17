@@ -4,7 +4,7 @@ class SchedulingAlgorithm {
   constructor(options = {}) {
     this.clashDetector = new ClashDetector();
     this.options = {
-      algorithm: options.algorithm || 'greedy', // 'greedy', 'genetic', 'constraint_satisfaction'
+      algorithm: options.algorithm || 'greedy', 
       maxIterations: options.maxIterations || 1000,
       populationSize: options.populationSize || 50,
       mutationRate: options.mutationRate || 0.1,
@@ -122,10 +122,23 @@ class SchedulingAlgorithm {
       for (let session = 0; session < course.sessionsPerWeek; session++) {
         let bestSlot = null;
         let bestScore = -1;
+
+        const eligibleRooms = course.isLabCourse
+          ? prepared.rooms.filter(r => r.isLab)
+          : prepared.rooms.filter(r => !r.isLab);
+
+        if (eligibleRooms.length === 0) {
+          continue; // No valid room type available
+        }
+
+        const shuffledRooms = [...eligibleRooms].sort(() => Math.random() - 0.5);
         
         // Try all possible combinations
         for (const timeSlot of timeSlots) {
-          for (const room of prepared.rooms) {
+          for (const room of shuffledRooms) {
+            if (room.isLab && !course.isLabCourse) {
+              console.error('INVALID ASSIGNMENT: Lecture in lab detected');
+            }
             for (const teacher of prepared.teachers) {
               
               // Check if this combination is valid for this course
@@ -188,29 +201,51 @@ class SchedulingAlgorithm {
   async geneticAlgorithm(prepared, timeSlots) {
     const startTime = Date.now();
     
-    // Initialize population
     let population = this.initializePopulation(prepared, timeSlots);
-    let bestSolution = null;
+    let bestSolution = [];
     let bestFitness = -Infinity;
+    let iterations = 0;
+    const earlyStopFitness = 950;
+    const maxIterations = Math.max(1, this.options.maxIterations || 1);
+    const populationSize = Math.max(2, this.options.populationSize || 2);
+
+    if (population.length === 0) {
+      return {
+        schedule: [],
+        executionTime: Date.now() - startTime,
+        iterations,
+        fitness: -10000
+      };
+    }
     
-    for (let generation = 0; generation < this.options.maxIterations; generation++) {
+    for (let generation = 0; generation < maxIterations; generation++) {
+      iterations = generation + 1;
+
       // Evaluate fitness for each individual
       const fitnessScores = population.map(individual => 
         this.calculateFitness(individual, prepared)
       );
+
+      if (fitnessScores.length === 0) {
+        break;
+      }
       
       // Find best solution in this generation
       const maxFitnessIndex = fitnessScores.indexOf(Math.max(...fitnessScores));
       if (fitnessScores[maxFitnessIndex] > bestFitness) {
         bestFitness = fitnessScores[maxFitnessIndex];
-        bestSolution = [...population[maxFitnessIndex]];
+        bestSolution = this.cloneSchedule(population[maxFitnessIndex]);
+      }
+
+      if (bestFitness >= earlyStopFitness) {
+        break;
       }
       
       // Create next generation
       const newPopulation = [];
       
       // Elitism - keep best individuals
-      const eliteCount = Math.floor(this.options.populationSize * 0.1);
+      const eliteCount = Math.max(1, Math.floor(populationSize * 0.1));
       const eliteIndices = fitnessScores
         .map((fitness, index) => ({ fitness, index }))
         .sort((a, b) => b.fitness - a.fitness)
@@ -218,11 +253,11 @@ class SchedulingAlgorithm {
         .map(item => item.index);
       
       eliteIndices.forEach(index => {
-        newPopulation.push([...population[index]]);
+        newPopulation.push(this.cloneSchedule(population[index]));
       });
       
       // Generate offspring through crossover and mutation
-      while (newPopulation.length < this.options.populationSize) {
+      while (newPopulation.length < populationSize) {
         const parent1 = this.selectParent(population, fitnessScores);
         const parent2 = this.selectParent(population, fitnessScores);
         
@@ -233,17 +268,12 @@ class SchedulingAlgorithm {
       }
       
       population = newPopulation;
-      
-      // Early termination if perfect solution found
-      if (bestFitness >= 100) {
-        break;
-      }
     }
     
     return {
       schedule: bestSolution || [],
       executionTime: Date.now() - startTime,
-      iterations: this.options.maxIterations,
+      iterations,
       fitness: bestFitness
     };
   }
@@ -322,7 +352,10 @@ class SchedulingAlgorithm {
       sessionsPerWeek: course.sessionsPerWeek || Math.ceil(course.credits || 3),
       duration: course.duration || this.options.timeSlotDuration,
       priority: this.calculateCoursePriority(course),
-      constraints: course.constraints || {}
+      constraints: course.constraints || {},
+      isLabCourse:
+        course.requiresLab === true ||
+        course.sessionType?.toLowerCase() === 'lab'
     }));
     
     // Normalize teachers
@@ -337,9 +370,13 @@ class SchedulingAlgorithm {
     // Normalize rooms
     const rooms = input.rooms.map(room => ({
       ...room,
+      roomId: room.roomId || room._id?.toString(),
       availability: room.availability || this.getDefaultAvailability(),
       equipment: room.equipment || [],
-      isLab: room.isLab || false
+      isLab:
+        room.isLab === true ||
+        room.type?.toLowerCase() === 'lab' ||
+        room.roomType?.toLowerCase() === 'lab'
     }));
     
     return { courses, teachers, rooms };
@@ -386,6 +423,14 @@ class SchedulingAlgorithm {
     if (!this.isRoomAvailable(room, timeSlot, existingSchedule)) {
       return false;
     }
+
+    // Strict room type enforcement
+    if (course.isLabCourse && !room.isLab) {
+      return false;
+    }
+    if (!course.isLabCourse && room.isLab) {
+      return false;
+    }
     
     // Check room capacity
     if (room.capacity < (course.maxStudents || course.enrollment || 30)) {
@@ -394,11 +439,6 @@ class SchedulingAlgorithm {
     
     // Check teacher qualifications
     if (!this.isTeacherQualified(teacher, course)) {
-      return false;
-    }
-    
-    // Check room type requirements
-    if (course.requiresLab && !room.isLab) {
       return false;
     }
     
@@ -446,6 +486,20 @@ class SchedulingAlgorithm {
       ).length;
       score += equipmentMatch * 5;
     }
+    
+    const roomUsageCount = schedule.filter(entry => 
+      entry.room === room.roomId
+    ).length;
+    const totalSessions = schedule.length || 1;
+    const usageRatio = roomUsageCount / totalSessions;
+    score -= usageRatio * 50;
+
+    const roomConflicts = schedule.filter(entry => 
+      entry.room === room.roomId &&
+      entry.day === timeSlot.day &&
+      this.timeSlotsOverlap(entry.timeSlot, timeSlot)
+    ).length;
+    score -= roomConflicts * 200;
     
     // Avoid conflicts penalty
     const teacherConflicts = schedule.filter(entry => 
@@ -634,28 +688,449 @@ class SchedulingAlgorithm {
 
   // Additional methods for genetic algorithm would go here...
   initializePopulation(prepared, timeSlots) {
-    // Implementation for genetic algorithm initialization
-    return [];
+    const population = [];
+    const targetPopulationSize = Math.max(2, this.options.populationSize || 2);
+
+    for (let i = 0; i < targetPopulationSize; i++) {
+      const individual = [];
+      const shuffledCourses = [...prepared.courses].sort(() => Math.random() - 0.5);
+
+      for (const course of shuffledCourses) {
+        const qualifiedTeachers = prepared.teachers.filter(teacher => 
+          this.isTeacherQualified(teacher, course)
+        );
+
+        const eligibleRooms = course.isLabCourse
+          ? prepared.rooms.filter(room => room.isLab)
+          : prepared.rooms.filter(room => !room.isLab);
+
+        if (qualifiedTeachers.length === 0 || eligibleRooms.length === 0) {
+          continue;
+        }
+
+        for (let session = 0; session < course.sessionsPerWeek; session++) {
+          let assigned = false;
+
+          for (let attempt = 0; attempt < 75 && !assigned; attempt++) {
+            const teacher = this.getRandomItem(qualifiedTeachers);
+            const room = this.getRandomItem(eligibleRooms);
+            const timeSlot = this.getRandomItem(timeSlots);
+
+            if (!teacher || !room || !timeSlot) {
+              continue;
+            }
+
+            if (!this.isValidAssignment(course, teacher, room, timeSlot, individual)) {
+              continue;
+            }
+
+            if (this.hasStudentGroupConflict(individual, course, timeSlot, prepared)) {
+              continue;
+            }
+
+            individual.push(this.createScheduleEntry({ course, teacher, room, timeSlot }));
+            assigned = true;
+          }
+
+          if (!assigned) {
+            for (const timeSlot of timeSlots) {
+              let placedInFallback = false;
+
+              for (const room of eligibleRooms) {
+                for (const teacher of qualifiedTeachers) {
+                  if (!this.isValidAssignment(course, teacher, room, timeSlot, individual)) {
+                    continue;
+                  }
+
+                  if (this.hasStudentGroupConflict(individual, course, timeSlot, prepared)) {
+                    continue;
+                  }
+
+                  individual.push(this.createScheduleEntry({ course, teacher, room, timeSlot }));
+                  assigned = true;
+                  placedInFallback = true;
+                  break;
+                }
+
+                if (placedInFallback) {
+                  break;
+                }
+              }
+
+              if (placedInFallback) {
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      population.push(individual);
+    }
+
+    return population;
   }
 
   calculateFitness(individual, prepared) {
-    // Implementation for fitness calculation
-    return 0;
+    if (!Array.isArray(individual) || individual.length === 0) {
+      return -10000;
+    }
+
+    let fitness = 1000;
+    const hardMetrics = this.evaluateHardConstraints(individual, prepared);
+    const hardViolations =
+      hardMetrics.teacherConflicts +
+      hardMetrics.roomConflicts +
+      hardMetrics.studentConflicts +
+      hardMetrics.labTypeViolations;
+
+    if (hardViolations > 0) {
+      return -10000 - hardViolations * 500;
+    }
+
+    const roomUsage = new Map();
+    individual.forEach(entry => {
+      roomUsage.set(entry.room, (roomUsage.get(entry.room) || 0) + 1);
+    });
+
+    if (roomUsage.size > 0) {
+      const roomCounts = Array.from(roomUsage.values());
+      const minUsage = Math.min(...roomCounts);
+      const maxUsage = Math.max(...roomCounts);
+      const spread = Math.max(1, maxUsage);
+      const balanceScore = Math.max(0, 1 - ((maxUsage - minUsage) / spread));
+      fitness += balanceScore * 10;
+    }
+
+    const roomById = new Map(prepared.rooms.map(room => [room.roomId, room]));
+    let goodCapacityCount = 0;
+    individual.forEach(entry => {
+      const room = roomById.get(entry.room);
+      if (!room || !room.capacity) {
+        return;
+      }
+
+      const enrolled = entry.currentEnrollment || entry.maxEnrollment || 0;
+      const utilization = enrolled / room.capacity;
+      if (utilization >= 0.6 && utilization <= 0.95) {
+        goodCapacityCount += 1;
+      }
+    });
+    fitness += (goodCapacityCount / individual.length) * 10;
+
+    const teacherById = new Map(prepared.teachers.map(teacher => [teacher.teacherId, teacher]));
+    const courseByCode = new Map(prepared.courses.map(course => [course.courseCode, course]));
+    const courseById = new Map(prepared.courses.map(course => [course.courseId, course]));
+    let preferenceMatches = 0;
+    individual.forEach(entry => {
+      const teacher = teacherById.get(entry.instructor);
+      const course = courseByCode.get(entry.courseCode) || courseById.get(entry.course);
+      if (!teacher) {
+        return;
+      }
+
+      if (teacher.preferences?.departments?.includes(course?.department)) {
+        preferenceMatches += 1;
+      }
+
+      const prefersTimeSlot = teacher.preferences?.timeSlots?.some(pref => 
+        pref.day === entry.day &&
+        pref.startTime === entry.timeSlot.startTime
+      );
+      if (prefersTimeSlot) {
+        preferenceMatches += 1;
+      }
+    });
+    const preferenceDenominator = Math.max(1, individual.length * 2);
+    fitness += (preferenceMatches / preferenceDenominator) * 20;
+
+    const lunchViolations = individual.filter(entry => this.isLunchTime(entry.timeSlot)).length;
+    fitness += (1 - (lunchViolations / individual.length)) * 5;
+
+    const teacherDayMap = new Map();
+    individual.forEach(entry => {
+      const key = `${entry.instructor}_${entry.day}`;
+      const list = teacherDayMap.get(key) || [];
+      list.push(entry);
+      teacherDayMap.set(key, list);
+    });
+
+    let consecutiveLinks = 0;
+    let possibleLinks = 0;
+    teacherDayMap.forEach(entries => {
+      if (entries.length < 2) {
+        return;
+      }
+
+      entries.sort((a, b) => this.timeToMinutes(a.timeSlot.startTime) - this.timeToMinutes(b.timeSlot.startTime));
+      possibleLinks += entries.length - 1;
+
+      for (let i = 1; i < entries.length; i++) {
+        const prevEnd = this.timeToMinutes(entries[i - 1].timeSlot.endTime);
+        const currentStart = this.timeToMinutes(entries[i].timeSlot.startTime);
+        if (currentStart - prevEnd <= this.options.breakDuration + 15) {
+          consecutiveLinks += 1;
+        }
+      }
+    });
+
+    if (possibleLinks > 0) {
+      fitness += (consecutiveLinks / possibleLinks) * 5;
+    }
+
+    return fitness;
   }
 
   selectParent(population, fitnessScores) {
-    // Implementation for parent selection
-    return population[0];
+    if (!population.length) {
+      return [];
+    }
+
+    const tournamentSize = Math.min(3, population.length);
+    let bestIndex = -1;
+    let bestFitness = -Infinity;
+
+    for (let i = 0; i < tournamentSize; i++) {
+      const candidateIndex = Math.floor(Math.random() * population.length);
+      if (fitnessScores[candidateIndex] > bestFitness) {
+        bestFitness = fitnessScores[candidateIndex];
+        bestIndex = candidateIndex;
+      }
+    }
+
+    return this.cloneSchedule(population[bestIndex]);
   }
 
   crossover(parent1, parent2) {
-    // Implementation for crossover
-    return parent1;
+    if (!Array.isArray(parent1) || parent1.length === 0) {
+      return this.cloneSchedule(parent2 || []);
+    }
+    if (!Array.isArray(parent2) || parent2.length === 0) {
+      return this.cloneSchedule(parent1);
+    }
+
+    const crossoverPoint = Math.floor(Math.random() * Math.min(parent1.length, parent2.length));
+    const child = [
+      ...this.cloneSchedule(parent1.slice(0, crossoverPoint)),
+      ...this.cloneSchedule(parent2.slice(crossoverPoint))
+    ];
+
+    const targetLength = Math.max(parent1.length, parent2.length);
+    if (child.length < targetLength) {
+      const fillerSource = parent1.length >= parent2.length ? parent1 : parent2;
+      const filler = this.cloneSchedule(fillerSource.slice(child.length, targetLength));
+      child.push(...filler);
+    }
+
+    return child;
   }
 
   mutate(individual, prepared, timeSlots) {
-    // Implementation for mutation
+    if (!Array.isArray(individual) || individual.length === 0) {
+      return individual;
+    }
+
+    if (Math.random() > this.options.mutationRate) {
+      return individual;
+    }
+
+    const mutated = this.cloneSchedule(individual);
+    const mutationIndex = Math.floor(Math.random() * mutated.length);
+    const targetEntry = mutated[mutationIndex];
+
+    const course = prepared.courses.find(item =>
+      item.courseCode === targetEntry.courseCode || item.courseId === targetEntry.course
+    );
+
+    if (!course) {
+      return individual;
+    }
+
+    const qualifiedTeachers = prepared.teachers.filter(teacher => this.isTeacherQualified(teacher, course));
+    const eligibleRooms = course.isLabCourse
+      ? prepared.rooms.filter(room => room.isLab)
+      : prepared.rooms.filter(room => !room.isLab);
+
+    if (qualifiedTeachers.length === 0 || eligibleRooms.length === 0 || timeSlots.length === 0) {
+      return individual;
+    }
+
+    const scheduleWithoutGene = mutated.filter((_, index) => index !== mutationIndex);
+
+    for (let attempt = 0; attempt < 40; attempt++) {
+      let candidateTeacher = prepared.teachers.find(teacher => teacher.teacherId === targetEntry.instructor) || this.getRandomItem(qualifiedTeachers);
+      let candidateRoom = prepared.rooms.find(room => room.roomId === targetEntry.room) || this.getRandomItem(eligibleRooms);
+      let candidateTimeSlot = {
+        day: targetEntry.day,
+        startTime: targetEntry.timeSlot.startTime,
+        endTime: targetEntry.timeSlot.endTime
+      };
+
+      const mutationType = Math.floor(Math.random() * 3);
+      if (mutationType === 0) {
+        candidateRoom = this.getRandomItem(eligibleRooms);
+      } else if (mutationType === 1) {
+        candidateTimeSlot = this.getRandomItem(timeSlots);
+      } else {
+        candidateTeacher = this.getRandomItem(qualifiedTeachers);
+      }
+
+      if (!candidateTeacher || !candidateRoom || !candidateTimeSlot) {
+        continue;
+      }
+
+      if (!this.isValidAssignment(course, candidateTeacher, candidateRoom, candidateTimeSlot, scheduleWithoutGene)) {
+        continue;
+      }
+
+      if (this.hasStudentGroupConflict(scheduleWithoutGene, course, candidateTimeSlot, prepared)) {
+        continue;
+      }
+
+      const candidateEntry = this.createScheduleEntry({
+        course,
+        teacher: candidateTeacher,
+        room: candidateRoom,
+        timeSlot: candidateTimeSlot
+      });
+
+      const candidateSchedule = [...scheduleWithoutGene, candidateEntry];
+      const hardMetrics = this.evaluateHardConstraints(candidateSchedule, prepared);
+      const hardViolations =
+        hardMetrics.teacherConflicts +
+        hardMetrics.roomConflicts +
+        hardMetrics.studentConflicts +
+        hardMetrics.labTypeViolations;
+
+      if (hardViolations === 0) {
+        return candidateSchedule;
+      }
+    }
+
     return individual;
+  }
+
+  cloneSchedule(schedule) {
+    return (schedule || []).map(entry => ({
+      ...entry,
+      timeSlot: entry.timeSlot ? { ...entry.timeSlot } : entry.timeSlot
+    }));
+  }
+
+  getRandomItem(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return null;
+    }
+    const index = Math.floor(Math.random() * items.length);
+    return items[index];
+  }
+
+  resolveStudentGroupKey(course) {
+    if (!course) {
+      return null;
+    }
+
+    return (
+      course.studentGroup ||
+      course.section ||
+      course.batch ||
+      course.group ||
+      (course.department && (course.semester || course.level || course.year)
+        ? `${course.department}_${course.semester || course.level || course.year}`
+        : null) ||
+      course.courseCode
+    );
+  }
+
+  hasStudentGroupConflict(schedule, course, timeSlot, prepared) {
+    const targetGroupKey = this.resolveStudentGroupKey(course);
+    if (!targetGroupKey) {
+      return false;
+    }
+
+    const courseByCode = new Map(prepared.courses.map(item => [item.courseCode, item]));
+    const courseById = new Map(prepared.courses.map(item => [item.courseId, item]));
+
+    return schedule.some(entry => {
+      if (entry.day !== timeSlot.day || !this.timeSlotsOverlap(entry.timeSlot, timeSlot)) {
+        return false;
+      }
+
+      const scheduledCourse = courseByCode.get(entry.courseCode) || courseById.get(entry.course);
+      if (!scheduledCourse) {
+        return false;
+      }
+
+      return this.resolveStudentGroupKey(scheduledCourse) === targetGroupKey;
+    });
+  }
+
+  evaluateHardConstraints(individual, prepared) {
+    const teacherByDay = new Map();
+    const roomByDay = new Map();
+    const studentByDay = new Map();
+    const roomLookup = new Map(prepared.rooms.map(room => [room.roomId, room]));
+    const courseByCode = new Map(prepared.courses.map(course => [course.courseCode, course]));
+    const courseById = new Map(prepared.courses.map(course => [course.courseId, course]));
+
+    let teacherConflicts = 0;
+    let roomConflicts = 0;
+    let studentConflicts = 0;
+    let labTypeViolations = 0;
+
+    for (const entry of individual) {
+      const timeSlot = entry.timeSlot;
+      if (!timeSlot) {
+        continue;
+      }
+
+      const course = courseByCode.get(entry.courseCode) || courseById.get(entry.course);
+      const room = roomLookup.get(entry.room);
+
+      if (course && room && course.isLabCourse !== room.isLab) {
+        labTypeViolations += 1;
+      }
+
+      const teacherKey = `${entry.instructor}_${entry.day}`;
+      const teacherEntries = teacherByDay.get(teacherKey) || [];
+      teacherEntries.forEach(existingEntry => {
+        if (this.timeSlotsOverlap(existingEntry.timeSlot, timeSlot)) {
+          teacherConflicts += 1;
+        }
+      });
+      teacherEntries.push(entry);
+      teacherByDay.set(teacherKey, teacherEntries);
+
+      const roomKey = `${entry.room}_${entry.day}`;
+      const roomEntries = roomByDay.get(roomKey) || [];
+      roomEntries.forEach(existingEntry => {
+        if (this.timeSlotsOverlap(existingEntry.timeSlot, timeSlot)) {
+          roomConflicts += 1;
+        }
+      });
+      roomEntries.push(entry);
+      roomByDay.set(roomKey, roomEntries);
+
+      const studentGroupKey = this.resolveStudentGroupKey(course);
+      if (studentGroupKey) {
+        const studentKey = `${studentGroupKey}_${entry.day}`;
+        const studentEntries = studentByDay.get(studentKey) || [];
+        studentEntries.forEach(existingEntry => {
+          if (this.timeSlotsOverlap(existingEntry.timeSlot, timeSlot)) {
+            studentConflicts += 1;
+          }
+        });
+        studentEntries.push(entry);
+        studentByDay.set(studentKey, studentEntries);
+      }
+    }
+
+    return {
+      teacherConflicts,
+      roomConflicts,
+      studentConflicts,
+      labTypeViolations
+    };
   }
 
   // Methods for constraint satisfaction algorithm...

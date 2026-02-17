@@ -4,26 +4,27 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import RoomBookingModal, { BookingFormData, RoomBookingSummary } from '../../components/rooms/RoomBookingModal';
 import roomManagementService, { 
   Room, 
   RoomFilters, 
   RoomStats, 
   PaginatedRooms,
-  RoomUtilizationAnalyticsItem,
   RoomHeatmapResponse,
-  PeakHourItem
+  RoomBooking
 } from '../../services/roomManagementService';
 import { departmentService } from '../../services/departmentService';
 import { Department } from '../../types';
 import { getDepartmentCode, DepartmentType } from '../../constants';
 import { BarChart2, BookPlus, Building2, Users, Building, Plus, Download, SquareChartGantt } from 'lucide-react';
-import UtilizationTable from '../../components/rooms/analytics/UtilizationTable';
 import HeatmapView from '../../components/rooms/analytics/HeatmapView';
-import PeakHoursView from '../../components/rooms/analytics/PeakHoursView';
+import { RootState } from '../../store';
 
 // Constants
 const BUILDINGS = [
@@ -78,7 +79,7 @@ const RoomManagementPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'rooms' | 'add' | 'import' | 'utilization'>('overview');
-  const [analyticsTab, setAnalyticsTab] = useState<'utilizationTable' | 'heatmap' | 'peakHours'>('utilizationTable');
+  const [analyticsTab, setAnalyticsTab] = useState<'heatmap'>('heatmap');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,10 +135,24 @@ const RoomManagementPage: React.FC = () => {
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
-  const [utilizationData, setUtilizationData] = useState<RoomUtilizationAnalyticsItem[]>([]);
   const [heatmapData, setHeatmapData] = useState<RoomHeatmapResponse | null>(null);
-  const [peakHoursData, setPeakHoursData] = useState<PeakHourItem[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  // Booking state
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [bookingData, setBookingData] = useState<BookingFormData>({
+    date: '',
+    startTime: '',
+    endTime: '',
+    purpose: '',
+  });
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [existingBookings, setExistingBookings] = useState<RoomBookingSummary[]>([]);
+  const [existingBookingsLoading, setExistingBookingsLoading] = useState(false);
+
+  const userRole = useSelector((state: RootState) => state.auth.user?.role);
+  const canBookRoom = userRole === 'admin' || userRole === 'teacher';
 
   /**
    * Load rooms with current filters and pagination
@@ -211,14 +226,12 @@ const RoomManagementPage: React.FC = () => {
       if (activeTab !== 'utilization') return;
       try {
         setAnalyticsLoading(true);
-        const [utilization, heatmap, peakHours] = await Promise.all([
-          roomManagementService.getRoomUtilization(),
+        const [ heatmap] = await Promise.all([
+      
           roomManagementService.getRoomHeatmap(),
-          roomManagementService.getRoomPeakHours()
+  
         ]);
-        setUtilizationData(Array.isArray(utilization) ? utilization : []);
         setHeatmapData(heatmap);
-        setPeakHoursData(Array.isArray(peakHours) ? peakHours : []);
       } catch (err) {
         console.error('Error loading room analytics:', err);
         setError('Failed to load room analytics');
@@ -320,6 +333,104 @@ const RoomManagementPage: React.FC = () => {
       ...prev,
       equipment: (prev.equipment || []).filter((_, i) => i !== index)
     }));
+  };
+
+  /**
+   * Booking helpers
+   */
+  const resetBookingState = () => {
+    setBookingData({ date: '', startTime: '', endTime: '', purpose: '' });
+    setSelectedRoom(null);
+    setExistingBookings([]);
+    setExistingBookingsLoading(false);
+    setBookingLoading(false);
+  };
+
+  const loadExistingBookings = async (roomId: string) => {
+    try {
+      setExistingBookingsLoading(true);
+      const bookings: RoomBooking[] = await roomManagementService.getRoomBookings(roomId);
+      const summaries: RoomBookingSummary[] = bookings.map((b) => ({
+        _id: b._id,
+        date: b.date,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        purpose: b.purpose,
+        status: b.status
+      }));
+      setExistingBookings(summaries);
+    } catch (err) {
+      console.error('Error fetching room bookings', err);
+    } finally {
+      setExistingBookingsLoading(false);
+    }
+  };
+
+  const handleOpenBookingModal = async (room: Room) => {
+    setSelectedRoom(room);
+    setBookingData({ date: '', startTime: '', endTime: '', purpose: '' });
+    setIsBookingModalOpen(true);
+    if (room._id) {
+      await loadExistingBookings(room._id);
+    }
+  };
+
+  const handleBookingFieldChange = (field: keyof BookingFormData, value: string) => {
+    setBookingData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const validateBookingForm = () => {
+    if (!bookingData.date || !bookingData.startTime || !bookingData.endTime || !bookingData.purpose.trim()) {
+      toast.error('All booking fields are required');
+      return false;
+    }
+
+    const startMinutes = toMinutes(bookingData.startTime);
+    const endMinutes = toMinutes(bookingData.endTime);
+    if (endMinutes <= startMinutes) {
+      toast.error('End time must be after start time');
+      return false;
+    }
+
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const selectedDate = new Date(bookingData.date + 'T00:00:00');
+    if (selectedDate < startOfToday) {
+      toast.error('Cannot book past dates');
+      return false;
+    }
+
+    return true;
+  };
+
+  const toMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const handleSubmitBooking = async () => {
+    if (!selectedRoom || !selectedRoom._id) {
+      toast.error('Please select a room to book');
+      return;
+    }
+
+    if (!validateBookingForm()) return;
+
+    try {
+      setBookingLoading(true);
+      await roomManagementService.createRoomBooking({
+        room: selectedRoom._id,
+        ...bookingData,
+      });
+      toast.success('Room booked successfully');
+      setIsBookingModalOpen(false);
+      resetBookingState();
+    } catch (err: any) {
+      const message = err?.message || 'Failed to create booking';
+      toast.error(message);
+    } finally {
+      setBookingLoading(false);
+    }
   };
 
   /**
@@ -687,6 +798,17 @@ const RoomManagementPage: React.FC = () => {
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                {canBookRoom && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleOpenBookingModal(room)}
+                    className="bg-indigo-600 text-white hover:bg-indigo-700"
+                  >
+                    <BookPlus className="mr-1 h-4 w-4" />
+                    Book
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"
@@ -1473,22 +1595,10 @@ const RoomManagementPage: React.FC = () => {
             <h3 className="text-lg font-semibold">Room Utilization Report</h3>
             <div className="inline-flex bg-gray-100 rounded-lg p-1">
               <button
-                className={`px-3 py-1.5 rounded-md text-sm ${analyticsTab === 'utilizationTable' ? 'bg-white shadow text-gray-900' : 'text-gray-600'}`}
-                onClick={() => setAnalyticsTab('utilizationTable')}
-              >
-                Utilization Table
-              </button>
-              <button
-                className={`px-3 py-1.5 rounded-md text-sm ${analyticsTab === 'heatmap' ? 'bg-white shadow text-gray-900' : 'text-gray-600'}`}
+                className="px-3 py-1.5 rounded-md text-sm bg-white shadow text-gray-900"
                 onClick={() => setAnalyticsTab('heatmap')}
               >
                 Heatmap View
-              </button>
-              <button
-                className={`px-3 py-1.5 rounded-md text-sm ${analyticsTab === 'peakHours' ? 'bg-white shadow text-gray-900' : 'text-gray-600'}`}
-                onClick={() => setAnalyticsTab('peakHours')}
-              >
-                Peak Hours
               </button>
             </div>
           </div>
@@ -1499,9 +1609,7 @@ const RoomManagementPage: React.FC = () => {
             </div>
           ) : (
             <>
-              {analyticsTab === 'utilizationTable' && <UtilizationTable data={utilizationData} />}
               {analyticsTab === 'heatmap' && <HeatmapView data={heatmapData} />}
-              {analyticsTab === 'peakHours' && <PeakHoursView data={peakHoursData} />}
             </>
           )}
         </Card>
@@ -1629,6 +1737,21 @@ const RoomManagementPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <RoomBookingModal
+        isOpen={isBookingModalOpen}
+        onClose={() => {
+          setIsBookingModalOpen(false);
+          resetBookingState();
+        }}
+        room={selectedRoom}
+        bookingData={bookingData}
+        onChange={handleBookingFieldChange}
+        onSubmit={handleSubmitBooking}
+        isSubmitting={bookingLoading}
+        existingBookings={existingBookings}
+        isLoadingBookings={existingBookingsLoading}
+      />
     </div>
   );
 };

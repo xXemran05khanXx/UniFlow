@@ -182,6 +182,32 @@ export interface PeakHourItem {
   bookingCount: number;
 }
 
+export interface RoomBookingPayload {
+  room: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
+}
+
+export interface RoomBooking {
+  _id: string;
+  room: string | Room;
+  bookedBy?: {
+    _id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+  };
+  purpose: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: 'approved' | 'cancelled';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // Room Management Service Class
 // Helper to unwrap mis-ordered ApiResponse instances
 function unwrapRoomData<T>(raw: any): T {
@@ -600,6 +626,55 @@ class RoomManagementService {
     } catch (error) {
       console.error('Error scheduling room maintenance:', error);
       throw new Error('Failed to schedule room maintenance');
+    }
+  }
+
+  /**
+   * Create a room booking
+   */
+  async createRoomBooking(payload: RoomBookingPayload): Promise<RoomBooking> {
+    try {
+      const response: AxiosResponse<any> = await apiClient.post('/room-bookings', payload);
+      return unwrapRoomData<RoomBooking>(response.data);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const backendMsg = error.response?.data?.message || error.response?.data?.error;
+        throw new Error(backendMsg || 'Failed to create booking');
+      }
+      throw new Error('Failed to create booking');
+    }
+  }
+
+  /**
+   * Get bookings (optionally by room)
+   */
+  async getRoomBookings(roomId?: string): Promise<RoomBooking[]> {
+    try {
+      const params = roomId ? { room: roomId } : undefined;
+      const response: AxiosResponse<any> = await apiClient.get('/room-bookings', { params });
+      return unwrapRoomData<RoomBooking[]>(response.data);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const backendMsg = error.response?.data?.message || error.response?.data?.error;
+        throw new Error(backendMsg || 'Failed to fetch bookings');
+      }
+      throw new Error('Failed to fetch bookings');
+    }
+  }
+
+  /**
+   * Cancel a booking
+   */
+  async cancelRoomBooking(id: string): Promise<RoomBooking> {
+    try {
+      const response: AxiosResponse<any> = await apiClient.patch(`/room-bookings/${id}/cancel`);
+      return unwrapRoomData<RoomBooking>(response.data);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const backendMsg = error.response?.data?.message || error.response?.data?.error;
+        throw new Error(backendMsg || 'Failed to cancel booking');
+      }
+      throw new Error('Failed to cancel booking');
     }
   }
 }

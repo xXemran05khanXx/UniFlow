@@ -330,6 +330,7 @@ const TimetableGenerationPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTimetable, setGeneratedTimetable] = useState<GeneratedClass[]>([]);
   const [conflicts, setConflicts] = useState<string[]>([]);
+  const [timetableId, setTimetableId] = useState<string | null>(null);
   
   // UI State
   const [loading, setLoading] = useState(false);
@@ -389,8 +390,13 @@ const TimetableGenerationPage: React.FC = () => {
   const fetchRooms = async () => {
     try {
       const response = await roomsAPI.getAll();
-      const roomData = (response as any)?.data || [];
-      setRooms(Array.isArray(roomData) ? roomData : []);
+      const payload = (response as any)?.data;
+      const roomData = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.rooms)
+          ? payload.rooms
+          : [];
+      setRooms(roomData);
     } catch (error) {
       console.error('Error fetching rooms:', error);
       setRooms([]);
@@ -528,10 +534,26 @@ const TimetableGenerationPage: React.FC = () => {
   ): Promise<{ schedule: GeneratedClass[]; conflicts: string[] }> => {
     const schedule: GeneratedClass[] = [];
     const conflicts: string[] = [];
+
+    const getRoomId = (room: any): string | null => {
+      if (!room) return null;
+      if (typeof room === 'string') return room;
+      return room._id || room.id || room.roomId || null;
+    };
+
+    const availableRoomIds = rooms
+      .map(getRoomId)
+      .filter((id): id is string => Boolean(id));
+
+    if (availableRoomIds.length === 0) {
+      conflicts.push('No valid rooms available for scheduling.');
+      return { schedule, conflicts };
+    }
     
     // Track usage to prevent conflicts
     const teacherSchedule = new Map<string, Set<string>>(); // teacherId -> Set of "day-timeSlot" keys
     const slotUsage = new Map<string, boolean>(); // "day-timeSlot" -> used
+    const roomSchedule = new Map<string, Set<string>>(); // roomId -> Set of "day-start-end" keys
     
     // Track schedule per day for constraint checking
     const daySchedule = new Map<number, GeneratedClass[]>(); // day -> classes scheduled that day
@@ -648,6 +670,17 @@ const TimetableGenerationPage: React.FC = () => {
         return false;
       }
 
+      const selectedRoomId = availableRoomIds.find(roomId => {
+        if (!roomSchedule.has(roomId)) {
+          roomSchedule.set(roomId, new Set());
+        }
+        return !roomSchedule.get(roomId)!.has(teacherSlotKey);
+      });
+
+      if (!selectedRoomId) {
+        return false;
+      }
+
       const newClass: GeneratedClass = {
         subject: subject._id,
         subjectName: `${subject.code} - ${subject.name}`,
@@ -657,7 +690,7 @@ const TimetableGenerationPage: React.FC = () => {
         day: day,
         startTime: slot.startTime,
         endTime: slot.endTime,
-        room: rooms[0]?._id,
+        room: selectedRoomId,
         sessionType: sessionType
       };
 
@@ -665,6 +698,7 @@ const TimetableGenerationPage: React.FC = () => {
       daySchedule.get(day)!.push(newClass);
       slotUsage.set(slotKey, true);
       teacherSchedule.get(teacher._id)!.add(teacherSlotKey);
+      roomSchedule.get(selectedRoomId)!.add(teacherSlotKey);
       
       const currentRemaining = remainingHours.get(subject._id) || 0;
       remainingHours.set(subject._id, currentRemaining - 1);
@@ -875,16 +909,26 @@ const TimetableGenerationPage: React.FC = () => {
       return;
     }
 
+    if (generatedTimetable.some(cls => !cls.room)) {
+      addToast({ title: 'Error', message: 'Some classes are missing room assignments. Please regenerate timetable.', type: 'error' });
+      return;
+    }
+
     try {
       const timetableName = `${department} - Semester ${semester} - ${academicYear}`;
       
-      await timetableService.saveTimetable({
+      const saved = await timetableService.saveTimetable({
         name: timetableName,
         department,
         semester,
         academicYear,
         schedule: generatedTimetable
       });
+
+      const savedId = (saved as any)?.data?._id || (saved as any)?.timetable?._id;
+      if (savedId) {
+        setTimetableId(savedId);
+      }
 
       addToast({
         title: 'Saved',
@@ -931,6 +975,56 @@ const TimetableGenerationPage: React.FC = () => {
     window.URL.revokeObjectURL(url);
 
     addToast({ title: 'Success', message: 'Timetable exported', type: 'success' });
+  };
+
+  const buildPayload = () => ({
+    name: `${department} - Semester ${semester} - ${academicYear}`,
+    department,
+    semester,
+    academicYear,
+    schedule: generatedTimetable
+  });
+
+  const handleSaveDraft = async () => {
+    if (!generatedTimetable.length) {
+      addToast({ title: 'Error', message: 'No timetable to save', type: 'error' });
+      return;
+    }
+    try {
+      const draft = await timetableService.saveDraft(buildPayload());
+      const id = (draft as any)?.data?._id || (draft as any)?.timetable?._id || (draft as any)?._id;
+      if (id) setTimetableId(id);
+      addToast({ title: 'Draft saved', message: 'Timetable draft saved', type: 'success' });
+    } catch (error: any) {
+      addToast({ title: 'Error', message: error.response?.data?.message || 'Failed to save draft', type: 'error' });
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!timetableId) {
+      addToast({ title: 'Error', message: 'Save a draft or timetable first', type: 'error' });
+      return;
+    }
+    try {
+      await timetableService.publishTimetable(timetableId);
+      addToast({ title: 'Published', message: 'Timetable published', type: 'success' });
+    } catch (error: any) {
+      addToast({ title: 'Error', message: error.response?.data?.message || 'Failed to publish', type: 'error' });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!timetableId) {
+      addToast({ title: 'Error', message: 'No timetable selected to delete', type: 'error' });
+      return;
+    }
+    try {
+      await timetableService.deleteTimetable(timetableId);
+      setTimetableId(null);
+      addToast({ title: 'Deleted', message: 'Timetable deleted', type: 'success' });
+    } catch (error: any) {
+      addToast({ title: 'Error', message: error.response?.data?.message || 'Failed to delete timetable', type: 'error' });
+    }
   };
 
   return (
@@ -1252,6 +1346,29 @@ const TimetableGenerationPage: React.FC = () => {
                     >
                       Save Timetable
                     </Button>
+                  </div>
+
+                  <div className="flex gap-4 mt-6">
+                    <button
+                      onClick={handleSaveDraft}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg"
+                    >
+                      Save Draft
+                    </button>
+
+                    <button
+                      onClick={handlePublish}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+                    >
+                      Publish Timetable
+                    </button>
+
+                    <button
+                      onClick={handleDelete}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>
