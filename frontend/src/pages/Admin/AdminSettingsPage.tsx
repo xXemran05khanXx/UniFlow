@@ -1,24 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Settings,
-  Database,
-  Upload,
-  Building,
+import {
   AlertTriangle,
-  Save,
-  FileText,
   Bell,
+  Building,
+  Database,
+  FileText,
+  Info,
   Lock,
   RefreshCw,
-  Info,
-  Monitor,
-  Shield
+  Save,
+  Settings,
+  Upload
 } from 'lucide-react';
-import Card from '../../components/ui/Card';
+import React, { useEffect, useState } from 'react';
 import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 
-interface AdminSettingsProps {}
+interface AdminSettingsProps { }
 
 interface AppConfiguration {
   collegeName: string;
@@ -69,14 +67,23 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      // TODO: Load settings from API
-      // const response = await adminAPI.getSettings();
-      // if (response.success) {
-      //   setAcademicSettings(response.data.academic);
-      //   setTimetableRules(response.data.timetable);
-      //   setAppConfig(response.data.application);
-      //   setBackupSettings(response.data.backup);
-      // }
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load settings');
+      }
+
+      const result = await response.json();
+      if (result?.success && result?.data) {
+        setAppConfig(result.data.application || appConfig);
+        setBackupSettings(result.data.backup || backupSettings);
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
       setMessage({ type: 'error', text: 'Failed to load settings' });
@@ -88,16 +95,25 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
   const saveSettings = async () => {
     try {
       setLoading(true);
-      
-      // TODO: Save settings to API
-      // const response = await adminAPI.saveSettings({
-      //   application: appConfig,
-      //   backup: backupSettings
-      // });
-      // if (response.success) {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          application: appConfig,
+          backup: backupSettings
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save settings');
+      }
+
       setMessage({ type: 'success', text: 'Settings saved successfully' });
       setUnsavedChanges(false);
-      // }
     } catch (error) {
       console.error('Error saving settings:', error);
       setMessage({ type: 'error', text: 'Failed to save settings' });
@@ -124,15 +140,25 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
   const createBackup = async () => {
     try {
       setLoading(true);
-      // TODO: Create backup via API
-      // const response = await adminAPI.createBackup();
-      // if (response.success) {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/settings/backup', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create backup');
+      }
+
+      const result = await response.json();
       setMessage({ type: 'success', text: 'Backup created successfully' });
       setBackupSettings(prev => ({
         ...prev,
-        lastBackupDate: new Date().toISOString().split('T')[0]
+        lastBackupDate: result?.data?.lastBackupDate || new Date().toISOString().split('T')[0]
       }));
-      // }
     } catch (error) {
       console.error('Error creating backup:', error);
       setMessage({ type: 'error', text: 'Failed to create backup' });
@@ -193,19 +219,18 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
 
           {/* Message display */}
           {message && (
-            <div className={`mt-4 p-3 rounded-md ${
-              message.type === 'success' ? 'bg-green-50 border border-green-200' :
-              message.type === 'error' ? 'bg-red-50 border border-red-200' :
-              'bg-blue-50 border border-blue-200'
-            }`}>
+            <div className={`mt-4 p-3 rounded-md ${message.type === 'success' ? 'bg-green-50 border border-green-200' :
+                message.type === 'error' ? 'bg-red-50 border border-red-200' :
+                  'bg-blue-50 border border-blue-200'
+              }`}>
               <div className="flex items-center">
                 {message.type === 'success' && <Save className="h-5 w-5 text-green-400 mr-2" />}
                 {message.type === 'error' && <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />}
                 {message.type === 'info' && <Info className="h-5 w-5 text-blue-400 mr-2" />}
                 <span className={
                   message.type === 'success' ? 'text-green-800' :
-                  message.type === 'error' ? 'text-red-800' :
-                  'text-blue-800'
+                    message.type === 'error' ? 'text-red-800' :
+                      'text-blue-800'
                 }>{message.text}</span>
               </div>
             </div>
@@ -219,17 +244,17 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Settings Categories</h3>
               <nav className="space-y-3">
                 {[
-                  { 
-                    id: 'application', 
-                    title: 'Application Configuration', 
-                    icon: Building, 
+                  {
+                    id: 'application',
+                    title: 'Application Configuration',
+                    icon: Building,
                     description: 'Branding, notifications, and maintenance settings',
                     gradient: 'from-blue-500 to-cyan-500'
                   },
-                  { 
-                    id: 'backup', 
-                    title: 'Data & Backup Operations', 
-                    icon: Database, 
+                  {
+                    id: 'backup',
+                    title: 'Data & Backup Operations',
+                    icon: Database,
                     description: 'Database backups and system maintenance',
                     gradient: 'from-purple-500 to-pink-500'
                   }
@@ -237,27 +262,22 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
                   <button
                     key={item.id}
                     onClick={() => handleSectionClick(item.id as any)}
-                    className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
-                      activeSection === item.id 
-                        ? 'bg-gradient-to-r ' + item.gradient + ' text-white shadow-lg transform scale-105' 
+                    className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${activeSection === item.id
+                        ? 'bg-gradient-to-r ' + item.gradient + ' text-white shadow-lg transform scale-105'
                         : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:shadow-md'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start space-x-4">
-                      <div className={`p-2 rounded-lg ${
-                        activeSection === item.id ? 'bg-white/20' : 'bg-white'
-                      }`}>
-                        <item.icon className={`h-6 w-6 ${
-                          activeSection === item.id ? 'text-white' : 'text-gray-600'
-                        }`} />
+                      <div className={`p-2 rounded-lg ${activeSection === item.id ? 'bg-white/20' : 'bg-white'
+                        }`}>
+                        <item.icon className={`h-6 w-6 ${activeSection === item.id ? 'text-white' : 'text-gray-600'
+                          }`} />
                       </div>
                       <div className="flex-1">
-                        <p className={`font-semibold ${
-                          activeSection === item.id ? 'text-white' : 'text-gray-900'
-                        }`}>{item.title}</p>
-                        <p className={`text-sm mt-1 ${
-                          activeSection === item.id ? 'text-white/90' : 'text-gray-500'
-                        }`}>{item.description}</p>
+                        <p className={`font-semibold ${activeSection === item.id ? 'text-white' : 'text-gray-900'
+                          }`}>{item.title}</p>
+                        <p className={`text-sm mt-1 ${activeSection === item.id ? 'text-white/90' : 'text-gray-500'
+                          }`}>{item.description}</p>
                       </div>
                     </div>
                   </button>
@@ -268,7 +288,7 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-8 space-y-8">
-            
+
             {/* Application Configuration */}
             {activeSection === 'application' && (
               <Card className="shadow-lg border-0 bg-white/70 backdrop-blur-sm">
@@ -299,7 +319,7 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
                         placeholder="Enter your college name"
                         className="text-lg"
                       />
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
                           College Logo
@@ -406,11 +426,10 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
                       Maintenance Mode
                     </h3>
                     <div className="space-y-6">
-                      <div className={`p-6 rounded-xl border-2 transition-all ${
-                        appConfig.maintenanceMode 
-                          ? 'bg-red-100 border-red-300 shadow-lg' 
+                      <div className={`p-6 rounded-xl border-2 transition-all ${appConfig.maintenanceMode
+                          ? 'bg-red-100 border-red-300 shadow-lg'
                           : 'bg-white border-gray-200'
-                      }`}>
+                        }`}>
                         <div className="flex items-center justify-between mb-4">
                           <div>
                             <h4 className="font-semibold text-gray-900 flex items-center">
@@ -433,7 +452,7 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
                             <div className="w-12 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
                           </label>
                         </div>
-                        
+
                         {appConfig.maintenanceMode && (
                           <div className="mt-4">
                             <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -591,8 +610,8 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
                         <p className="text-sm text-red-700 mb-4">
                           Restore database from a backup file. This action cannot be undone.
                         </p>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           className="w-full text-red-600 border-red-300 hover:bg-red-50 transition-colors"
                         >
                           <Upload className="h-4 w-4 mr-2" />
@@ -605,8 +624,8 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
                         <p className="text-sm text-red-700 mb-4">
                           View system logs and critical activities
                         </p>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           className="w-full text-red-600 border-red-300 hover:bg-red-50 transition-colors"
                         >
                           <FileText className="h-4 w-4 mr-2" />

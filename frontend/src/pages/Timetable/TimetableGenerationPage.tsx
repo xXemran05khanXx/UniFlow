@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Users, BookOpen, Clock, Settings, Play, Download, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
-import Card from '../../components/ui/Card';
+import { AlertCircle, BookOpen, Calendar, CheckCircle2, Clock, Download, Loader2, Play, Settings, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
+import { DEPARTMENT_LIST, getDepartmentCode } from '../../constants';
+import { useToast } from '../../contexts/ToastContext';
+import { roomsAPI, timeSlotsAPI } from '../../services/api';
 import { dataManagementService } from '../../services/dataManagementService';
 import { subjectManagementService } from '../../services/subjectManagementService';
-import { timeSlotsAPI, roomsAPI } from '../../services/api';
 import { timetableService } from '../../services/timetableService';
-import { useToast } from '../../contexts/ToastContext';
-import { DEPARTMENT_LIST, getDepartmentCode } from '../../constants';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 interface Teacher {
   _id: string;
@@ -161,8 +163,8 @@ const WeeklyTimetableGrid: React.FC<WeeklyTimetableGridProps> = ({ classes, time
           <div className="grid grid-cols-6 gap-2 mb-2">
             <div className="p-3"></div>
             {workingDays.map((day, idx) => (
-              <div 
-                key={day} 
+              <div
+                key={day}
                 className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-4 text-center shadow-md"
               >
                 <span className="text-white/80 text-xs font-medium uppercase tracking-wider">{dayNames[idx]}</span>
@@ -185,12 +187,12 @@ const WeeklyTimetableGrid: React.FC<WeeklyTimetableGridProps> = ({ classes, time
                 {/* Day Columns */}
                 {workingDays.map((day) => {
                   const classItem = getClassForSlot(day, slot.startTime, slot.endTime);
-                  
+
                   if (classItem) {
                     const colors = subjectColorMap.get(classItem.subject);
                     const [code, name] = classItem.subjectName.split(' - ');
                     const isPractical = classItem.sessionType === 'practical';
-                    
+
                     return (
                       <div
                         key={`${day}-${slot.startTime}`}
@@ -198,16 +200,15 @@ const WeeklyTimetableGrid: React.FC<WeeklyTimetableGridProps> = ({ classes, time
                       >
                         {/* Accent bar */}
                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors?.accent} rounded-l-xl`}></div>
-                        
+
                         {/* Session type badge */}
-                        <div className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                          isPractical 
-                            ? 'bg-green-500 text-white' 
-                            : 'bg-blue-500 text-white'
-                        }`}>
+                        <div className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${isPractical
+                          ? 'bg-green-500 text-white'
+                          : 'bg-blue-500 text-white'
+                          }`}>
                           {isPractical ? 'LAB' : 'LEC'}
                         </div>
-                        
+
                         {/* Content */}
                         <div className="pl-2 pr-8">
                           <div className={`font-bold text-sm ${colors?.text} truncate`}>
@@ -228,9 +229,8 @@ const WeeklyTimetableGrid: React.FC<WeeklyTimetableGridProps> = ({ classes, time
                         <div className="absolute inset-0 bg-gray-900/95 rounded-xl p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-center">
                           <div className="flex items-center justify-between mb-1">
                             <p className="text-white font-bold text-sm">{code}</p>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              isPractical ? 'bg-green-500' : 'bg-blue-500'
-                            } text-white`}>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isPractical ? 'bg-green-500' : 'bg-blue-500'
+                              } text-white`}>
                               {isPractical ? 'Practical' : 'Theory'}
                             </span>
                           </div>
@@ -280,8 +280,8 @@ const WeeklyTimetableGrid: React.FC<WeeklyTimetableGridProps> = ({ classes, time
               const [code] = cls.subjectName.split(' - ');
               const isPractical = cls.sessionType === 'practical';
               return (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className={`flex items-center p-3 rounded-lg ${colors?.bg} ${colors?.border} border`}
                 >
                   <div className={`w-2 h-8 ${colors?.accent} rounded-full mr-3`}></div>
@@ -289,9 +289,8 @@ const WeeklyTimetableGrid: React.FC<WeeklyTimetableGridProps> = ({ classes, time
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className={`font-semibold text-sm ${colors?.text}`}>{code}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                          isPractical ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'
-                        }`}>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${isPractical ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'
+                          }`}>
                           {isPractical ? 'LAB' : 'LEC'}
                         </span>
                       </div>
@@ -313,25 +312,25 @@ const WeeklyTimetableGrid: React.FC<WeeklyTimetableGridProps> = ({ classes, time
 
 const TimetableGenerationPage: React.FC = () => {
   const { addToast } = useToast();
-  
+
   // Configuration State
   const [department, setDepartment] = useState('');
   const [semester, setSemester] = useState<number>(1);
   const [academicYear, setAcademicYear] = useState('2024-2025');
-  
+
   // Data State
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  
+
   // Generation State
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTimetable, setGeneratedTimetable] = useState<GeneratedClass[]>([]);
   const [conflicts, setConflicts] = useState<string[]>([]);
   const [timetableId, setTimetableId] = useState<string | null>(null);
-  
+
   // UI State
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -359,22 +358,31 @@ const TimetableGenerationPage: React.FC = () => {
     try {
       setLoading(true);
       const teachersData = await dataManagementService.getTeachers();
+
       // Convert selected department name (e.g., "Information Technology") to code (e.g., "IT")
       const selectedDeptCode = getDepartmentCode(department);
-      const filteredTeachers = teachersData.filter(t => {
-        // Handle department as object (populated) or string
-        const deptCode = typeof t.department === 'object' && (t.department as any)?.code 
-          ? (t.department as any).code 
-          : t.department;
-        return deptCode === selectedDeptCode;
+
+      const toDeptCode = (dept: any): string => {
+        if (!dept) return '';
+        if (typeof dept === 'string') return dept.toUpperCase();
+        return (dept.coursecode || dept.code || dept.courseCode || '').toUpperCase();
+      };
+
+      const filteredTeachers = teachersData.filter((t: any) => {
+        const primaryCode = toDeptCode(t.primaryDepartment || t.department);
+        const allowedCodes = Array.isArray(t.allowedDepartments)
+          ? t.allowedDepartments.map((d: any) => toDeptCode(d))
+          : [];
+
+        return primaryCode === selectedDeptCode || allowedCodes.includes(selectedDeptCode);
       });
 
       // Normalize service teacher shape to the local Teacher interface to avoid type mismatches
       const normalizedTeachers: Teacher[] = filteredTeachers.map((t: any) => ({
         _id: t._id,
-        name: t.name,
-        email: t.email ?? '', // provide a fallback if the service doesn't return email
-        department: t.department,
+        name: t.name || t.user?.name || 'Unknown Teacher',
+        email: t.email || t.user?.email || '',
+        department: t.primaryDepartment || t.department,
         qualifications: t.qualifications ?? []
       }));
 
@@ -391,11 +399,19 @@ const TimetableGenerationPage: React.FC = () => {
     try {
       const response = await roomsAPI.getAll();
       const payload = (response as any)?.data;
+      const messagePayload = (response as any)?.message;
+
       const roomData = Array.isArray(payload)
         ? payload
         : Array.isArray(payload?.rooms)
           ? payload.rooms
-          : [];
+          : Array.isArray(messagePayload)
+            ? messagePayload
+            : Array.isArray(messagePayload?.rooms)
+              ? messagePayload.rooms
+              : [];
+
+      console.log('[TimetableGeneration] rooms loaded:', roomData.length);
       setRooms(roomData);
     } catch (error) {
       console.error('Error fetching rooms:', error);
@@ -408,29 +424,85 @@ const TimetableGenerationPage: React.FC = () => {
       setLoading(true);
       // Convert selected department name (e.g., "Information Technology") to code (e.g., "IT")
       const selectedDeptCode = getDepartmentCode(department);
-      
-      // Fetch subjects with filters
-      const result = await subjectManagementService.getAllSubjects(
-        { department: selectedDeptCode, semester },
-        1,
-        100 // Get up to 100 subjects
-      );
-      
-      const subjectsData = result.subjects || [];
-      
-      // Map to local Subject interface
-      const mappedSubjects: Subject[] = subjectsData.map((s: any) => ({
-        _id: s._id,
-        name: s.name,
-        code: s.code,
-        department: s.department,
-        semester: s.semester,
-        credits: s.credits,
-        type: s.type
-      }));
-      
+
+      let mappedSubjects: Subject[] = [];
+
+      // Primary source: subjects endpoint (existing behavior)
+      try {
+        const result = await subjectManagementService.getAllSubjects(
+          { department: selectedDeptCode, semester },
+          1,
+          100
+        );
+
+        const subjectsData = result.subjects || [];
+        mappedSubjects = subjectsData.map((s: any) => ({
+          _id: s._id,
+          name: s.name,
+          code: s.code,
+          department: s.department,
+          semester: s.semester,
+          credits: s.credits,
+          type: s.type
+        }));
+      } catch (subjectError) {
+        console.warn('Subjects endpoint failed, falling back to Courses endpoint:', subjectError);
+      }
+
+      // Fallback source: courses endpoint (for deployments using Course collection only)
+      if (mappedSubjects.length === 0) {
+        const token = localStorage.getItem('token');
+        const headers = {
+          Authorization: token ? `Bearer ${token}` : ''
+        };
+
+        const fetchCourses = async (departmentFilter: string) => {
+          const params = new URLSearchParams({
+            department: departmentFilter,
+            semester: String(semester),
+            page: '1',
+            limit: '100'
+          });
+
+          const response = await fetch(`${API_BASE_URL}/Courses?${params.toString()}`, {
+            headers
+          });
+
+          if (!response.ok) {
+            throw new Error(`Courses fetch failed with status ${response.status}`);
+          }
+
+          const raw = await response.json();
+          const courseList = raw?.data?.courses || raw?.message?.courses || raw?.courses || [];
+          return Array.isArray(courseList) ? courseList : [];
+        };
+
+        // Backend CourseController resolves department by ObjectId or full name first.
+        // Try department full name, then fallback to code.
+        let courseList: any[] = [];
+        try {
+          courseList = await fetchCourses(department);
+        } catch (nameErr) {
+          console.warn('Courses fetch by department name failed:', nameErr);
+        }
+
+        if (courseList.length === 0) {
+          courseList = await fetchCourses(selectedDeptCode);
+        }
+
+        mappedSubjects = courseList.map((c: any) => ({
+          _id: c._id,
+          name: c.name || c.courseName || 'Unnamed Course',
+          code: c.code || c.courseCode || 'N/A',
+          department: c.department,
+          semester: c.semester,
+          credits: c.credits,
+          type: c.type || c.courseType || 'theory'
+        }));
+      }
+
       setSubjects(mappedSubjects);
-      
+
       // Initialize assignments for fetched subjects
       const initialAssignments = mappedSubjects.map((subject) => ({
         subject,
@@ -440,7 +512,7 @@ const TimetableGenerationPage: React.FC = () => {
       setAssignments(initialAssignments as Assignment[]);
     } catch (error) {
       console.error('Error fetching subjects:', error);
-      addToast({ title: 'Error', message: 'Failed to fetch subjects', type: 'error' });
+      addToast({ title: 'Error', message: 'Failed to fetch subjects/courses', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -449,12 +521,37 @@ const TimetableGenerationPage: React.FC = () => {
   const fetchTimeSlots = async () => {
     try {
       const response = await timeSlotsAPI.getAll();
-      if (response.success && response.data) {
-        const activeSlots = response.data.filter(slot => slot.isActive);
-        setTimeSlots(activeSlots);
+      const payload = (response as any)?.data;
+      const messagePayload = (response as any)?.message;
+      const slots = Array.isArray(payload)
+        ? payload
+        : Array.isArray(messagePayload)
+          ? messagePayload
+          : [];
+
+      if (slots.length > 0) {
+        const activeSlots = slots.filter((slot: TimeSlot) => slot.isActive);
+
+        if (activeSlots.length > 0) {
+          console.log('[TimetableGeneration] active timeslots loaded:', activeSlots.length);
+          setTimeSlots(activeSlots);
+        } else {
+          // Fallback: if no slot is marked active, still allow generation with all configured slots.
+          console.warn('[TimetableGeneration] no active timeslots found, using all slots as fallback:', slots.length);
+          setTimeSlots(slots);
+          addToast({
+            title: 'No Active Time Slots',
+            message: 'Using all configured time slots as fallback. Please activate slots in Time Slot Management.',
+            type: 'warning'
+          });
+        }
+      } else {
+        console.warn('[TimetableGeneration] no timeslots returned from API');
+        setTimeSlots([]);
       }
     } catch (error) {
       console.error('Error fetching time slots:', error);
+      setTimeSlots([]);
     }
   };
 
@@ -489,6 +586,24 @@ const TimetableGenerationPage: React.FC = () => {
       return;
     }
 
+    if (!timeSlots.length) {
+      addToast({
+        title: 'Missing Time Slots',
+        message: 'No active time slots found. Please create/activate time slots first.',
+        type: 'error'
+      });
+      return;
+    }
+
+    if (!rooms.length) {
+      addToast({
+        title: 'Missing Rooms',
+        message: 'No rooms found. Please add rooms before generating timetable.',
+        type: 'error'
+      });
+      return;
+    }
+
     setIsGenerating(true);
     setConflicts([]);
 
@@ -502,6 +617,25 @@ const TimetableGenerationPage: React.FC = () => {
       setGeneratedTimetable(schedule);
       setConflicts(detectedConflicts);
 
+      console.log('[TimetableGeneration] generation summary:', {
+        scheduledClasses: schedule.length,
+        conflictCount: detectedConflicts.length,
+        subjects: subjects.length,
+        teachers: teachers.length,
+        rooms: rooms.length,
+        timeSlots: timeSlots.length
+      });
+
+      if (schedule.length === 0) {
+        const reason = detectedConflicts[0] || 'No feasible allocation found. Check room/time-slot/teacher constraints.';
+        addToast({
+          title: 'Generation Failed',
+          message: reason,
+          type: 'error'
+        });
+        return;
+      }
+
       if (detectedConflicts.length === 0) {
         addToast({
           title: 'Success!',
@@ -509,6 +643,7 @@ const TimetableGenerationPage: React.FC = () => {
           type: 'success'
         });
       } else {
+        console.log('[TimetableGeneration] conflicts:', detectedConflicts);
         addToast({
           title: 'Warning',
           message: `Generated with ${detectedConflicts.length} conflict(s)`,
@@ -549,18 +684,18 @@ const TimetableGenerationPage: React.FC = () => {
       conflicts.push('No valid rooms available for scheduling.');
       return { schedule, conflicts };
     }
-    
+
     // Track usage to prevent conflicts
     const teacherSchedule = new Map<string, Set<string>>(); // teacherId -> Set of "day-timeSlot" keys
     const slotUsage = new Map<string, boolean>(); // "day-timeSlot" -> used
     const roomSchedule = new Map<string, Set<string>>(); // roomId -> Set of "day-start-end" keys
-    
+
     // Track schedule per day for constraint checking
     const daySchedule = new Map<number, GeneratedClass[]>(); // day -> classes scheduled that day
-    
+
     // Working days (Monday to Friday)
     const workingDays = [1, 2, 3, 4, 5];
-    
+
     // Initialize day schedule tracking
     workingDays.forEach(day => daySchedule.set(day, []));
 
@@ -572,7 +707,7 @@ const TimetableGenerationPage: React.FC = () => {
       }
       slotsByDay.get(slot.dayOfWeek)!.push(slot);
     });
-    
+
     // Sort slots by start time within each day
     slotsByDay.forEach((daySlots, day) => {
       daySlots.sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -580,17 +715,17 @@ const TimetableGenerationPage: React.FC = () => {
     });
 
     // Separate theory and practical subjects
-    const theoryAssignments = assignments.filter(a => 
+    const theoryAssignments = assignments.filter(a =>
       a.subject.type?.toLowerCase() !== 'practical' && a.subject.type?.toLowerCase() !== 'lab'
     );
-    const practicalAssignments = assignments.filter(a => 
+    const practicalAssignments = assignments.filter(a =>
       a.subject.type?.toLowerCase() === 'practical' || a.subject.type?.toLowerCase() === 'lab'
     );
 
     // Calculate total theory hours needed per subject for equal distribution
     const totalTheoryHours = theoryAssignments.reduce((sum, a) => sum + a.allocatedHours, 0);
     const theoryHoursPerDay = Math.ceil(totalTheoryHours / workingDays.length);
-    
+
     // Track remaining hours for each assignment
     const remainingHours = new Map<string, number>();
     assignments.forEach(a => remainingHours.set(a.subject._id, a.allocatedHours));
@@ -599,10 +734,10 @@ const TimetableGenerationPage: React.FC = () => {
     const wouldExceedConsecutiveLimit = (day: number, subjectId: string, slotIndex: number): boolean => {
       const dayClasses = daySchedule.get(day) || [];
       const sortedClasses = [...dayClasses].sort((a, b) => a.startTime.localeCompare(b.startTime));
-      
+
       // Find classes immediately before and after the proposed slot
       let consecutiveCount = 1;
-      
+
       // Check previous slots
       for (let i = slotIndex - 1; i >= 0 && i >= slotIndex - 2; i--) {
         const prevClass = sortedClasses.find(c => {
@@ -615,7 +750,7 @@ const TimetableGenerationPage: React.FC = () => {
           break;
         }
       }
-      
+
       // Check next slots
       for (let i = slotIndex + 1; i < (slotsByDay.get(day)?.length || 0) && i <= slotIndex + 2; i++) {
         const nextClass = sortedClasses.find(c => {
@@ -628,7 +763,7 @@ const TimetableGenerationPage: React.FC = () => {
           break;
         }
       }
-      
+
       return consecutiveCount > 2;
     };
 
@@ -699,10 +834,10 @@ const TimetableGenerationPage: React.FC = () => {
       slotUsage.set(slotKey, true);
       teacherSchedule.get(teacher._id)!.add(teacherSlotKey);
       roomSchedule.get(selectedRoomId)!.add(teacherSlotKey);
-      
+
       const currentRemaining = remainingHours.get(subject._id) || 0;
       remainingHours.set(subject._id, currentRemaining - 1);
-      
+
       return true;
     };
 
@@ -711,38 +846,38 @@ const TimetableGenerationPage: React.FC = () => {
     for (const day of workingDays) {
       const daySlots = slotsByDay.get(day) || [];
       let practicalsScheduledToday = 0;
-      
+
       // Shuffle practical assignments for variety
       const shuffledPracticals = [...practicalAssignments].sort(() => Math.random() - 0.5);
-      
+
       for (const assignment of shuffledPracticals) {
         if (practicalsScheduledToday >= 2) break; // Max 2 practicals per day
-        
+
         const remaining = remainingHours.get(assignment.subject._id) || 0;
         if (remaining <= 0) continue;
-        
+
         // Find a suitable slot (preferably in the middle or end of day for practicals)
-        const preferredSlotIndices = daySlots.length > 4 
+        const preferredSlotIndices = daySlots.length > 4
           ? [Math.floor(daySlots.length / 2), Math.floor(daySlots.length / 2) + 1, daySlots.length - 1, daySlots.length - 2]
           : daySlots.map((_, i) => i);
-        
+
         for (const slotIdx of preferredSlotIndices) {
           const slot = daySlots[slotIdx];
           if (!slot) continue;
-          
+
           if (scheduleClass(assignment, slot, day, 'practical')) {
             practicalsScheduledToday++;
             break;
           }
         }
       }
-      
+
       // Ensure minimum 1 practical per day if we have practicals left
       if (practicalsScheduledToday === 0) {
         for (const assignment of shuffledPracticals) {
           const remaining = remainingHours.get(assignment.subject._id) || 0;
           if (remaining <= 0) continue;
-          
+
           for (const slot of daySlots) {
             if (scheduleClass(assignment, slot, day, 'practical')) {
               practicalsScheduledToday++;
@@ -757,7 +892,7 @@ const TimetableGenerationPage: React.FC = () => {
     // PHASE 2: Schedule theory classes with equal distribution
     // Calculate target hours per subject per day for even distribution
     const subjectDayTargets = new Map<string, Map<number, number>>();
-    
+
     theoryAssignments.forEach(assignment => {
       const hoursPerSubjectPerDay = Math.ceil(assignment.allocatedHours / workingDays.length);
       const dayTargets = new Map<number, number>();
@@ -769,39 +904,39 @@ const TimetableGenerationPage: React.FC = () => {
     let schedulingComplete = false;
     let iterations = 0;
     const maxIterations = 100; // Prevent infinite loops
-    
+
     while (!schedulingComplete && iterations < maxIterations) {
       iterations++;
       schedulingComplete = true;
-      
+
       // Shuffle the order of subjects for each iteration to prevent clustering
       const shuffledTheory = [...theoryAssignments].sort(() => Math.random() - 0.5);
-      
+
       for (const day of workingDays) {
         const daySlots = slotsByDay.get(day) || [];
-        
+
         for (let slotIdx = 0; slotIdx < daySlots.length; slotIdx++) {
           const slot = daySlots[slotIdx];
           const slotKey = `${day}-${slot._id}`;
-          
+
           // Skip if slot is already used
           if (slotUsage.get(slotKey)) continue;
-          
+
           // Find the best subject for this slot
           let bestAssignment: Assignment | null = null;
           let bestScore = -Infinity;
-          
+
           for (const assignment of shuffledTheory) {
             const subjectId = assignment.subject._id;
             const remaining = remainingHours.get(subjectId) || 0;
-            
+
             if (remaining <= 0) continue;
-            
+
             // Check consecutive constraint
             if (wouldExceedConsecutiveLimit(day, subjectId, slotIdx)) {
               continue;
             }
-            
+
             // Check teacher availability
             const teacherSlotKey = `${day}-${slot.startTime}-${slot.endTime}`;
             if (!teacherSchedule.has(assignment.teacher._id)) {
@@ -810,41 +945,41 @@ const TimetableGenerationPage: React.FC = () => {
             if (teacherSchedule.get(assignment.teacher._id)!.has(teacherSlotKey)) {
               continue;
             }
-            
+
             // Calculate score based on various factors
             let score = 0;
-            
+
             // Prefer subjects with more remaining hours
             score += remaining * 10;
-            
+
             // Prefer subjects that haven't been scheduled much today (variation)
             const todayCount = getSubjectCountForDay(day, subjectId);
             score -= todayCount * 20;
-            
+
             // Prefer subjects that are below their daily target
             const dayTarget = subjectDayTargets.get(subjectId)?.get(day) || 0;
             if (todayCount < dayTarget) {
               score += 15;
             }
-            
+
             if (score > bestScore) {
               bestScore = score;
               bestAssignment = assignment;
             }
           }
-          
+
           if (bestAssignment) {
             scheduleClass(bestAssignment, slot, day, 'theory');
             schedulingComplete = false; // We scheduled something, keep going
           }
         }
       }
-      
+
       // Check if any theory subjects still have remaining hours
-      const hasRemainingTheory = theoryAssignments.some(a => 
+      const hasRemainingTheory = theoryAssignments.some(a =>
         (remainingHours.get(a.subject._id) || 0) > 0
       );
-      
+
       if (!hasRemainingTheory) {
         schedulingComplete = true;
       }
@@ -854,17 +989,17 @@ const TimetableGenerationPage: React.FC = () => {
     for (const assignment of practicalAssignments) {
       const remaining = remainingHours.get(assignment.subject._id) || 0;
       if (remaining <= 0) continue;
-      
+
       for (const day of workingDays) {
         const practicalsToday = getPracticalsForDay(day);
         if (practicalsToday >= 2) continue; // Respect max 2 practicals per day
-        
+
         const daySlots = slotsByDay.get(day) || [];
         for (const slot of daySlots) {
           const currentRemaining = remainingHours.get(assignment.subject._id) || 0;
           if (currentRemaining <= 0) break;
           if (getPracticalsForDay(day) >= 2) break;
-          
+
           scheduleClass(assignment, slot, day, 'practical');
         }
       }
@@ -916,7 +1051,7 @@ const TimetableGenerationPage: React.FC = () => {
 
     try {
       const timetableName = `${department} - Semester ${semester} - ${academicYear}`;
-      
+
       const saved = await timetableService.saveTimetable({
         name: timetableName,
         department,
@@ -937,10 +1072,10 @@ const TimetableGenerationPage: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Error saving timetable:', error);
-      addToast({ 
-        title: 'Error', 
-        message: error.response?.data?.message || 'Failed to save timetable', 
-        type: 'error' 
+      addToast({
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to save timetable',
+        type: 'error'
       });
     }
   };
@@ -1048,11 +1183,10 @@ const TimetableGenerationPage: React.FC = () => {
               <React.Fragment key={step.num}>
                 <div className="flex flex-col items-center">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold ${
-                      currentStep >= step.num
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold ${currentStep >= step.num
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                      }`}
                   >
                     {step.num}
                   </div>
@@ -1060,9 +1194,8 @@ const TimetableGenerationPage: React.FC = () => {
                 </div>
                 {idx < 3 && (
                   <div
-                    className={`flex-1 h-1 mx-4 ${
-                      currentStep > step.num ? 'bg-primary-600' : 'bg-gray-200'
-                    }`}
+                    className={`flex-1 h-1 mx-4 ${currentStep > step.num ? 'bg-primary-600' : 'bg-gray-200'
+                      }`}
                   />
                 )}
               </React.Fragment>
@@ -1162,7 +1295,7 @@ const TimetableGenerationPage: React.FC = () => {
               ) : subjects.length === 0 ? (
                 <div className="text-center py-12">
                   <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No subjects found for this department and semester</p>
+                  <p className="text-gray-600">No subjects/courses found for this department and semester</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1332,15 +1465,15 @@ const TimetableGenerationPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={exportTimetable}
                       className="bg-white/10 border-white/30 text-white hover:bg-white/20"
                     >
                       <Download className="w-4 h-4 mr-2" />
                       Export
                     </Button>
-                    <Button 
+                    <Button
                       onClick={saveTimetable}
                       className="bg-white text-primary-700 hover:bg-primary-50"
                     >
@@ -1414,8 +1547,8 @@ const TimetableGenerationPage: React.FC = () => {
             {/* Weekly Timetable Grid */}
             <Card className="overflow-hidden">
               <div className="p-6">
-                <WeeklyTimetableGrid 
-                  classes={generatedTimetable} 
+                <WeeklyTimetableGrid
+                  classes={generatedTimetable}
                   timeSlots={timeSlots}
                   daysOfWeek={daysOfWeek}
                 />

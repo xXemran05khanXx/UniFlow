@@ -3,8 +3,8 @@
  * API client methods for department operations
  */
 
-import  apiClient from './apiClient';
 import { Department, DepartmentStats } from '../types';
+import apiClient from './apiClient';
 
 export interface CreateDepartmentDto {
   code: 'IT' | 'CS' | 'FE';
@@ -53,7 +53,7 @@ class DepartmentService {
    * Get department by code
    */
   async getDepartmentByCode(code: 'IT' | 'CS' | 'FE'): Promise<Department> {
-    const response = await apiClient.get<Department>(`${this.basePath}/code/${code}`);
+    const response = await apiClient.get<Department>(`${this.basePath}/coursecode/${code}`);
     return response.data;
   }
 

@@ -1,12 +1,12 @@
 import axios, { AxiosResponse } from 'axios';
-import { 
-  User, 
-  Subject, 
-  Room, 
-  TimeSlot, 
-  Timetable, 
+import {
+  ApiResponse,
+  Room,
+  Subject,
+  TimeSlot,
+  Timetable,
   TimetableGeneration,
-  ApiResponse 
+  User
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -41,32 +41,32 @@ api.interceptors.response.use(
   (error) => {
     // Get error message from various possible locations in the response
     const responseData = error.response?.data;
-    const errorMessage = responseData?.message || 
-                         responseData?.error?.message || 
-                         (typeof responseData?.error === 'string' ? responseData?.error : '') || 
-                         '';
-    
-    const isTokenExpired = errorMessage.toLowerCase().includes('token expired') || 
-                           errorMessage.toLowerCase().includes('jwt expired');
-    
-    console.log('🔍 API Error:', { 
-      status: error.response?.status, 
-      message: errorMessage, 
+    const errorMessage = responseData?.message ||
+      responseData?.error?.message ||
+      (typeof responseData?.error === 'string' ? responseData?.error : '') ||
+      '';
+
+    const isTokenExpired = errorMessage.toLowerCase().includes('token expired') ||
+      errorMessage.toLowerCase().includes('jwt expired');
+
+    console.log('🔍 API Error:', {
+      status: error.response?.status,
+      message: errorMessage,
       isTokenExpired,
-      url: error.config?.url 
+      url: error.config?.url
     });
-    
+
     // Handle 401 errors (unauthorized) and token expiration
     if (error.response?.status === 401 || isTokenExpired) {
       // Don't redirect on login/register failures - let the component handle it
-      const isAuthEndpoint = error.config?.url?.includes('/auth/login') || 
-                             error.config?.url?.includes('/auth/register');
-      
+      const isAuthEndpoint = error.config?.url?.includes('/auth/login') ||
+        error.config?.url?.includes('/auth/register');
+
       if (!isAuthEndpoint) {
         // Clear auth data
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        
+
         // Only redirect if not already on login page
         if (!window.location.pathname.includes('/login')) {
           console.log('🔐 Token expired or unauthorized - redirecting to login');
@@ -74,14 +74,14 @@ api.interceptors.response.use(
           setTimeout(() => {
             window.location.replace('/login');
           }, 100);
-          return new Promise(() => {}); // Return a never-resolving promise to stop further execution
+          return new Promise(() => { }); // Return a never-resolving promise to stop further execution
         }
       }
     }
-    
+
     // Don't redirect on 403 (account locked) from auth endpoints
     // Let the login page handle and display the error
-    
+
     // For all other errors, just reject and let the calling code handle it
     return Promise.reject(error);
   }
@@ -108,7 +108,7 @@ export const authAPI = {
   },
 
   getProfile: async (): Promise<ApiResponse<User>> => {
-    const response: AxiosResponse<ApiResponse<User>> = await api.get('/auth/profile');
+    const response: AxiosResponse<ApiResponse<User>> = await api.get('/auth/me');
     return response.data;
   },
 };
@@ -182,7 +182,7 @@ export const subjectsAPI = {
     const formData = new FormData();
     formData.append('syllabus', file);
     const response: AxiosResponse<ApiResponse<Subject>> = await api.post(
-      `/subjects/${id}/syllabus`, 
+      `/subjects/${id}/syllabus`,
       formData,
       {
         headers: {
@@ -271,37 +271,37 @@ export const timetablesAPI = {
   },
 
   getById: async (id: string): Promise<ApiResponse<Timetable>> => {
-    const response: AxiosResponse<ApiResponse<Timetable>> = await api.get(`/timetables/${id}`);
+    const response: AxiosResponse<ApiResponse<Timetable>> = await api.get(`/timetable/${id}`);
     return response.data;
   },
 
   getByTeacher: async (teacherId: string): Promise<ApiResponse<Timetable[]>> => {
-    const response: AxiosResponse<ApiResponse<Timetable[]>> = await api.get(`/timetables/teacher/${teacherId}`);
+    const response: AxiosResponse<ApiResponse<Timetable[]>> = await api.get(`/timetable/my-schedule?teacherId=${teacherId}`);
     return response.data;
   },
 
   getByStudent: async (studentId: string): Promise<ApiResponse<Timetable[]>> => {
-    const response: AxiosResponse<ApiResponse<Timetable[]>> = await api.get(`/timetables/student/${studentId}`);
+    const response: AxiosResponse<ApiResponse<Timetable[]>> = await api.get('/timetable/student-schedule');
     return response.data;
   },
 
   create: async (timetableData: Partial<Timetable>): Promise<ApiResponse<Timetable>> => {
-    const response: AxiosResponse<ApiResponse<Timetable>> = await api.post('/timetables', timetableData);
+    const response: AxiosResponse<ApiResponse<Timetable>> = await api.post('/timetable/save', timetableData);
     return response.data;
   },
 
   update: async (id: string, timetableData: Partial<Timetable>): Promise<ApiResponse<Timetable>> => {
-    const response: AxiosResponse<ApiResponse<Timetable>> = await api.put(`/timetables/${id}`, timetableData);
+    const response: AxiosResponse<ApiResponse<Timetable>> = await api.put(`/timetable/${id}`, timetableData);
     return response.data;
   },
 
   delete: async (id: string): Promise<ApiResponse<null>> => {
-    const response: AxiosResponse<ApiResponse<null>> = await api.delete(`/timetables/${id}`);
+    const response: AxiosResponse<ApiResponse<null>> = await api.delete(`/timetable/${id}`);
     return response.data;
   },
 
   publish: async (id: string): Promise<ApiResponse<Timetable>> => {
-    const response: AxiosResponse<ApiResponse<Timetable>> = await api.post(`/timetables/${id}/publish`);
+    const response: AxiosResponse<ApiResponse<Timetable>> = await api.patch(`/timetable/${id}/publish`);
     return response.data;
   },
 
@@ -310,22 +310,22 @@ export const timetablesAPI = {
     department: string;
     preferences?: any;
   }): Promise<ApiResponse<TimetableGeneration>> => {
-    const response: AxiosResponse<ApiResponse<TimetableGeneration>> = await api.post('/timetables/generate', parameters);
+    const response: AxiosResponse<ApiResponse<TimetableGeneration>> = await api.post('/timetable/generate', parameters);
     return response.data;
   },
 
   getGeneration: async (id: string): Promise<ApiResponse<TimetableGeneration>> => {
-    const response: AxiosResponse<ApiResponse<TimetableGeneration>> = await api.get(`/timetables/generation/${id}`);
+    const response: AxiosResponse<ApiResponse<TimetableGeneration>> = await api.get(`/timetable/generation/${id}`);
     return response.data;
   },
 
   getGenerations: async (): Promise<ApiResponse<TimetableGeneration[]>> => {
-    const response: AxiosResponse<ApiResponse<TimetableGeneration[]>> = await api.get('/timetables/generations');
+    const response: AxiosResponse<ApiResponse<TimetableGeneration[]>> = await api.get('/timetable/generations');
     return response.data;
   },
 
   export: async (id: string, format: 'pdf' | 'excel'): Promise<Blob> => {
-    const response = await api.get(`/timetables/${id}/export?format=${format}`, {
+    const response = await api.get(`/timetable/${id}/export?format=${format}`, {
       responseType: 'blob',
     });
     return response.data;

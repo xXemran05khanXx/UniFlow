@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Camera, User, GraduationCap, Shield, Eye, EyeOff, Save, X } from 'lucide-react';
+import { Camera, Eye, EyeOff, GraduationCap, Save, Shield, User, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface PasswordModalProps {
@@ -178,18 +178,62 @@ const StudentProfilePage: React.FC = () => {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isMobileEditing, setIsMobileEditing] = useState(false);
   const [tempMobileNumber, setTempMobileNumber] = useState(mobileNumber);
-
-  // Sample student data - in real app, this would come from API
-  const studentData = {
+  const [studentData, setStudentData] = useState({
     name: user?.name || 'John Doe',
-    rollNumber: '21COMPA055',
+    rollNumber: 'N/A',
     email: user?.email || 'john.doe@college.edu',
-    department: 'Computer Engineering',
-    currentYear: 'Third Year',
-    currentSemester: 'Semester 5',
+    department: 'N/A',
+    currentYear: 'N/A',
+    currentSemester: 'N/A',
     division: 'A',
-    admissionYear: '2022'
-  };
+    admissionYear: 'N/A'
+  });
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) return;
+
+        const result = await response.json();
+        const profileUser = result?.data || result?.user || {};
+        const semester = profileUser.semester || user?.semester || 'N/A';
+        const currentYear = typeof semester === 'number' ? `Year ${Math.ceil(semester / 2)}` : 'N/A';
+
+        setStudentData({
+          name: profileUser.name || user?.name || 'N/A',
+          rollNumber: profileUser.studentId || profileUser.employeeId || 'N/A',
+          email: profileUser.email || user?.email || 'N/A',
+          department: typeof profileUser.department === 'object'
+            ? (profileUser.department.name || profileUser.department.code || 'N/A')
+            : (profileUser.department || 'N/A'),
+          currentYear,
+          currentSemester: semester ? `Semester ${semester}` : 'N/A',
+          division: 'A',
+          admissionYear: profileUser.createdAt ? new Date(profileUser.createdAt).getFullYear().toString() : 'N/A'
+        });
+
+        const phone = profileUser?.profile?.phone;
+        if (phone) {
+          setMobileNumber(phone);
+          setTempMobileNumber(phone);
+        }
+      } catch (error) {
+        console.error('Failed to load student profile:', error);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
 
   const getInitials = (name: string) => {
     return name
@@ -205,20 +249,60 @@ const StudentProfilePage: React.FC = () => {
     alert('Profile picture upload functionality would be implemented here');
   };
 
-  const handlePasswordChange = (currentPassword: string, newPassword: string) => {
-    // In a real app, this would make an API call
-    console.log('Password change request:', { currentPassword, newPassword });
-    alert('Password updated successfully!');
+  const handlePasswordChange = async (currentPassword: string, newPassword: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/password', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update password');
+      }
+
+      alert('Password updated successfully!');
+    } catch (error) {
+      console.error('Password update failed:', error);
+      alert('Failed to update password');
+    }
   };
 
-  const handleMobileSave = () => {
+  const handleMobileSave = async () => {
     if (tempMobileNumber.length !== 10 || !/^\d+$/.test(tempMobileNumber)) {
       alert('Please enter a valid 10-digit mobile number');
       return;
     }
-    setMobileNumber(tempMobileNumber);
-    setIsMobileEditing(false);
-    alert('Mobile number updated successfully!');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          profile: {
+            phone: tempMobileNumber
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update mobile number');
+      }
+
+      setMobileNumber(tempMobileNumber);
+      setIsMobileEditing(false);
+      alert('Mobile number updated successfully!');
+    } catch (error) {
+      console.error('Mobile update failed:', error);
+      alert('Failed to update mobile number');
+    }
   };
 
   const handleMobileCancel = () => {
@@ -229,11 +313,11 @@ const StudentProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
+
         {/* Profile Header */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 mb-8">
           <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
-            
+
             {/* Profile Picture */}
             <div className="relative group">
               <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg">
@@ -265,7 +349,7 @@ const StudentProfilePage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
+
           {/* Academic Information Card */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
             <div className="flex items-center mb-6">
@@ -309,7 +393,7 @@ const StudentProfilePage: React.FC = () => {
             </div>
 
             <div className="space-y-6">
-              
+
               {/* Email Address (Read-only) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -339,11 +423,10 @@ const StudentProfilePage: React.FC = () => {
                     value={isMobileEditing ? tempMobileNumber : mobileNumber}
                     onChange={(e) => setTempMobileNumber(e.target.value)}
                     disabled={!isMobileEditing}
-                    className={`flex-1 px-4 py-3 border rounded-lg transition-all duration-200 ${
-                      isMobileEditing
+                    className={`flex-1 px-4 py-3 border rounded-lg transition-all duration-200 ${isMobileEditing
                         ? 'border-blue-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                         : 'bg-gray-50 border-gray-200 text-gray-600'
-                    }`}
+                      }`}
                     placeholder="Enter mobile number"
                   />
                   <div className="flex space-x-2">

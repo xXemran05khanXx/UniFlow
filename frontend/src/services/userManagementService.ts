@@ -44,6 +44,8 @@ export interface User {
   name: string;
   email: string;
   role: 'student' | 'teacher' | 'admin';
+  employeeId?: string;
+  designation?: string;
   department?: string | { _id: string; name: string; code: string };
   semester?: number;
   isActive: boolean;
@@ -136,11 +138,12 @@ export const userManagementService = {
       });
 
       const response = await apiClient.get(`/users?${params.toString()}`);
+      const pagination = response.data.pagination || {};
       return {
         users: response.data.data || response.data,
-        total: response.data.total || 0,
-        page: response.data.page || 1,
-        pages: response.data.pages || 1
+        total: pagination.total || response.data.total || 0,
+        page: pagination.page || response.data.page || 1,
+        pages: pagination.pages || response.data.pages || 1
       };
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -277,7 +280,7 @@ export const userManagementService = {
       const response = await apiClient.get(`/users/export?${params.toString()}`, {
         responseType: 'blob',
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -297,7 +300,7 @@ export const userManagementService = {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const response = await apiClient.post('/users/import', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -316,7 +319,7 @@ export const userManagementService = {
       const response = await apiClient.get('/users/template', {
         responseType: 'blob',
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;

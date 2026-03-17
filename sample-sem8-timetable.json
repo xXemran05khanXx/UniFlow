@@ -1,0 +1,128 @@
+{
+    "name": "Computer Engineering - Semester 8 - 2026",
+    "department": "Computer Engineering",
+    "semester": 8,
+    "academicYear": "2026",
+    "schedule": [
+        {
+            "subject": "69b6cd73761f806f111292d4",
+            "subjectName": "Big Data Analysis",
+            "teacher": "69b6cd70761f806f1112928a",
+            "teacherName": "Vishal B.",
+            "timeSlot": "09:05-10:00",
+            "day": 2,
+            "startTime": "09:05",
+            "endTime": "10:00",
+            "room": "69b6cd73761f806f111292bf",
+            "sessionType": "theory"
+        },
+        {
+            "subject": "69b6cd73761f806f111292d6",
+            "subjectName": "Project Management",
+            "teacher": "69b6cd71761f806f111292a9",
+            "teacherName": "Ganesh G.",
+            "timeSlot": "10:20-11:15",
+            "day": 2,
+            "startTime": "10:20",
+            "endTime": "11:15",
+            "room": "69b6cd73761f806f111292c0",
+            "sessionType": "theory"
+        },
+        {
+            "subject": "69b6cd73761f806f111292d5",
+            "subjectName": "Cloud Computing",
+            "teacher": "69b6cd71761f806f11129294",
+            "teacherName": "Seema Jadhav",
+            "timeSlot": "11:15-12:10",
+            "day": 2,
+            "startTime": "11:15",
+            "endTime": "12:10",
+            "room": "69b6cd73761f806f111292bf",
+            "sessionType": "theory"
+        },
+        {
+            "subject": "69b6cd73761f806f111292d8",
+            "subjectName": "Cloud Computing Lab",
+            "teacher": "69b6cd71761f806f11129294",
+            "teacherName": "Seema Jadhav",
+            "timeSlot": "12:50-13:45",
+            "day": 2,
+            "startTime": "12:50",
+            "endTime": "13:45",
+            "room": "69b6cd73761f806f111292c2",
+            "sessionType": "practical"
+        },
+        {
+            "subject": "69b6cd73761f806f111292d7",
+            "subjectName": "Blockchain",
+            "teacher": "69b6cd71761f806f1112929b",
+            "teacherName": "Snehal Mali",
+            "timeSlot": "14:40-15:35",
+            "day": 2,
+            "startTime": "14:40",
+            "endTime": "15:35",
+            "room": "69b6cd73761f806f111292c0",
+            "sessionType": "theory"
+        },
+        {
+            "subject": "69b6cd73761f806f111292d4",
+            "subjectName": "Big Data Analysis",
+            "teacher": "69b6cd70761f806f1112928a",
+            "teacherName": "Vishal B.",
+            "timeSlot": "09:05-10:00",
+            "day": 3,
+            "startTime": "09:05",
+            "endTime": "10:00",
+            "room": "69b6cd73761f806f111292bf",
+            "sessionType": "theory"
+        },
+        {
+            "subject": "69b6cd73761f806f111292d5",
+            "subjectName": "Cloud Computing",
+            "teacher": "69b6cd71761f806f11129294",
+            "teacherName": "Seema Jadhav",
+            "timeSlot": "10:20-11:15",
+            "day": 3,
+            "startTime": "10:20",
+            "endTime": "11:15",
+            "room": "69b6cd73761f806f111292bf",
+            "sessionType": "theory"
+        },
+        {
+            "subject": "69b6cd73761f806f111292d6",
+            "subjectName": "Project Management",
+            "teacher": "69b6cd71761f806f111292a9",
+            "teacherName": "Ganesh G.",
+            "timeSlot": "11:15-12:10",
+            "day": 3,
+            "startTime": "11:15",
+            "endTime": "12:10",
+            "room": "69b6cd73761f806f111292c0",
+            "sessionType": "theory"
+        },
+        {
+            "subject": "69b6cd73761f806f111292d7",
+            "subjectName": "Blockchain",
+            "teacher": "69b6cd71761f806f1112929b",
+            "teacherName": "Snehal Mali",
+            "timeSlot": "12:50-13:45",
+            "day": 3,
+            "startTime": "12:50",
+            "endTime": "13:45",
+            "room": "69b6cd73761f806f111292bf",
+            "sessionType": "theory"
+        },
+        {
+            "subject": "69b6cd73761f806f111292d8",
+            "subjectName": "Cloud Computing Lab",
+            "teacher": "69b6cd71761f806f11129294",
+            "teacherName": "Seema Jadhav",
+            "timeSlot": "14:40-16:30",
+            "day": 5,
+            "startTime": "14:40",
+            "endTime": "16:30",
+            "room": "69b6cd73761f806f111292c2",
+            "sessionType": "practical"
+        }
+    ]
+}

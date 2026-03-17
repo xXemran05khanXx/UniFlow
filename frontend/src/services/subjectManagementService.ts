@@ -4,15 +4,10 @@
  */
 
 import axios, { AxiosResponse } from 'axios';
-import { 
-  DEPARTMENTS, 
-  DEPARTMENT_LIST, 
-  DepartmentType, 
-  SEMESTERS, 
-  SemesterType,
-  COURSE_TYPES,
-  COURSE_TYPE_LIST,
-  CourseType
+import {
+  CourseType,
+  DepartmentType,
+  SemesterType
 } from '../constants';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -54,7 +49,7 @@ export interface Subject {
   name: string;
   credits: number;
   semester: SemesterType;
-  department: DepartmentType;
+  department: DepartmentType | string | { _id?: string; name?: string; code?: string; coursecode?: string };
   year: number;
   type: CourseType;
   description?: string;
@@ -116,11 +111,6 @@ export interface BulkSubjectOperation {
 }
 
 // Subject Management Service Class
-// Helper to unwrap various backend ApiResponse shapes
-// Current backend (subjectController) mistakenly constructs new ApiResponse(statusCode, data, message)
-// resulting JSON shape: { success: <statusCode>, message: <actualData>, data: <messageString> }
-// Proper shape (ideal) would be: { success: true, message: <messageString>, data: <actualData> }
-// This helper attempts to gracefully handle both without breaking if backend is later corrected.
 function unwrapApiData<T>(raw: any): T {
   if (!raw) return raw as T;
 
@@ -143,8 +133,69 @@ function unwrapApiData<T>(raw: any): T {
   return raw as T; // Fallback
 }
 
+function mapCourseTypeFromApi(type?: string): CourseType {
+  if (!type) return 'Theory' as CourseType;
+  if (type === 'Lab') return 'Practical' as CourseType;
+  return type as CourseType;
+}
+
+function mapCourseTypeToApi(type?: string): string | undefined {
+  if (!type) return undefined;
+  if (type === 'Practical') return 'Lab';
+  return type;
+}
+
+function mapCourseToSubject(course: any): Subject {
+  const semester = Number(course?.semester || 1) as SemesterType;
+  return {
+    _id: course?._id,
+    code: course?.courseCode || course?.code || '',
+    name: course?.name || '',
+    credits: Number(course?.credits || 0),
+    semester,
+    department: course?.department,
+    year: Number(course?.year || Math.ceil(semester / 2)),
+    type: mapCourseTypeFromApi(course?.courseType || course?.type),
+    description: Array.isArray(course?.syllabus?.topics) ? course.syllabus.topics.join(', ') : '',
+    prerequisites: course?.prerequisites || [],
+    syllabus: course?.syllabus,
+    isActive: course?.isActive !== false,
+    createdBy: course?.createdBy,
+    updatedBy: course?.updatedBy,
+    createdAt: course?.createdAt,
+    updatedAt: course?.updatedAt,
+  };
+}
+
+function mapSubjectToCoursePayload(subjectData: Partial<Subject>) {
+  const apiType = mapCourseTypeToApi(subjectData.type);
+  const payload: any = {
+    courseCode: subjectData.code,
+    name: subjectData.name,
+    department: subjectData.department,
+    semester: subjectData.semester,
+    courseType: apiType,
+    credits: subjectData.credits,
+    hoursPerWeek: subjectData.credits,
+    year: subjectData.year,
+    isActive: subjectData.isActive,
+    prerequisites: subjectData.prerequisites || [],
+  };
+
+  if (subjectData.description) {
+    payload.syllabus = {
+      topics: [subjectData.description],
+      syllabusLink: ''
+    };
+  }
+
+  return Object.fromEntries(
+    Object.entries(payload).filter(([_, v]) => v !== undefined)
+  );
+}
+
 class SubjectManagementService {
-  
+
   /**
    * Get all subjects with optional filtering and pagination
    */
@@ -156,20 +207,37 @@ class SubjectManagementService {
     sortOrder: 'asc' | 'desc' = 'asc'
   ): Promise<PaginatedSubjects> {
     try {
+      const normalizedFilters: Record<string, any> = {
+        ...filters,
+        courseType: filters.type ? mapCourseTypeToApi(filters.type) : undefined,
+        type: undefined,
+      };
+
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
-        sortBy,
+        sortBy: sortBy === 'code' ? 'courseCode' : sortBy,
         sortOrder,
         ...Object.fromEntries(
-          Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
+          Object.entries(normalizedFilters).filter(([_, value]) => value !== undefined && value !== '')
         )
       });
 
       const response: AxiosResponse<any> = await apiClient.get(
-        `/subjects?${params.toString()}`
+        `/Courses?${params.toString()}`
       );
-      return unwrapApiData<PaginatedSubjects>(response.data);
+
+      const payload = unwrapApiData<any>(response.data);
+      const courses = payload?.courses || [];
+
+      return {
+        subjects: courses.map(mapCourseToSubject),
+        totalCount: Number(payload?.totalCount || 0),
+        currentPage: Number(payload?.currentPage || page),
+        totalPages: Number(payload?.totalPages || 1),
+        hasNextPage: Boolean(payload?.hasNextPage),
+        hasPrevPage: Boolean(payload?.hasPrevPage),
+      };
     } catch (error) {
       console.error('Error fetching subjects:', error);
       throw new Error('Failed to fetch subjects');
@@ -181,8 +249,8 @@ class SubjectManagementService {
    */
   async getSubjectById(id: string): Promise<Subject> {
     try {
-      const response: AxiosResponse<any> = await apiClient.get(`/subjects/${id}`);
-      return unwrapApiData<Subject>(response.data);
+      const response: AxiosResponse<any> = await apiClient.get(`/Courses/${id}`);
+      return mapCourseToSubject(unwrapApiData<any>(response.data));
     } catch (error) {
       console.error('Error fetching subject:', error);
       throw new Error('Failed to fetch subject details');
@@ -194,8 +262,8 @@ class SubjectManagementService {
    */
   async createSubject(subjectData: Omit<Subject, '_id' | 'createdAt' | 'updatedAt'>): Promise<Subject> {
     try {
-      const response: AxiosResponse<any> = await apiClient.post('/subjects', subjectData);
-      return unwrapApiData<Subject>(response.data);
+      const response: AxiosResponse<any> = await apiClient.post('/Courses', mapSubjectToCoursePayload(subjectData));
+      return mapCourseToSubject(unwrapApiData<any>(response.data));
     } catch (error) {
       console.error('Error creating subject:', error);
       throw new Error('Failed to create subject');
@@ -207,8 +275,8 @@ class SubjectManagementService {
    */
   async updateSubject(id: string, subjectData: Partial<Subject>): Promise<Subject> {
     try {
-      const response: AxiosResponse<any> = await apiClient.put(`/subjects/${id}`, subjectData);
-      return unwrapApiData<Subject>(response.data);
+      const response: AxiosResponse<any> = await apiClient.put(`/Courses/${id}`, mapSubjectToCoursePayload(subjectData));
+      return mapCourseToSubject(unwrapApiData<any>(response.data));
     } catch (error) {
       console.error('Error updating subject:', error);
       throw new Error('Failed to update subject');
@@ -220,7 +288,7 @@ class SubjectManagementService {
    */
   async deleteSubject(id: string): Promise<void> {
     try {
-      await apiClient.delete(`/subjects/${id}`);
+      await apiClient.delete(`/Courses/${id}`);
     } catch (error) {
       console.error('Error deleting subject:', error);
       throw new Error('Failed to delete subject');
@@ -233,9 +301,9 @@ class SubjectManagementService {
   async toggleSubjectStatus(id: string, isActive: boolean): Promise<Subject> {
     try {
       const response: AxiosResponse<any> = await apiClient.patch(
-        `/subjects/${id}/${isActive ? 'activate' : 'deactivate'}`
+        `/Courses/${id}/${isActive ? 'activate' : 'deactivate'}`
       );
-      return unwrapApiData<Subject>(response.data);
+      return mapCourseToSubject(unwrapApiData<any>(response.data));
     } catch (error) {
       console.error('Error toggling subject status:', error);
       throw new Error('Failed to update subject status');
@@ -247,8 +315,48 @@ class SubjectManagementService {
    */
   async getSubjectStats(): Promise<SubjectStats> {
     try {
-      const response: AxiosResponse<any> = await apiClient.get('/subjects/stats');
-      return unwrapApiData<SubjectStats>(response.data);
+      const response: AxiosResponse<any> = await apiClient.get('/Courses?page=1&limit=1000&sortBy=courseCode&sortOrder=asc');
+      const payload = unwrapApiData<any>(response.data);
+      const courses: Subject[] = (payload?.courses || []).map((c: any) => mapCourseToSubject(c));
+
+      const totalSubjects = courses.length;
+      const activeSubjects = courses.filter((s: Subject) => s.isActive).length;
+      const inactiveSubjects = totalSubjects - activeSubjects;
+
+      const departmentDistribution: Record<string, number> = {};
+      const semesterDistribution: Record<string, number> = {};
+      const typeDistribution: Record<string, number> = {};
+      const creditDistribution: Record<string, number> = {};
+
+      courses.forEach((course: Subject) => {
+        const dept = typeof course.department === 'object'
+          ? (course.department?.name || course.department?.code || course.department?.coursecode || 'Unknown')
+          : (course.department || 'Unknown');
+        departmentDistribution[dept] = (departmentDistribution[dept] || 0) + 1;
+
+        const sem = `Sem ${course.semester}`;
+        semesterDistribution[sem] = (semesterDistribution[sem] || 0) + 1;
+
+        typeDistribution[course.type] = (typeDistribution[course.type] || 0) + 1;
+
+        const creditsKey = String(course.credits || 0);
+        creditDistribution[creditsKey] = (creditDistribution[creditsKey] || 0) + 1;
+      });
+
+      const averageCredits = totalSubjects
+        ? courses.reduce((sum: number, c: Subject) => sum + (Number(c.credits) || 0), 0) / totalSubjects
+        : 0;
+
+      return {
+        totalSubjects,
+        activeSubjects,
+        inactiveSubjects,
+        departmentDistribution,
+        semesterDistribution,
+        typeDistribution,
+        creditDistribution,
+        averageCredits,
+      };
     } catch (error) {
       console.error('Error fetching subject statistics:', error);
       throw new Error('Failed to fetch subject statistics');
@@ -258,14 +366,38 @@ class SubjectManagementService {
   /**
    * Bulk operations on multiple subjects
    */
-  async bulkUpdateSubjects(operation: BulkSubjectOperation): Promise<{ 
-    success: number; 
-    failed: number; 
-    errors: string[] 
+  async bulkUpdateSubjects(operation: BulkSubjectOperation): Promise<{
+    success: number;
+    failed: number;
+    errors: string[]
   }> {
     try {
-      const response = await apiClient.patch('/subjects/bulk-update', operation);
-      return unwrapApiData<{ success: number; failed: number; errors: string[] }>(response.data);
+      if (operation.action === 'delete') {
+        const results = await Promise.allSettled(
+          operation.subjectIds.map((id) => apiClient.delete(`/Courses/${id}`))
+        );
+        const success = results.filter((r) => r.status === 'fulfilled').length;
+        const failed = results.length - success;
+        return {
+          success,
+          failed,
+          errors: failed ? ['Some courses could not be deleted'] : []
+        };
+      }
+
+      const response = await apiClient.patch('/Courses/bulk-update', {
+        courseIds: operation.subjectIds,
+        action: operation.action,
+        data: operation.data
+      });
+
+      const payload = unwrapApiData<any>(response.data);
+      const modified = Number(payload?.modifiedCount || payload?.nModified || 0);
+      return {
+        success: modified,
+        failed: Math.max(0, operation.subjectIds.length - modified),
+        errors: []
+      };
     } catch (error) {
       console.error('Error performing bulk operation:', error);
       throw new Error('Failed to perform bulk operation');
@@ -284,12 +416,18 @@ class SubjectManagementService {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await apiClient.post('/subjects/import', formData, {
+      const response = await apiClient.post('/Courses/import', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-      return unwrapApiData(response.data);
+
+      const payload = unwrapApiData<any>(response.data);
+      return {
+        imported: Number(payload?.imported || 0),
+        failed: Number(payload?.failed || 0),
+        errors: payload?.errors || []
+      };
     } catch (error) {
       console.error('Error importing subjects:', error);
       throw new Error('Failed to import subjects');
@@ -306,15 +444,17 @@ class SubjectManagementService {
     try {
       const params = new URLSearchParams({
         format,
+        ...(filters.type ? { courseType: mapCourseTypeToApi(filters.type) as string } : {}),
         ...Object.fromEntries(
-          Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
+          Object.entries(filters)
+            .filter(([key, value]) => key !== 'type' && value !== undefined && value !== '')
         )
       });
 
-      const response = await apiClient.get(`/subjects/export?${params.toString()}`, {
+      const response = await apiClient.get(`/Courses/export?${params.toString()}`, {
         responseType: 'blob',
       });
-      return unwrapApiData(response.data);
+      return response.data;
     } catch (error) {
       console.error('Error exporting subjects:', error);
       throw new Error('Failed to export subjects');
@@ -326,10 +466,10 @@ class SubjectManagementService {
    */
   async getSubjectTemplate(): Promise<Blob> {
     try {
-      const response = await apiClient.get('/subjects/template', {
+      const response = await apiClient.get('/Courses/template', {
         responseType: 'blob',
       });
-      return unwrapApiData(response.data);
+      return response.data;
     } catch (error) {
       console.error('Error downloading template:', error);
       throw new Error('Failed to download template');
@@ -341,8 +481,10 @@ class SubjectManagementService {
    */
   async getDepartments(): Promise<string[]> {
     try {
-      const response = await apiClient.get('/subjects/departments');
-      return unwrapApiData<string[]>(response.data);
+      const response = await apiClient.get('/departments');
+      const payload = unwrapApiData<any>(response.data);
+      const list = Array.isArray(payload) ? payload : payload?.departments || payload?.data || [];
+      return list.map((d: any) => d?.name || d?.coursecode || d?.code).filter(Boolean);
     } catch (error) {
       console.error('Error fetching departments:', error);
       return [
@@ -364,10 +506,10 @@ class SubjectManagementService {
   async duplicateSubject(id: string, newCode: string): Promise<Subject> {
     try {
       const response: AxiosResponse<any> = await apiClient.post(
-        `/subjects/${id}/duplicate`,
-        { newCode }
+        `/Courses/${id}/duplicate`,
+        { newCourseCode: newCode }
       );
-      return unwrapApiData<Subject>(response.data);
+      return mapCourseToSubject(unwrapApiData<any>(response.data));
     } catch (error) {
       console.error('Error duplicating subject:', error);
       throw new Error('Failed to duplicate subject');
@@ -383,9 +525,10 @@ class SubjectManagementService {
   ): Promise<Subject[]> {
     try {
       const response: AxiosResponse<any> = await apiClient.get(
-        `/subjects/department/${department}/semester/${semester}`
+        `/Courses/department/${department}/semester/${semester}`
       );
-      return unwrapApiData<Subject[]>(response.data);
+      const payload = unwrapApiData<any>(response.data);
+      return (Array.isArray(payload) ? payload : []).map(mapCourseToSubject);
     } catch (error) {
       console.error('Error fetching subjects by department and semester:', error);
       throw new Error('Failed to fetch subjects');

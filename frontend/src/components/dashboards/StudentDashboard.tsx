@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Clock, BookOpen, MapPin, GraduationCap, AlertCircle, Bell, ArrowRight, MapPinIcon, FileText, Calendar as CalendarIcon } from 'lucide-react';
+import { AlertCircle, ArrowRight, Bell, BookOpen, Calendar, Calendar as CalendarIcon, Clock, FileText, GraduationCap, MapPin, MapPinIcon } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
-import { timetablesAPI } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
-import { TimetableEntry, Timetable } from '../../types';
+import { timetableAPI } from '../../services/timetableService';
+import { TimetableEntry } from '../../types';
+import Button from '../ui/Button';
+import Card from '../ui/Card';
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -57,20 +57,55 @@ const StudentDashboard: React.FC = () => {
 
   const fetchStudentData = useCallback(async () => {
     try {
-      // Fetch student's timetables based on semester and department
-      const response = await timetablesAPI.getByStudent(user!._id);
-      
-      if (response.success && response.data) {
-        const timetables = response.data;
-        const allEntries: TimetableEntry[] = [];
-        
-        timetables.forEach((timetable: Timetable) => {
-          allEntries.push(...timetable.entries);
-        });
+      const response: any = await timetableAPI.getStudentSchedule();
+      const payload = response?.data || response;
+      const sessions = payload?.sessions || [];
+
+      if (sessions.length > 0) {
+        const allEntries: TimetableEntry[] = sessions.map((session: any) => ({
+          _id: session.entryId,
+          subject: {
+            _id: session.courseId,
+            name: session.courseName,
+            code: session.courseCode,
+            semester: Number(session.semester || 0),
+            department: payload?.department || '',
+            credits: 0,
+            type: 'theory',
+            createdAt: '',
+            updatedAt: ''
+          },
+          teacher: { _id: session.teacherId, name: session.teacherName, email: '', role: 'teacher', createdAt: '', updatedAt: '' },
+          room: {
+            _id: session.roomId,
+            number: session.roomNumber,
+            building: 'Campus',
+            capacity: 0,
+            type: 'classroom',
+            equipment: [],
+            isAvailable: true,
+            createdAt: '',
+            updatedAt: ''
+          },
+          timeSlot: {
+            _id: session.entryId,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(session.dayOfWeek),
+            isActive: true,
+            createdAt: '',
+            updatedAt: ''
+          },
+          semester: Number(session.semester || 0),
+          department: payload?.department || '',
+          sessionType: (session.type || '').toLowerCase() === 'lab' ? 'lab' : 'lecture',
+          createdAt: '',
+          updatedAt: ''
+        }));
 
         // Filter today's classes
         const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
-        const todayClasses = allEntries.filter(entry => 
+        const todayClasses = allEntries.filter(entry =>
           entry.timeSlot.dayOfWeek === today
         );
         setTodaySchedule(todayClasses);
@@ -94,8 +129,12 @@ const StudentDashboard: React.FC = () => {
             return classTime > currentTime;
           })
           .sort((a, b) => a.timeSlot.startTime.localeCompare(b.timeSlot.startTime))[0];
-        
+
         setNextClass(nextUpcoming || null);
+      } else {
+        setTodaySchedule([]);
+        setWeeklyStats({ totalClasses: 0, attendedClasses: 0, missedClasses: 0, subjects: 0 });
+        setNextClass(null);
       }
     } catch (error) {
       console.error('Error fetching student data:', error);
@@ -251,7 +290,7 @@ const StudentDashboard: React.FC = () => {
                 </span>
               )}
             </h3>
-            <Link 
+            <Link
               to="/student-notifications"
               className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center transition-colors"
             >
@@ -262,13 +301,12 @@ const StudentDashboard: React.FC = () => {
           </div>
           <div className="space-y-3">
             {recentNotifications.slice(0, 4).map((notification) => (
-              <div 
+              <div
                 key={notification.id}
-                className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-                  notification.isRead 
-                    ? 'bg-gray-50 border-gray-200' 
+                className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${notification.isRead
+                    ? 'bg-gray-50 border-gray-200'
                     : 'bg-blue-50 border-blue-200 border-l-4 border-l-blue-500'
-                }`}
+                  }`}
                 onClick={() => {
                   // In real app, this would mark as read and navigate to details
                   console.log('Notification clicked:', notification.id);
@@ -280,22 +318,19 @@ const StudentDashboard: React.FC = () => {
                       {getNotificationIcon(notification.type)}
                     </div>
                     <div className="flex-1">
-                      <p className={`text-sm font-medium line-clamp-1 ${
-                        notification.isRead ? 'text-gray-900' : 'text-blue-900'
-                      }`}>
+                      <p className={`text-sm font-medium line-clamp-1 ${notification.isRead ? 'text-gray-900' : 'text-blue-900'
+                        }`}>
                         {notification.title}
                       </p>
-                      <p className={`text-sm mt-1 line-clamp-2 ${
-                        notification.isRead ? 'text-gray-600' : 'text-blue-700'
-                      }`}>
+                      <p className={`text-sm mt-1 line-clamp-2 ${notification.isRead ? 'text-gray-600' : 'text-blue-700'
+                        }`}>
                         {notification.message}
                       </p>
                       <p className="text-xs text-gray-500 mt-2">{notification.time}</p>
                     </div>
                   </div>
-                  <div className={`ml-3 w-2 h-2 rounded-full ${
-                    notification.isRead ? 'bg-gray-300' : 'bg-blue-500'
-                  }`}></div>
+                  <div className={`ml-3 w-2 h-2 rounded-full ${notification.isRead ? 'bg-gray-300' : 'bg-blue-500'
+                    }`}></div>
                 </div>
               </div>
             ))}
@@ -314,7 +349,7 @@ const StudentDashboard: React.FC = () => {
               <span className="text-sm font-bold text-green-600">{getAttendancePercentage()}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
-              <div 
+              <div
                 className={`bg-green-500 h-3 rounded-full transition-all duration-300 w-[${getAttendancePercentage()}%]`}
               ></div>
             </div>
@@ -328,7 +363,7 @@ const StudentDashboard: React.FC = () => {
                 <p className="text-sm text-gray-500">Missed</p>
               </div>
             </div>
-            
+
             {/* Subject-wise Attendance Breakdown */}
             <div className="pt-4 border-t border-gray-200">
               <h4 className="text-sm font-medium text-gray-700 mb-4">Subject-wise Breakdown</h4>
@@ -361,11 +396,10 @@ const StudentDashboard: React.FC = () => {
                       </div>
                       <div className="flex justify-center">
                         <div className="w-4/5 bg-gray-200 rounded-full h-1">
-                          <div 
-                            className={`h-1 rounded-full transition-all duration-300 ${
-                              attendancePercent >= 75 ? 'bg-green-500' : 
-                              attendancePercent >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-                            } ${getWidthClass(attendancePercent)}`}
+                          <div
+                            className={`h-1 rounded-full transition-all duration-300 ${attendancePercent >= 75 ? 'bg-green-500' :
+                                attendancePercent >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                              } ${getWidthClass(attendancePercent)}`}
                           ></div>
                         </div>
                       </div>
@@ -409,11 +443,10 @@ const StudentDashboard: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    entry.sessionType === 'lecture' ? 'bg-blue-100 text-blue-800' :
-                    entry.sessionType === 'practical' ? 'bg-green-100 text-green-800' :
-                    'bg-purple-100 text-purple-800'
-                  }`}>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${entry.sessionType === 'lecture' ? 'bg-blue-100 text-blue-800' :
+                      entry.sessionType === 'practical' ? 'bg-green-100 text-green-800' :
+                        'bg-purple-100 text-purple-800'
+                    }`}>
                     {entry.sessionType}
                   </span>
                 </div>

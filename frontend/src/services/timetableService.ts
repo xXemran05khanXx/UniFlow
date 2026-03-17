@@ -84,7 +84,7 @@ export const timetableAPI = {
 
   // Generate new timetable
   generateTimetable: async (options: TimetableGenerationOptions = {}): Promise<TimetableGenerationResponse> => {
-    return apiRequest('POST', '/timetables/generate', options);
+    return apiRequest('POST', '/timetable/generate', options);
   },
 
   // Validate existing timetable
@@ -109,8 +109,8 @@ export const timetableAPI = {
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params.append(key, value);
     });
-    
-    const url = `/timetables${params.toString() ? `?${params.toString()}` : ''}`;
+
+    const url = `/timetable/list${params.toString() ? `?${params.toString()}` : ''}`;
     return apiRequest('GET', url);
   },
 
@@ -124,14 +124,14 @@ export const timetableAPI = {
     Object.entries(options).forEach(([key, value]) => {
       if (value) params.append(key, value);
     });
-    
-    const url = `/timetables/export${params.toString() ? `?${params.toString()}` : ''}`;
+
+    const url = `/timetable/export${params.toString() ? `?${params.toString()}` : ''}`;
     return apiRequest('GET', url);
   },
 
   // Get available time slots
   getTimeSlots: async (): Promise<TimeSlot[]> => {
-    return apiRequest('GET', '/timetables/timeslots');
+    return apiRequest('GET', '/timeslots');
   }
   ,
   // Get generated timetables (department/year/division optional)
@@ -140,13 +140,22 @@ export const timetableAPI = {
     if (opts.department) params.append('department', opts.department);
     if (opts.year) params.append('year', opts.year);
     if (opts.division) params.append('division', opts.division);
-    const url = `/timetables/generated${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/timetable/generated${params.toString() ? `?${params.toString()}` : ''}`;
     return apiRequest<any>('GET', url);
   },
 
   // Accept generated timetable (save to main timetables table)
   acceptGeneratedTimetable: async (id: string) => {
-    return apiRequest<any>('POST', `/timetables/accept/${id}`);
+    return apiRequest<any>('POST', `/timetable/accept/${id}`);
+  },
+
+  getTeacherSchedule: async (teacherId?: string) => {
+    const qs = teacherId ? `?teacherId=${encodeURIComponent(teacherId)}` : '';
+    return apiRequest<any>('GET', `/timetable/my-schedule${qs}`);
+  },
+
+  getStudentSchedule: async () => {
+    return apiRequest<any>('GET', '/timetable/student-schedule');
   }
 };
 
@@ -169,17 +178,17 @@ export const timetableUtils = {
       const dayOfWeek = daysMap[session.day.toLowerCase() as keyof typeof daysMap];
       const startTime = session.timeSlot.startTime.split(':');
       const endTime = session.timeSlot.endTime.split(':');
-      
+
       // Create a date for this week (starting Monday)
       const now = new Date();
       const currentDay = now.getDay();
       const diff = dayOfWeek - currentDay;
       const sessionDate = new Date(now);
       sessionDate.setDate(now.getDate() + diff);
-      
+
       const start = new Date(sessionDate);
       start.setHours(parseInt(startTime[0]), parseInt(startTime[1]), 0, 0);
-      
+
       const end = new Date(sessionDate);
       end.setHours(parseInt(endTime[0]), parseInt(endTime[1]), 0, 0);
 
@@ -246,7 +255,7 @@ export const timetableUtils = {
     const teacherSessions = sessions.filter(session => session.teacherId === teacherId);
     const totalHours = teacherSessions.length;
     const uniqueCourses = Array.from(new Set(teacherSessions.map(s => s.courseCode))).length;
-    
+
     return {
       totalHours,
       uniqueCourses,
@@ -258,7 +267,7 @@ export const timetableUtils = {
   // Find conflicts in timetable
   findConflicts: (sessions: TimetableSession[]) => {
     const conflicts: any[] = [];
-    
+
     // Check for teacher conflicts
     const teacherSchedule: { [key: string]: TimetableSession } = {};
     sessions.forEach(session => {
@@ -307,13 +316,13 @@ export const timetableUtils = {
       '#F97316', // Orange
       '#84CC16', // Lime
     ];
-    
+
     const hash = (courseCode + department).split('').reduce((a, b) => {
       a = ((a << 5) - a) + b.charCodeAt(0);
       return a & a;
     }, 0);
-    
-    
+
+
     return colors[Math.abs(hash) % colors.length];
   }
 };
@@ -360,15 +369,15 @@ export const timetableService = {
     status?: string;
   }) => {
     const params = new URLSearchParams();
-    
+
     if (filters?.department) {
       params.append('department', filters.department);
     }
-    
+
     if (filters?.semester) {
       params.append('semester', filters.semester.toString());
     }
-    
+
     if (filters?.status) {
       params.append('status', filters.status);
     }

@@ -4,10 +4,10 @@
   "description": "UniFlow Timetable Management System",
   "main": "index.js",
   "scripts": {
-    "install-deps": "cd backend && npm install && cd ../frontend && npm install",
+    "install-deps": "cd Uniflow-backend && npm install && cd ../frontend && npm install",
     "build": "npm run build:client && npm run build:server",
     "start": "npm run start:server",
-    "dev:backend": "cd backend && npm run dev",
+    "dev:backend": "cd Uniflow-backend && npm run dev",
     "dev:frontend": "cd frontend && npm start",
     "deploy": "npm run install-deps && npm run build",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",

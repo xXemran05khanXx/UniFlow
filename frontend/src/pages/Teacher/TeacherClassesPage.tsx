@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 // import { useAuth } from '../hooks/useAuth'; // Commented out due to ID issue
-import { 
-  Calendar, 
-  Clock, 
-  Users, 
-  ArrowLeftRight, 
-  Send, 
-  Check, 
-  X, 
-  Eye, 
+import {
   AlertCircle,
+  ArrowLeftRight,
+  Calendar,
+  Check,
   CheckCircle,
-  XCircle,
-  Loader
+  Clock,
+  Eye,
+  Loader,
+  Send,
+  Users,
+  X,
+  XCircle
 } from 'lucide-react';
 
 // Types for our data structures
@@ -57,116 +57,86 @@ const TeacherClassesPage: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState<ClassSession | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Sample data - replace with actual API calls
+  // Load real teacher schedule and swap requests
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      
-      // Sample upcoming classes
-      const mockClasses: ClassSession[] = [
-        {
-          id: '1',
-          date: '2025-08-12',
-          startTime: '09:00',
-          endTime: '10:30',
-          courseName: 'Data Structures and Algorithms',
-          courseCode: 'CS-301',
-          studentGroup: 'CS-3A',
-          room: 'Room 201',
-          type: 'lecture',
-          status: 'scheduled'
-        },
-        {
-          id: '2',
-          date: '2025-08-12',
-          startTime: '14:00',
-          endTime: '16:00',
-          courseName: 'Database Management Systems',
-          courseCode: 'CS-302',
-          studentGroup: 'CS-3B',
-          room: 'Lab 101',
-          type: 'lab',
-          status: 'scheduled'
-        },
-        {
-          id: '3',
-          date: '2025-08-13',
-          startTime: '11:00',
-          endTime: '12:30',
-          courseName: 'Software Engineering',
-          courseCode: 'CS-303',
-          studentGroup: 'CS-3A',
-          room: 'Room 205',
-          type: 'lecture',
-          status: 'scheduled'
-        },
-        {
-          id: '4',
-          date: '2025-08-14',
-          startTime: '10:00',
-          endTime: '11:30',
-          courseName: 'Data Structures and Algorithms',
-          courseCode: 'CS-301',
-          studentGroup: 'CS-3C',
-          room: 'Room 203',
-          type: 'lecture',
-          status: 'scheduled'
-        }
-      ];
+      try {
+        const token = localStorage.getItem('token');
+        const headers: HeadersInit = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
 
-      // Sample swap requests
-      const mockSentRequests: SwapRequest[] = [
-        {
-          id: 'sr1',
-          fromSession: mockClasses[0],
-          toSlot: {
-            date: '2025-08-13',
-            startTime: '14:00',
-            endTime: '15:30',
-            room: 'Room 201'
-          },
-          swapType: 'move',
-          status: 'pending',
-          message: 'Need to attend a conference',
-          createdAt: '2025-08-09T10:00:00Z',
-          requestedBy: 'current-teacher' // user?.id || '' - commented out ID issue
-        }
-      ];
+        const [scheduleRes, outgoingRes, incomingRes] = await Promise.all([
+          fetch('/api/timetable/my-schedule', { headers }),
+          fetch('/api/swaps/outgoing', { headers }),
+          fetch('/api/swaps/incoming', { headers })
+        ]);
 
-      const mockReceivedRequests: SwapRequest[] = [
-        {
-          id: 'rr1',
+        const scheduleJson = scheduleRes.ok ? await scheduleRes.json() : { data: { allSessions: [] } };
+        const outgoingJson = outgoingRes.ok ? await outgoingRes.json() : { data: [] };
+        const incomingJson = incomingRes.ok ? await incomingRes.json() : { data: [] };
+
+        const classes: ClassSession[] = (scheduleJson?.data?.allSessions || []).map((s: any) => ({
+          id: s.entryId || `${s.dayOfWeek}-${s.startTime}-${s.courseCode}`,
+          date: s.dayOfWeek || 'Monday',
+          startTime: s.startTime,
+          endTime: s.endTime,
+          courseName: s.courseName || 'N/A',
+          courseCode: s.courseCode || 'N/A',
+          studentGroup: `${s.department || ''}-${s.semester || ''}${s.division || ''}`,
+          room: s.roomNumber || 'TBA',
+          type: (s.type || '').toLowerCase() === 'lab' ? 'lab' : 'lecture',
+          status: 'scheduled'
+        }));
+
+        const mapSwap = (item: any): SwapRequest => ({
+          id: item._id,
           fromSession: {
-            id: '5',
-            date: '2025-08-15',
-            startTime: '09:00',
-            endTime: '10:30',
-            courseName: 'Web Development',
-            courseCode: 'CS-304',
-            studentGroup: 'CS-3B',
-            room: 'Room 202',
-            type: 'lecture',
+            id: item.fromSession?.scheduleIndex?.toString() || item._id,
+            date: item.fromSession?.dayOfWeek || 'Monday',
+            startTime: item.fromSession?.startTime || '00:00',
+            endTime: item.fromSession?.endTime || '00:00',
+            courseName: item.fromSession?.courseName || 'N/A',
+            courseCode: item.fromSession?.courseCode || 'N/A',
+            studentGroup: `${item.fromSession?.semester || ''}${item.fromSession?.division || ''}`,
+            room: item.fromSession?.roomNumber || 'TBA',
+            type: (item.fromSession?.type || '').toLowerCase() === 'lab' ? 'lab' : 'lecture',
             status: 'scheduled'
           },
           toSlot: {
-            date: '2025-08-12',
-            startTime: '11:00',
-            endTime: '12:30',
-            room: 'Room 202'
+            date: item.toSession?.dayOfWeek || 'Monday',
+            startTime: item.toSession?.startTime || '00:00',
+            endTime: item.toSession?.endTime || '00:00',
+            room: item.toSession?.roomNumber || 'TBA'
           },
-          swapType: 'swap',
-          status: 'pending',
-          message: 'Family emergency, need to swap',
-          createdAt: '2025-08-09T08:30:00Z',
-          requestedBy: 'teacher-456',
-          requestedTo: 'current-teacher' // user?.id || '' - commented out ID issue
-        }
-      ];
+          targetTeacher: item.requestedTo?.name,
+          swapType: item.swapType === 'lecture' ? 'swap' : 'move',
+          status: item.status?.includes('approved') || item.status === 'accepted'
+            ? 'approved'
+            : item.status?.includes('rejected')
+              ? 'rejected'
+              : item.status === 'cancelled'
+                ? 'cancelled'
+                : 'pending',
+          message: item.reason,
+          createdAt: item.createdAt,
+          requestedBy: item.requestedBy?._id || '',
+          requestedTo: item.requestedTo?._id
+        });
 
-      setUpcomingClasses(mockClasses);
-      setSentRequests(mockSentRequests);
-      setReceivedRequests(mockReceivedRequests);
-      setLoading(false);
+        setUpcomingClasses(classes);
+        setSentRequests((outgoingJson?.data || []).map(mapSwap));
+        setReceivedRequests((incomingJson?.data || []).map(mapSwap));
+      } catch (error) {
+        console.error('Failed to load teacher classes data:', error);
+        setUpcomingClasses([]);
+        setSentRequests([]);
+        setReceivedRequests([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchData();
@@ -197,33 +167,33 @@ const TeacherClassesPage: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending: { 
-        color: 'bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-lg', 
+      pending: {
+        color: 'bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-lg',
         icon: Clock,
         animation: 'animate-pulse'
       },
-      approved: { 
-        color: 'bg-gradient-to-r from-green-400 to-emerald-400 text-white shadow-lg', 
+      approved: {
+        color: 'bg-gradient-to-r from-green-400 to-emerald-400 text-white shadow-lg',
         icon: CheckCircle,
         animation: ''
       },
-      rejected: { 
-        color: 'bg-gradient-to-r from-red-400 to-pink-400 text-white shadow-lg', 
+      rejected: {
+        color: 'bg-gradient-to-r from-red-400 to-pink-400 text-white shadow-lg',
         icon: XCircle,
         animation: ''
       },
-      cancelled: { 
-        color: 'bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-lg', 
+      cancelled: {
+        color: 'bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-lg',
         icon: X,
         animation: ''
       }
@@ -295,17 +265,15 @@ const TeacherClassesPage: React.FC = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`group flex items-center py-6 px-1 border-b-3 font-semibold text-sm transition-all duration-300 ${
-                      activeTab === tab.id
+                    className={`group flex items-center py-6 px-1 border-b-3 font-semibold text-sm transition-all duration-300 ${activeTab === tab.id
                         ? 'border-gradient-to-r from-blue-500 to-purple-500 text-blue-600 transform scale-105'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:transform hover:scale-102'
-                    }`}
+                      }`}
                   >
-                    <div className={`p-2 rounded-lg mr-3 transition-all duration-300 ${
-                      activeTab === tab.id 
-                        ? 'bg-gradient-to-r from-blue-100 to-purple-100' 
+                    <div className={`p-2 rounded-lg mr-3 transition-all duration-300 ${activeTab === tab.id
+                        ? 'bg-gradient-to-r from-blue-100 to-purple-100'
                         : 'group-hover:bg-gray-100'
-                    }`}>
+                      }`}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <span className="relative">
@@ -390,69 +358,68 @@ const TeacherClassesPage: React.FC = () => {
                           accent: 'bg-pink-500'
                         }
                       ];
-                      
+
                       const colorScheme = colorSchemes[index % colorSchemes.length];
-                      
+
                       return (
-                      <div key={classSession.id} className={`group relative bg-gradient-to-br ${colorScheme.cardBg} backdrop-blur-sm rounded-2xl p-8 border ${colorScheme.border} shadow-lg hover:shadow-2xl transition-all duration-500 hover:transform hover:scale-[1.02] overflow-hidden`}>
-                        {/* Animated background gradient */}
-                        <div className={`absolute inset-0 bg-gradient-to-r ${colorScheme.hoverBg} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
-                        
-                        {/* Content */}
-                        <div className="relative flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-4 mb-4">
-                              <div className="flex items-center space-x-3">
-                                <div className={`w-3 h-3 rounded-full animate-pulse ${colorScheme.accent}`}></div>
-                                <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                  {classSession.courseName}
-                                </h3>
+                        <div key={classSession.id} className={`group relative bg-gradient-to-br ${colorScheme.cardBg} backdrop-blur-sm rounded-2xl p-8 border ${colorScheme.border} shadow-lg hover:shadow-2xl transition-all duration-500 hover:transform hover:scale-[1.02] overflow-hidden`}>
+                          {/* Animated background gradient */}
+                          <div className={`absolute inset-0 bg-gradient-to-r ${colorScheme.hoverBg} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
+
+                          {/* Content */}
+                          <div className="relative flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-4 mb-4">
+                                <div className="flex items-center space-x-3">
+                                  <div className={`w-3 h-3 rounded-full animate-pulse ${colorScheme.accent}`}></div>
+                                  <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                    {classSession.courseName}
+                                  </h3>
+                                </div>
+                                <span className="text-sm font-medium text-gray-500 bg-white/70 rounded-full px-3 py-1 shadow-sm">
+                                  {classSession.courseCode}
+                                </span>
+                                <span className={`px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r ${colorScheme.gradient} text-white shadow-lg ${classSession.type === 'lab' ? 'animate-pulse' : ''
+                                  }`}>
+                                  {classSession.type.toUpperCase()}
+                                </span>
                               </div>
-                              <span className="text-sm font-medium text-gray-500 bg-white/70 rounded-full px-3 py-1 shadow-sm">
-                                {classSession.courseCode}
-                              </span>
-                              <span className={`px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r ${colorScheme.gradient} text-white shadow-lg ${
-                                classSession.type === 'lab' ? 'animate-pulse' : ''
-                              }`}>
-                                {classSession.type.toUpperCase()}
-                              </span>
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
+                                <div className="flex items-center bg-white/70 rounded-xl p-3 group-hover:bg-white/90 transition-colors shadow-sm">
+                                  <Calendar className="h-5 w-5 mr-3 text-blue-500" />
+                                  <div>
+                                    <p className="font-medium text-gray-900">{formatDate(classSession.date)}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center bg-white/70 rounded-xl p-3 group-hover:bg-white/90 transition-colors shadow-sm">
+                                  <Clock className="h-5 w-5 mr-3 text-green-500" />
+                                  <div>
+                                    <p className="font-medium text-gray-900">{classSession.startTime} - {classSession.endTime}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center bg-white/70 rounded-xl p-3 group-hover:bg-white/90 transition-colors shadow-sm">
+                                  <Users className="h-5 w-5 mr-3 text-purple-500" />
+                                  <div>
+                                    <p className="font-medium text-gray-900">{classSession.studentGroup}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center bg-white/70 rounded-xl p-3 group-hover:bg-white/90 transition-colors shadow-sm">
+                                  <div className={`h-5 w-5 bg-gradient-to-r ${colorScheme.gradient} rounded-md mr-3`}></div>
+                                  <div>
+                                    <p className="font-medium text-gray-900">{classSession.room}</p>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
-                              <div className="flex items-center bg-white/70 rounded-xl p-3 group-hover:bg-white/90 transition-colors shadow-sm">
-                                <Calendar className="h-5 w-5 mr-3 text-blue-500" />
-                                <div>
-                                  <p className="font-medium text-gray-900">{formatDate(classSession.date)}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center bg-white/70 rounded-xl p-3 group-hover:bg-white/90 transition-colors shadow-sm">
-                                <Clock className="h-5 w-5 mr-3 text-green-500" />
-                                <div>
-                                  <p className="font-medium text-gray-900">{classSession.startTime} - {classSession.endTime}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center bg-white/70 rounded-xl p-3 group-hover:bg-white/90 transition-colors shadow-sm">
-                                <Users className="h-5 w-5 mr-3 text-purple-500" />
-                                <div>
-                                  <p className="font-medium text-gray-900">{classSession.studentGroup}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center bg-white/70 rounded-xl p-3 group-hover:bg-white/90 transition-colors shadow-sm">
-                                <div className={`h-5 w-5 bg-gradient-to-r ${colorScheme.gradient} rounded-md mr-3`}></div>
-                                <div>
-                                  <p className="font-medium text-gray-900">{classSession.room}</p>
-                                </div>
-                              </div>
-                            </div>
+                            <button
+                              onClick={() => handleSwapRequest(classSession)}
+                              className={`group/btn bg-gradient-to-r ${colorScheme.gradient} hover:shadow-xl text-white px-6 py-3 rounded-xl flex items-center space-x-3 transition-all duration-300 shadow-lg transform hover:scale-105 ml-6`}
+                            >
+                              <ArrowLeftRight className="h-5 w-5 group-hover/btn:rotate-180 transition-transform duration-300" />
+                              <span className="font-semibold">Request Swap</span>
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleSwapRequest(classSession)}
-                            className={`group/btn bg-gradient-to-r ${colorScheme.gradient} hover:shadow-xl text-white px-6 py-3 rounded-xl flex items-center space-x-3 transition-all duration-300 shadow-lg transform hover:scale-105 ml-6`}
-                          >
-                            <ArrowLeftRight className="h-5 w-5 group-hover/btn:rotate-180 transition-transform duration-300" />
-                            <span className="font-semibold">Request Swap</span>
-                          </button>
                         </div>
-                      </div>
                       );
                     })}
                   </div>
@@ -565,7 +532,7 @@ const TeacherClassesPage: React.FC = () => {
                             NEW
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center justify-between mb-6">
                           <div className="flex items-center space-x-4">
                             <div className="w-3 h-3 bg-yellow-500 rounded-full animate-bounce"></div>
@@ -750,22 +717,20 @@ const SwapRequestModal: React.FC<SwapRequestModalProps> = ({ classSession, onClo
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={() => setSwapType('move')}
-                    className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                      swapType === 'move'
+                    className={`p-4 border-2 rounded-lg text-left transition-colors ${swapType === 'move'
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <h4 className="font-medium text-gray-900 mb-1">Move to Empty Slot</h4>
                     <p className="text-sm text-gray-600">Move your class to an available time slot</p>
                   </button>
                   <button
                     onClick={() => setSwapType('swap')}
-                    className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                      swapType === 'swap'
+                    className={`p-4 border-2 rounded-lg text-left transition-colors ${swapType === 'swap'
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <h4 className="font-medium text-gray-900 mb-1">Swap with Another Teacher</h4>
                     <p className="text-sm text-gray-600">Exchange time slots with another teacher</p>
@@ -781,11 +746,10 @@ const SwapRequestModal: React.FC<SwapRequestModalProps> = ({ classSession, onClo
                     <button
                       key={slot.id}
                       onClick={() => setSelectedSlot(slot)}
-                      className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                        selectedSlot?.id === slot.id
+                      className={`p-4 border-2 rounded-lg text-left transition-colors ${selectedSlot?.id === slot.id
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -840,7 +804,7 @@ const SwapRequestModal: React.FC<SwapRequestModalProps> = ({ classSession, onClo
             <>
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-4">Confirm Swap Request</h3>
-                
+
                 {/* Swap Summary */}
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

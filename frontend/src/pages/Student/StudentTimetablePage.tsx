@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Calendar, Clock, MapPin, BookOpen, User, Download, RefreshCw } from 'lucide-react';
-import Card from '../../components/ui/Card';
+import { BookOpen, Calendar, Clock, Download, MapPin, RefreshCw, User } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
 import { useAuth } from '../../hooks/useAuth';
+import { timetableAPI } from '../../services/timetableService';
 
 interface TimeSlot {
   id: string;
@@ -47,6 +48,7 @@ const StudentTimetablePage: React.FC = () => {
     return dayNames[today] === 'Saturday' || dayNames[today] === 'Sunday' ? 'Monday' : dayNames[today];
   });
   const [loading, setLoading] = useState(false);
+  const [sampleTimetable, setSampleTimetable] = useState<TimetableEntry[]>([]);
 
   // Sample timetable data - in real app, this would come from API
   const timeSlots = [
@@ -63,180 +65,59 @@ const StudentTimetablePage: React.FC = () => {
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-  const sampleTimetable: TimetableEntry[] = [
-    // Monday Classes
-    {
-      id: '1',
-      subject: { id: '1', name: 'Digital Logic Design', code: 'CS201', color: 'border-blue-500 bg-blue-50' },
-      teacher: { id: '1', name: 'Dr. Smith' },
-      room: { id: '1', number: '201', building: 'CS Building' },
-      timeSlot: { id: '1', day: 'Monday', startTime: '09:00', endTime: '10:00' },
-      sessionType: 'lecture'
-    },
-    {
-      id: '2',
-      subject: { id: '2', name: 'Database Systems', code: 'CS301', color: 'border-green-500 bg-green-50' },
-      teacher: { id: '2', name: 'Prof. Johnson' },
-      room: { id: '2', number: '305', building: 'CS Building' },
-      timeSlot: { id: '2', day: 'Monday', startTime: '11:00', endTime: '12:00' },
-      sessionType: 'lecture'
-    },
-    {
-      id: '3',
-      subject: { id: '6', name: 'Mathematics III', code: 'MATH301', color: 'border-indigo-500 bg-indigo-50' },
-      teacher: { id: '6', name: 'Dr. Anderson' },
-      room: { id: '11', number: '101', building: 'Math Building' },
-      timeSlot: { id: '11', day: 'Monday', startTime: '14:00', endTime: '15:00' },
-      sessionType: 'lecture'
-    },
-    {
-      id: '4',
-      subject: { id: '4', name: 'Software Engineering', code: 'CS501', color: 'border-orange-500 bg-orange-50' },
-      teacher: { id: '4', name: 'Prof. Brown' },
-      room: { id: '12', number: '405', building: 'CS Building' },
-      timeSlot: { id: '12', day: 'Monday', startTime: '16:00', endTime: '17:00' },
-      sessionType: 'tutorial'
-    },
+  useEffect(() => {
+    const loadStudentSchedule = async () => {
+      setLoading(true);
+      try {
+        const response = await timetableAPI.getStudentSchedule();
+        const payload = response?.data || response;
+        const sessions = payload?.sessions || [];
 
-    // Tuesday Classes
-    {
-      id: '5',
-      subject: { id: '1', name: 'Digital Logic Design', code: 'CS201', color: 'border-blue-500 bg-blue-50' },
-      teacher: { id: '1', name: 'Dr. Smith' },
-      room: { id: '13', number: 'Lab-A', building: 'CS Building' },
-      timeSlot: { id: '13', day: 'Tuesday', startTime: '10:00', endTime: '12:00' },
-      sessionType: 'lab'
-    },
-    {
-      id: '6',
-      subject: { id: '3', name: 'Computer Networks', code: 'CS401', color: 'border-purple-500 bg-purple-50' },
-      teacher: { id: '3', name: 'Dr. Williams' },
-      room: { id: '3', number: 'Lab-B', building: 'CS Building' },
-      timeSlot: { id: '3', day: 'Tuesday', startTime: '14:00', endTime: '16:00' },
-      sessionType: 'lab'
-    },
-    {
-      id: '7',
-      subject: { id: '7', name: 'Technical Communication', code: 'ENG201', color: 'border-pink-500 bg-pink-50' },
-      teacher: { id: '7', name: 'Prof. Taylor' },
-      room: { id: '14', number: '302', building: 'Language Center' },
-      timeSlot: { id: '14', day: 'Tuesday', startTime: '17:00', endTime: '18:00' },
-      sessionType: 'lecture'
-    },
+        const mapped: TimetableEntry[] = sessions.map((session: any) => {
+          const rawType = (session.type || '').toLowerCase();
+          const sessionType: 'lecture' | 'lab' | 'tutorial' = rawType === 'lab' ? 'lab' : 'lecture';
 
-    // Wednesday Classes
-    {
-      id: '8',
-      subject: { id: '2', name: 'Database Systems', code: 'CS301', color: 'border-green-500 bg-green-50' },
-      teacher: { id: '2', name: 'Prof. Johnson' },
-      room: { id: '15', number: 'Lab-C', building: 'CS Building' },
-      timeSlot: { id: '15', day: 'Wednesday', startTime: '09:00', endTime: '11:00' },
-      sessionType: 'lab'
-    },
-    {
-      id: '9',
-      subject: { id: '4', name: 'Software Engineering', code: 'CS501', color: 'border-orange-500 bg-orange-50' },
-      teacher: { id: '4', name: 'Prof. Brown' },
-      room: { id: '4', number: '402', building: 'CS Building' },
-      timeSlot: { id: '4', day: 'Wednesday', startTime: '12:00', endTime: '13:00' },
-      sessionType: 'lecture'
-    },
-    {
-      id: '10',
-      subject: { id: '3', name: 'Computer Networks', code: 'CS401', color: 'border-purple-500 bg-purple-50' },
-      teacher: { id: '3', name: 'Dr. Williams' },
-      room: { id: '16', number: '301', building: 'CS Building' },
-      timeSlot: { id: '16', day: 'Wednesday', startTime: '15:00', endTime: '16:00' },
-      sessionType: 'lecture'
-    },
-    {
-      id: '11',
-      subject: { id: '6', name: 'Mathematics III', code: 'MATH301', color: 'border-indigo-500 bg-indigo-50' },
-      teacher: { id: '8', name: 'Dr. Wilson' },
-      room: { id: '17', number: '103', building: 'Math Building' },
-      timeSlot: { id: '17', day: 'Wednesday', startTime: '16:00', endTime: '17:00' },
-      sessionType: 'tutorial'
-    },
+          return {
+            id: session.entryId || `${session.dayOfWeek}-${session.startTime}-${session.courseCode}`,
+            subject: {
+              id: session.courseId || '',
+              name: session.courseName || 'N/A',
+              code: session.courseCode || 'N/A',
+              color: 'border-blue-500 bg-blue-50'
+            },
+            teacher: {
+              id: session.teacherId || '',
+              name: session.teacherName || 'TBA'
+            },
+            room: {
+              id: session.roomId || '',
+              number: session.roomNumber || 'TBA',
+              building: 'Campus'
+            },
+            timeSlot: {
+              id: session.entryId || '',
+              day: session.dayOfWeek || 'Monday',
+              startTime: session.startTime,
+              endTime: session.endTime
+            },
+            sessionType
+          };
+        });
 
-    // Thursday Classes
-    {
-      id: '12',
-      subject: { id: '5', name: 'Data Structures', code: 'CS202', color: 'border-red-500 bg-red-50' },
-      teacher: { id: '5', name: 'Dr. Davis' },
-      room: { id: '18', number: '210', building: 'CS Building' },
-      timeSlot: { id: '18', day: 'Thursday', startTime: '09:00', endTime: '10:00' },
-      sessionType: 'lecture'
-    },
-    {
-      id: '13',
-      subject: { id: '4', name: 'Software Engineering', code: 'CS501', color: 'border-orange-500 bg-orange-50' },
-      teacher: { id: '4', name: 'Prof. Brown' },
-      room: { id: '19', number: '405', building: 'CS Building' },
-      timeSlot: { id: '19', day: 'Thursday', startTime: '11:00', endTime: '12:00' },
-      sessionType: 'tutorial'
-    },
-    {
-      id: '14',
-      subject: { id: '7', name: 'Technical Communication', code: 'ENG201', color: 'border-pink-500 bg-pink-50' },
-      teacher: { id: '7', name: 'Prof. Taylor' },
-      room: { id: '20', number: '204', building: 'Language Center' },
-      timeSlot: { id: '20', day: 'Thursday', startTime: '13:00', endTime: '14:00' },
-      sessionType: 'tutorial'
-    },
-    {
-      id: '15',
-      subject: { id: '5', name: 'Data Structures', code: 'CS202', color: 'border-red-500 bg-red-50' },
-      teacher: { id: '5', name: 'Dr. Davis' },
-      room: { id: '5', number: 'Lab-D', building: 'CS Building' },
-      timeSlot: { id: '5', day: 'Thursday', startTime: '15:00', endTime: '17:00' },
-      sessionType: 'lab'
-    },
+        setSampleTimetable(mapped);
+      } catch (error) {
+        console.error('Failed to load student timetable:', error);
+        setSampleTimetable([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // Friday Classes
-    {
-      id: '16',
-      subject: { id: '1', name: 'Digital Logic Design', code: 'CS201', color: 'border-blue-500 bg-blue-50' },
-      teacher: { id: '1', name: 'Dr. Smith' },
-      room: { id: '6', number: '203', building: 'CS Building' },
-      timeSlot: { id: '6', day: 'Friday', startTime: '09:00', endTime: '10:00' },
-      sessionType: 'tutorial'
-    },
-    {
-      id: '17',
-      subject: { id: '2', name: 'Database Systems', code: 'CS301', color: 'border-green-500 bg-green-50' },
-      teacher: { id: '2', name: 'Prof. Johnson' },
-      room: { id: '21', number: '308', building: 'CS Building' },
-      timeSlot: { id: '21', day: 'Friday', startTime: '11:00', endTime: '12:00' },
-      sessionType: 'lecture'
-    },
-    {
-      id: '18',
-      subject: { id: '6', name: 'Mathematics III', code: 'MATH301', color: 'border-indigo-500 bg-indigo-50' },
-      teacher: { id: '6', name: 'Dr. Anderson' },
-      room: { id: '22', number: '105', building: 'Math Building' },
-      timeSlot: { id: '22', day: 'Friday', startTime: '13:00', endTime: '14:00' },
-      sessionType: 'lecture'
-    },
-    {
-      id: '19',
-      subject: { id: '5', name: 'Data Structures', code: 'CS202', color: 'border-red-500 bg-red-50' },
-      teacher: { id: '5', name: 'Dr. Davis' },
-      room: { id: '23', number: '215', building: 'CS Building' },
-      timeSlot: { id: '23', day: 'Friday', startTime: '14:00', endTime: '15:00' },
-      sessionType: 'lecture'
-    },
-    {
-      id: '20',
-      subject: { id: '3', name: 'Computer Networks', code: 'CS401', color: 'border-purple-500 bg-purple-50' },
-      teacher: { id: '3', name: 'Dr. Williams' },
-      room: { id: '24', number: '310', building: 'CS Building' },
-      timeSlot: { id: '24', day: 'Friday', startTime: '16:00', endTime: '17:00' },
-      sessionType: 'tutorial'
-    }
-  ];
+    loadStudentSchedule();
+  }, []);
 
   const getTimetableEntry = (day: string, time: string) => {
-    return sampleTimetable.find(entry => 
+    return sampleTimetable.find(entry =>
       entry.timeSlot.day === day && entry.timeSlot.startTime === time
     );
   };
@@ -264,10 +145,34 @@ const StudentTimetablePage: React.FC = () => {
 
   const handleRefresh = () => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-    }, 1000);
+    timetableAPI.getStudentSchedule()
+      .then((response: any) => {
+        const payload = response?.data || response;
+        const sessions = payload?.sessions || [];
+        const mapped: TimetableEntry[] = sessions.map((session: any) => ({
+          id: session.entryId || `${session.dayOfWeek}-${session.startTime}-${session.courseCode}`,
+          subject: {
+            id: session.courseId || '',
+            name: session.courseName || 'N/A',
+            code: session.courseCode || 'N/A',
+            color: 'border-blue-500 bg-blue-50'
+          },
+          teacher: { id: session.teacherId || '', name: session.teacherName || 'TBA' },
+          room: { id: session.roomId || '', number: session.roomNumber || 'TBA', building: 'Campus' },
+          timeSlot: {
+            id: session.entryId || '',
+            day: session.dayOfWeek || 'Monday',
+            startTime: session.startTime,
+            endTime: session.endTime
+          },
+          sessionType: (session.type || '').toLowerCase() === 'lab' ? 'lab' : 'lecture'
+        }));
+        setSampleTimetable(mapped);
+      })
+      .catch((error: any) => {
+        console.error('Failed to refresh student timetable:', error);
+      })
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -280,27 +185,25 @@ const StudentTimetablePage: React.FC = () => {
             {typeof user?.department === 'string' ? user.department : user?.department ? `${user.department.code} - ${user.department.name}` : 'N/A'} - Semester {user?.semester || 'N/A'}
           </p>
         </div>
-        
+
         <div className="flex flex-wrap gap-3">
           {/* View Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setSelectedView('week')}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                selectedView === 'week' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${selectedView === 'week'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               Week
             </button>
             <button
               onClick={() => setSelectedView('day')}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                selectedView === 'day' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${selectedView === 'day'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               Day
             </button>
@@ -402,16 +305,15 @@ const StudentTimetablePage: React.FC = () => {
                       {/* Day Columns */}
                       {days.map(day => {
                         const entry = getTimetableEntry(day, slot.time);
-                        
+
                         if (entry) {
                           const isMultiHour = parseInt(entry.timeSlot.endTime.split(':')[0]) - parseInt(entry.timeSlot.startTime.split(':')[0]) > 1;
-                          
+
                           return (
                             <div
                               key={`${day}-${slot.time}`}
-                              className={`p-3 rounded-lg border-l-4 ${entry.subject.color} border shadow-sm hover:shadow-md transition-shadow cursor-pointer group ${
-                                isMultiHour ? 'min-h-[80px]' : 'min-h-[60px]'
-                              }`}
+                              className={`p-3 rounded-lg border-l-4 ${entry.subject.color} border shadow-sm hover:shadow-md transition-shadow cursor-pointer group ${isMultiHour ? 'min-h-[80px]' : 'min-h-[60px]'
+                                }`}
                             >
                               <div className="space-y-1">
                                 <div className="flex items-start justify-between">
@@ -422,22 +324,22 @@ const StudentTimetablePage: React.FC = () => {
                                     {getSessionTypeIcon(entry.sessionType)}
                                   </div>
                                 </div>
-                                
+
                                 <p className="text-xs text-gray-600 truncate">
                                   {entry.subject.name}
                                 </p>
-                                
+
                                 <div className="flex items-center text-xs text-gray-500 space-x-2">
                                   <span className="flex items-center">
                                     <MapPin className="h-3 w-3 mr-1" />
                                     {entry.room.number}
                                   </span>
                                 </div>
-                                
+
                                 <p className="text-xs text-gray-500 truncate">
                                   {entry.teacher.name}
                                 </p>
-                                
+
                                 <div className="text-xs text-gray-400">
                                   {formatTime(entry.timeSlot.startTime)} - {formatTime(entry.timeSlot.endTime)}
                                 </div>
@@ -469,11 +371,10 @@ const StudentTimetablePage: React.FC = () => {
                         <button
                           key={day}
                           onClick={() => setSelectedDay(day)}
-                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                            selectedDay === day 
-                              ? 'bg-white text-gray-900 shadow-sm' 
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
+                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${selectedDay === day
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                            }`}
                         >
                           {day}
                         </button>
@@ -492,7 +393,7 @@ const StudentTimetablePage: React.FC = () => {
                       const dayClasses = timeSlots
                         .map(slot => getTimetableEntry(selectedDay, slot.time))
                         .filter(entry => entry !== undefined);
-                      
+
                       if (dayClasses.length === 0) {
                         return (
                           <div className="text-center py-12">
@@ -501,7 +402,7 @@ const StudentTimetablePage: React.FC = () => {
                           </div>
                         );
                       }
-                      
+
                       return dayClasses.map((entry) => (
                         <div
                           key={`${selectedDay}-${entry!.timeSlot.startTime}`}
@@ -518,7 +419,7 @@ const StudentTimetablePage: React.FC = () => {
                                   <span className="ml-1 text-sm capitalize">{entry!.sessionType}</span>
                                 </div>
                               </div>
-                              
+
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
                                 <div className="flex items-center">
                                   <Clock className="h-4 w-4 mr-2" />

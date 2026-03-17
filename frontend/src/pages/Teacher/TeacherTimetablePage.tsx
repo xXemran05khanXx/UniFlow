@@ -1,22 +1,23 @@
-import React, { useState, useEffect } from 'react';
 import {
+  AlertCircle,
+  ArrowUpDown,
+  BookOpen,
   Calendar,
+  CheckCircle,
   Clock,
-  MapPin,
-  Users,
-  Filter,
   Download,
+  Eye,
+  Filter,
+  MapPin,
   Printer,
   RefreshCw,
-  ArrowUpDown,
-  CheckCircle,
-  AlertCircle,
-  Eye,
   Settings,
-  BookOpen
+  Users
 } from 'lucide-react';
-import Card from '../../components/ui/Card';
+import React, { useEffect, useState } from 'react';
 import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
+import { timetableAPI } from '../../services/timetableService';
 
 import '../css/TeacherTimetablePage.css';
 
@@ -52,138 +53,7 @@ const TeacherTimetablePage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Sample teacher timetable data
-  const [teacherClasses] = useState<TeacherClass[]>([
-    {
-      id: '1',
-      subject: 'Data Structures & Algorithms',
-      subjectCode: 'CS301',
-      day: 'Monday',
-      timeSlot: '9:00AM-10:00AM',
-      room: 'Room-301',
-      type: 'lecture',
-      duration: 60,
-      students: 45,
-      semester: 'V',
-      section: 'A',
-      status: 'completed',
-      canSwap: false,
-      attendanceMarked: true
-    },
-    {
-      id: '2',
-      subject: 'Data Structures & Algorithms',
-      subjectCode: 'CS301',
-      day: 'Wednesday',
-      timeSlot: '10:00AM-11:00AM',
-      room: 'Room-301',
-      type: 'lecture',
-      duration: 60,
-      students: 45,
-      semester: 'V',
-      section: 'A',
-      status: 'scheduled',
-      canSwap: true,
-      attendanceMarked: false
-    },
-    {
-      id: '3',
-      subject: 'Database Management Systems',
-      subjectCode: 'CS302',
-      day: 'Monday',
-      timeSlot: '11:00AM-12:00PM',
-      room: 'Room-302',
-      type: 'lecture',
-      duration: 60,
-      students: 42,
-      semester: 'V',
-      section: 'B',
-      status: 'completed',
-      canSwap: true,
-      swapRequests: ['Prof. Mike Chen'],
-      attendanceMarked: true
-    },
-    {
-      id: '4',
-      subject: 'Database Management Systems',
-      subjectCode: 'CS302',
-      day: 'Thursday',
-      timeSlot: '2:00PM-3:00PM',
-      room: 'Room-302',
-      type: 'lecture',
-      duration: 60,
-      students: 42,
-      semester: 'V',
-      section: 'B',
-      status: 'scheduled',
-      canSwap: true,
-      attendanceMarked: false
-    },
-    {
-      id: '5',
-      subject: 'Computer Networks Lab',
-      subjectCode: 'CS303L',
-      day: 'Tuesday',
-      timeSlot: '2:00PM-4:00PM',
-      room: 'Lab-CS-2',
-      type: 'practical',
-      duration: 120,
-      students: 30,
-      semester: 'V',
-      section: 'A',
-      status: 'scheduled',
-      canSwap: true,
-      attendanceMarked: false
-    },
-    {
-      id: '6',
-      subject: 'Computer Networks Lab',
-      subjectCode: 'CS303L',
-      day: 'Friday',
-      timeSlot: '10:00AM-12:00PM',
-      room: 'Lab-CS-2',
-      type: 'practical',
-      duration: 120,
-      students: 28,
-      semester: 'V',
-      section: 'B',
-      status: 'scheduled',
-      canSwap: true,
-      attendanceMarked: false
-    },
-    {
-      id: '7',
-      subject: 'Software Engineering',
-      subjectCode: 'CS304',
-      day: 'Wednesday',
-      timeSlot: '3:00PM-4:00PM',
-      room: 'Room-305',
-      type: 'lecture',
-      duration: 60,
-      students: 38,
-      semester: 'VI',
-      section: 'A',
-      status: 'scheduled',
-      canSwap: true,
-      attendanceMarked: false
-    },
-    {
-      id: '8',
-      subject: 'Software Engineering',
-      subjectCode: 'CS304',
-      day: 'Friday',
-      timeSlot: '4:00PM-5:00PM',
-      room: 'Room-305',
-      type: 'tutorial',
-      duration: 60,
-      students: 38,
-      semester: 'VI',
-      section: 'A',
-      status: 'scheduled',
-      canSwap: true,
-      attendanceMarked: false
-    }
-  ]);
+  const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
 
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({
     totalClasses: 0,
@@ -210,15 +80,55 @@ const TeacherTimetablePage: React.FC = () => {
   const subjects = Array.from(new Set(teacherClasses.map(cls => cls.subject)));
 
   useEffect(() => {
-    // Calculate weekly stats
+    const loadTeacherSchedule = async () => {
+      try {
+        const response = await timetableAPI.getTeacherSchedule();
+        const payload = response?.data || response;
+        const sessions = payload?.allSessions || [];
+
+        const mapped: TeacherClass[] = sessions.map((session: any) => {
+          const [sh, sm] = (session.startTime || '00:00').split(':').map(Number);
+          const [eh, em] = (session.endTime || '00:00').split(':').map(Number);
+          const duration = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+          const normalizedType = (session.type || '').toLowerCase() === 'lab' ? 'practical' : 'lecture';
+
+          return {
+            id: session.entryId || `${session.dayOfWeek}-${session.startTime}-${session.courseCode}`,
+            subject: session.courseName || 'N/A',
+            subjectCode: session.courseCode || 'N/A',
+            day: session.dayOfWeek || 'Monday',
+            timeSlot: `${session.startTime}-${session.endTime}`,
+            room: session.roomNumber || 'TBA',
+            type: normalizedType as 'lecture' | 'practical' | 'tutorial',
+            duration,
+            students: 0,
+            semester: String(session.semester || ''),
+            section: session.division || 'A',
+            status: 'scheduled',
+            canSwap: true,
+            attendanceMarked: false
+          };
+        });
+
+        setTeacherClasses(mapped);
+      } catch (error) {
+        console.error('Failed to load teacher schedule:', error);
+        setTeacherClasses([]);
+      }
+    };
+
+    loadTeacherSchedule();
+  }, []);
+
+  useEffect(() => {
     const completed = teacherClasses.filter(cls => cls.status === 'completed').length;
     const pending = teacherClasses.filter(cls => cls.status === 'scheduled').length;
-    
+
     setWeeklyStats({
       totalClasses: teacherClasses.length,
       completedClasses: completed,
       pendingClasses: pending,
-      averageAttendance: 85
+      averageAttendance: teacherClasses.length ? 85 : 0
     });
   }, [teacherClasses]);
 
@@ -480,7 +390,7 @@ const TeacherTimetablePage: React.FC = () => {
                 <span>{getFilteredClasses().length} classes this week</span>
               </div>
             </div>
-            
+
             {/* Timetable Grid */}
             <div className="overflow-x-auto timetable-scroll">
               <table className="timetable-table w-full border-collapse rounded-2xl overflow-hidden shadow-sm bg-gradient-to-br from-white to-gray-50">
@@ -493,15 +403,13 @@ const TeacherTimetablePage: React.FC = () => {
                       </div>
                     </th>
                     {timeSlots.map((timeSlot, index) => (
-                      <th key={timeSlot} className={`py-4 px-2 text-center font-bold text-sm ${
-                        index === timeSlots.length - 1 ? 'rounded-tr-2xl' : ''
-                      }`}>
+                      <th key={timeSlot} className={`py-4 px-2 text-center font-bold text-sm ${index === timeSlots.length - 1 ? 'rounded-tr-2xl' : ''
+                        }`}>
                         <div className="flex flex-col items-center justify-center space-y-1">
-                          <div className={`w-2 h-2 rounded-full ${
-                            index < 3 ? 'bg-yellow-300' :
-                            index < 6 ? 'bg-green-300' :
-                            'bg-orange-300'
-                          }`}></div>
+                          <div className={`w-2 h-2 rounded-full ${index < 3 ? 'bg-yellow-300' :
+                              index < 6 ? 'bg-green-300' :
+                                'bg-orange-300'
+                            }`}></div>
                           <span className="text-xs leading-tight">{timeSlot}</span>
                         </div>
                       </th>
@@ -510,28 +418,24 @@ const TeacherTimetablePage: React.FC = () => {
                 </thead>
                 <tbody>
                   {days.map((day, dayIndex) => (
-                    <tr key={day} className={`group transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 ${
-                      dayIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                    }`}>
-                      <td className={`timetable-cell py-4 px-4 font-bold text-gray-800 border-r border-gray-200 bg-gradient-to-r from-gray-100 to-gray-50 ${
-                        dayIndex === days.length - 1 ? 'rounded-bl-2xl' : ''
+                    <tr key={day} className={`group transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 ${dayIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                       }`}>
+                      <td className={`timetable-cell py-4 px-4 font-bold text-gray-800 border-r border-gray-200 bg-gradient-to-r from-gray-100 to-gray-50 ${dayIndex === days.length - 1 ? 'rounded-bl-2xl' : ''
+                        }`}>
                         <div className="flex items-center space-x-2">
-                          <div className={`w-3 h-3 rounded-full ${
-                            dayIndex === 0 ? 'bg-blue-500' :
-                            dayIndex === 1 ? 'bg-green-500' :
-                            dayIndex === 2 ? 'bg-yellow-500' :
-                            dayIndex === 3 ? 'bg-orange-500' : 'bg-purple-500'
-                          }`}></div>
+                          <div className={`w-3 h-3 rounded-full ${dayIndex === 0 ? 'bg-blue-500' :
+                              dayIndex === 1 ? 'bg-green-500' :
+                                dayIndex === 2 ? 'bg-yellow-500' :
+                                  dayIndex === 3 ? 'bg-orange-500' : 'bg-purple-500'
+                            }`}></div>
                           <span className="text-sm">{day}</span>
                         </div>
                       </td>
                       {timeSlots.map((timeSlot, timeIndex) => {
                         const classItem = getClassForSlot(day, timeSlot);
                         return (
-                          <td key={`${day}-${timeSlot}`} className={`timetable-cell py-2 px-1 border-r border-gray-100 relative group-hover:border-blue-200 transition-colors ${
-                            dayIndex === days.length - 1 && timeIndex === timeSlots.length - 1 ? 'rounded-br-2xl border-r-0' : ''
-                          }`}>
+                          <td key={`${day}-${timeSlot}`} className={`timetable-cell py-2 px-1 border-r border-gray-100 relative group-hover:border-blue-200 transition-colors ${dayIndex === days.length - 1 && timeIndex === timeSlots.length - 1 ? 'rounded-br-2xl border-r-0' : ''
+                            }`}>
                             {classItem ? (
                               (() => {
                                 const subjectColors = getSubjectColor(classItem.subject);
@@ -547,24 +451,23 @@ const TeacherTimetablePage: React.FC = () => {
                                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Completed - View Only"></div>
                                       )}
                                     </div>
-                                    
+
                                     <h4 className={`font-bold text-xs mb-1 line-clamp-2 leading-tight ${subjectColors.text}`}>
                                       {classItem.subjectCode}
                                     </h4>
 
                                     {/* Lab/Theory Type Badge */}
                                     <div className="mb-1">
-                                      <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-bold text-white ${
-                                        classItem.type === 'practical' ? 'bg-purple-500' : 
-                                        classItem.type === 'tutorial' ? 'bg-orange-500' : 'bg-blue-500'
-                                      }`}>
+                                      <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-bold text-white ${classItem.type === 'practical' ? 'bg-purple-500' :
+                                          classItem.type === 'tutorial' ? 'bg-orange-500' : 'bg-blue-500'
+                                        }`}>
                                         {classItem.type === 'practical' && <Users className="h-2 w-2 mr-1" />}
                                         {classItem.type === 'tutorial' && <RefreshCw className="h-2 w-2 mr-1" />}
                                         {classItem.type === 'lecture' && <BookOpen className="h-2 w-2 mr-1" />}
                                         <span className="capitalize">{classItem.type === 'practical' ? 'Lab' : classItem.type === 'lecture' ? 'Theory' : 'Tutorial'}</span>
                                       </span>
                                     </div>
-                                    
+
                                     <div className="space-y-0.5">
                                       <div className={`flex items-center text-xs ${subjectColors.text} opacity-70`}>
                                         <MapPin className="h-2 w-2 mr-1 flex-shrink-0" />
@@ -579,16 +482,16 @@ const TeacherTimetablePage: React.FC = () => {
                                     {/* Action buttons overlay */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover/card:opacity-100 rounded-lg transition-all duration-300 flex items-end justify-center pb-3">
                                       <div className="flex items-center space-x-3">
-                                        <Button 
-                                          size="sm" 
+                                        <Button
+                                          size="sm"
                                           className="action-button h-10 w-10 p-0 bg-white/95 hover:bg-white border-2 border-white/50 rounded-full shadow-xl transform hover:scale-110 transition-all duration-200"
                                           title="View Details"
                                         >
                                           <Eye className="h-6 w-6 text-blue-600" />
                                         </Button>
                                         {classItem.status !== 'completed' && classItem.canSwap && (
-                                          <Button 
-                                            size="sm" 
+                                          <Button
+                                            size="sm"
                                             className="action-button h-10 w-10 p-0 bg-white/95 hover:bg-white border-2 border-white/50 rounded-full shadow-xl transform hover:scale-110 transition-all duration-200"
                                             title="Request Swap"
                                           >
@@ -628,7 +531,7 @@ const TeacherTimetablePage: React.FC = () => {
               </h3>
               <span className="text-sm text-gray-500">{getFilteredClasses().length} classes</span>
             </div>
-            
+
             <div className="space-y-4">
               {getFilteredClasses().map((classItem: TeacherClass) => {
                 const subjectColors = getSubjectColor(classItem.subject);
@@ -645,26 +548,25 @@ const TeacherTimetablePage: React.FC = () => {
                             {classItem.status === 'scheduled' && <Clock className="h-4 w-4 mr-1 inline" />}
                             <span className="capitalize">{classItem.status}</span>
                           </span>
-                          <span className={`px-3 py-1 text-sm font-medium rounded text-white shadow-sm ${
-                            classItem.type === 'practical' ? 'bg-gradient-to-r from-purple-500 to-purple-600' : 
-                            classItem.type === 'tutorial' ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 
-                            'bg-gradient-to-r from-blue-500 to-blue-600'
-                          }`}>
+                          <span className={`px-3 py-1 text-sm font-medium rounded text-white shadow-sm ${classItem.type === 'practical' ? 'bg-gradient-to-r from-purple-500 to-purple-600' :
+                              classItem.type === 'tutorial' ? 'bg-gradient-to-r from-orange-500 to-orange-600' :
+                                'bg-gradient-to-r from-blue-500 to-blue-600'
+                            }`}>
                             {classItem.type === 'practical' && <Users className="h-4 w-4 mr-1 inline" />}
                             {classItem.type === 'tutorial' && <RefreshCw className="h-4 w-4 mr-1 inline" />}
                             {classItem.type === 'lecture' && <BookOpen className="h-4 w-4 mr-1 inline" />}
                             <span className="capitalize font-semibold">
-                              {classItem.type === 'practical' ? 'Lab Session' : 
-                               classItem.type === 'lecture' ? 'Theory Class' : 
-                               'Tutorial'}
+                              {classItem.type === 'practical' ? 'Lab Session' :
+                                classItem.type === 'lecture' ? 'Theory Class' :
+                                  'Tutorial'}
                             </span>
                           </span>
                         </div>
-                        
+
                         <p className={`text-lg font-medium ${subjectColors.text} opacity-80 mb-3`}>
                           {classItem.subjectCode} • Semester {classItem.semester} • Section {classItem.section}
                         </p>
-                        
+
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div className="flex items-center space-x-2 bg-white bg-opacity-60 rounded-lg p-3">
                             <Calendar className="h-5 w-5 text-blue-600" />
@@ -696,7 +598,7 @@ const TeacherTimetablePage: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex flex-col items-end space-y-3">
                         <div className="flex items-center space-x-2">
                           {classItem.swapRequests && classItem.swapRequests.length > 0 && (
@@ -718,7 +620,7 @@ const TeacherTimetablePage: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex space-x-3">
                           <Button size="sm" variant="outline" className="bg-white hover:bg-gray-50 border-gray-300 text-gray-700 font-medium shadow-sm">
                             <Eye className="h-6 w-6 mr-2 text-blue-600" />

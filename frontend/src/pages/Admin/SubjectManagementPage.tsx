@@ -3,27 +3,27 @@
  * Comprehensive admin interface for managing subjects in Mumbai University engineering college
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { BarChart2, Book, BookA, CheckLine, Download, Plus, Target, Users } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
+import Input from '../../components/ui/Input';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import { Plus, Download, BookA, CheckLine, Target, Users, BarChart2, Book } from 'lucide-react';
-import subjectManagementService, { 
-  Subject, 
-  SubjectFilters, 
-  SubjectStats, 
-  PaginatedSubjects 
-} from '../../services/subjectManagementService';
-import { 
-  DEPARTMENT_LIST, 
-  SEMESTERS, 
+import {
   COURSE_TYPE_LIST,
-  DepartmentType,
-  SemesterType,
   CourseType,
-  getDepartmentCode
+  DEPARTMENT_LIST,
+  DepartmentType,
+  getDepartmentCode,
+  SEMESTERS,
+  SemesterType
 } from '../../constants';
+import subjectManagementService, {
+  PaginatedSubjects,
+  Subject,
+  SubjectFilters,
+  SubjectStats
+} from '../../services/subjectManagementService';
 
 const YEARS = [1, 2, 3, 4];
 
@@ -84,7 +84,7 @@ const SubjectManagementPage: React.FC = () => {
         'name',
         'asc'
       );
-      
+
       setSubjects(data.subjects);
       setTotalPages(data.totalPages);
       setError(null);
@@ -144,7 +144,7 @@ const SubjectManagementPage: React.FC = () => {
       const newSelection = prev.includes(subjectId)
         ? prev.filter(id => id !== subjectId)
         : [...prev, subjectId];
-      
+
       setSelectAll(newSelection.length === (subjects?.length || 0));
       return newSelection;
     });
@@ -169,17 +169,17 @@ const SubjectManagementPage: React.FC = () => {
    */
   const handleSubmitSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       setLoading(true);
       setError(null);
       setSuccess(null);
-      
+
       const subjectData = {
         ...subjectForm,
         department: subjectForm.department ? getDepartmentCode(subjectForm.department as string) as DepartmentType : undefined
       };
-      
+
       if (editingSubject) {
         await subjectManagementService.updateSubject(editingSubject._id!, subjectData as Partial<Subject>);
         setSuccess('Subject updated successfully');
@@ -187,7 +187,7 @@ const SubjectManagementPage: React.FC = () => {
         await subjectManagementService.createSubject(subjectData as Omit<Subject, '_id' | 'createdAt' | 'updatedAt'>);
         setSuccess('Subject created successfully');
       }
-      
+
       setEditingSubject(null);
       setSubjectForm({
         code: '',
@@ -201,7 +201,7 @@ const SubjectManagementPage: React.FC = () => {
         prerequisites: [],
         isActive: true
       });
-      
+
       await loadSubjects();
       await loadStats();
       // Navigate back to subjects list after successful save
@@ -218,7 +218,7 @@ const SubjectManagementPage: React.FC = () => {
    */
   const handleDeleteSubject = async (subjectId: string) => {
     if (!window.confirm('Are you sure you want to delete this subject?')) return;
-    
+
     try {
       await subjectManagementService.deleteSubject(subjectId);
       await loadSubjects();
@@ -246,20 +246,20 @@ const SubjectManagementPage: React.FC = () => {
    */
   const handleBulkOperation = async (action: 'activate' | 'deactivate' | 'delete') => {
     if (selectedSubjects.length === 0) return;
-    
-    const confirmMessage = action === 'delete' 
+
+    const confirmMessage = action === 'delete'
       ? `Are you sure you want to delete ${selectedSubjects.length} subjects?`
       : `Are you sure you want to ${action} ${selectedSubjects.length} subjects?`;
-    
+
     if (!window.confirm(confirmMessage)) return;
-    
+
     try {
       await subjectManagementService.bulkUpdateSubjects({
         subjectIds: selectedSubjects,
         action,
         data: action !== 'delete' ? { isActive: action === 'activate' } : undefined
       });
-      
+
       setSelectedSubjects([]);
       setSelectAll(false);
       await loadSubjects();
@@ -274,16 +274,16 @@ const SubjectManagementPage: React.FC = () => {
    */
   const handleImport = async () => {
     if (!importFile) return;
-    
+
     try {
       setImporting(true);
       const result = await subjectManagementService.importSubjects(importFile);
-      
+
       alert(`Import completed! Imported: ${result.imported}, Failed: ${result.failed}`);
       if (result.errors.length > 0) {
         console.error('Import errors:', result.errors);
       }
-      
+
       setImportFile(null);
       setActiveTab('subjects');
       await loadSubjects();
@@ -345,7 +345,7 @@ const SubjectManagementPage: React.FC = () => {
           </div>
         </div>
       </Card>
-      
+
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -357,7 +357,7 @@ const SubjectManagementPage: React.FC = () => {
           </div>
         </div>
       </Card>
-      
+
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -371,7 +371,7 @@ const SubjectManagementPage: React.FC = () => {
           </div>
         </div>
       </Card>
-      
+
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -450,7 +450,9 @@ const SubjectManagementPage: React.FC = () => {
                 {subject.name}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {(subject.department as any)?.name || 'N/A'}
+                {typeof subject.department === 'object'
+                  ? ((subject.department as any)?.name || (subject.department as any)?.coursecode || (subject.department as any)?.code || 'N/A')
+                  : (subject.department || 'N/A')}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 Sem {subject.semester}
@@ -459,22 +461,20 @@ const SubjectManagementPage: React.FC = () => {
                 {subject.credits}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  subject.type === 'Theory' 
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${subject.type === 'Theory'
                     ? 'bg-blue-100 text-blue-800'
                     : subject.type === 'Practical'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-purple-100 text-purple-800'
-                }`}>
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-purple-100 text-purple-800'
+                  }`}>
                   {subject.type}
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  subject.isActive 
-                    ? 'bg-green-100 text-green-800' 
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${subject.isActive
+                    ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
-                }`}>
+                  }`}>
                   {subject.isActive ? 'Active' : 'Inactive'}
                 </span>
               </td>
@@ -492,7 +492,12 @@ const SubjectManagementPage: React.FC = () => {
                   size="sm"
                   onClick={() => {
                     setEditingSubject(subject);
-                    setSubjectForm(subject);
+                    setSubjectForm({
+                      ...subject,
+                      department: typeof subject.department === 'object'
+                        ? ((subject.department as any)?.name || (subject.department as any)?.coursecode || (subject.department as any)?.code || '')
+                        : (subject.department || ''),
+                    });
                     setActiveTab('add');
                   }}
                   className="text-green-600 hover:text-green-900"
@@ -600,11 +605,10 @@ const SubjectManagementPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`${
-                activeTab === tab.id
+              className={`${activeTab === tab.id
                   ? 'border-blue-500 text-blue-600 '
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
             >
               <span>{tab.icon}</span>
               <span>{tab.name}</span>
@@ -617,7 +621,7 @@ const SubjectManagementPage: React.FC = () => {
       {activeTab === 'overview' && (
         <div>
           {renderStatsCards()}
-          
+
           {/* Department Distribution */}
           {stats?.departmentDistribution && (
             <Card className="p-6">
@@ -645,7 +649,7 @@ const SubjectManagementPage: React.FC = () => {
                 value={searchTerm}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
               />
-              
+
               <select
                 value={filters.department || ''}
                 onChange={(e) => handleFilterChange('department', e.target.value)}
@@ -657,7 +661,7 @@ const SubjectManagementPage: React.FC = () => {
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
-              
+
               <select
                 value={filters.semester || ''}
                 onChange={(e) => handleFilterChange('semester', e.target.value ? Number(e.target.value) : undefined)}
@@ -669,7 +673,7 @@ const SubjectManagementPage: React.FC = () => {
                   <option key={sem} value={sem}>Semester {sem}</option>
                 ))}
               </select>
-              
+
               <select
                 value={filters.type || ''}
                 onChange={(e) => handleFilterChange('type', e.target.value)}
@@ -682,7 +686,7 @@ const SubjectManagementPage: React.FC = () => {
                 ))}
               </select>
             </div>
-            
+
             {/* Bulk Actions */}
             {selectedSubjects.length > 0 && (
               <div className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg">
@@ -719,7 +723,7 @@ const SubjectManagementPage: React.FC = () => {
           {/* Subjects Table */}
           <Card className="p-6">
             {renderSubjectsTable()}
-            
+
             {/* Pagination */}
             <div className="mt-6 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -741,7 +745,7 @@ const SubjectManagementPage: React.FC = () => {
                   entries
                 </span>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Button
                   size="sm"
@@ -751,11 +755,11 @@ const SubjectManagementPage: React.FC = () => {
                 >
                   Previous
                 </Button>
-                
+
                 <span className="text-sm text-gray-700">
                   Page {currentPage} of {totalPages}
                 </span>
-                
+
                 <Button
                   size="sm"
                   variant="secondary"
@@ -775,7 +779,7 @@ const SubjectManagementPage: React.FC = () => {
           <h3 className="text-lg font-semibold mb-6">
             {editingSubject ? 'Edit Subject' : 'Add New Subject'}
           </h3>
-          
+
           <form onSubmit={handleSubmitSubject} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -789,7 +793,7 @@ const SubjectManagementPage: React.FC = () => {
                   placeholder="e.g., CS101"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Subject Name *
@@ -801,14 +805,16 @@ const SubjectManagementPage: React.FC = () => {
                   placeholder="e.g., Introduction to Computer Science"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Department *
                 </label>
                 <select
                   required
-                  value={subjectForm.department || ''}
+                  value={typeof subjectForm.department === 'object'
+                    ? ((subjectForm.department as any)?.name || (subjectForm.department as any)?.coursecode || (subjectForm.department as any)?.code || '')
+                    : (subjectForm.department || '')}
                   onChange={(e) => setSubjectForm(prev => ({ ...prev, department: e.target.value as DepartmentType }))}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   aria-label="Select department"
@@ -819,7 +825,7 @@ const SubjectManagementPage: React.FC = () => {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Semester *
@@ -837,7 +843,7 @@ const SubjectManagementPage: React.FC = () => {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Year *
@@ -855,7 +861,7 @@ const SubjectManagementPage: React.FC = () => {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Credits *
@@ -869,7 +875,7 @@ const SubjectManagementPage: React.FC = () => {
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubjectForm(prev => ({ ...prev, credits: Number(e.target.value) }))}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Type *
@@ -887,7 +893,7 @@ const SubjectManagementPage: React.FC = () => {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="flex items-center space-x-2">
                   <input
@@ -900,7 +906,7 @@ const SubjectManagementPage: React.FC = () => {
                 </label>
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description
@@ -913,7 +919,7 @@ const SubjectManagementPage: React.FC = () => {
                 placeholder="Brief description of the subject..."
               />
             </div>
-            
+
             <div className="flex justify-end space-x-4">
               <Button
                 type="button"
@@ -936,7 +942,7 @@ const SubjectManagementPage: React.FC = () => {
       {activeTab === 'import' && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-6">Import Subjects</h3>
-          
+
           <div className="space-y-6">
             <div>
               <Button
@@ -944,13 +950,13 @@ const SubjectManagementPage: React.FC = () => {
                 variant="secondary"
                 className="mb-4"
               >
-                 Download CSV Template
+                Download CSV Template
               </Button>
               <p className="text-sm text-gray-600">
                 Download the template file to see the required format for importing subjects.
               </p>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select CSV File
@@ -963,7 +969,7 @@ const SubjectManagementPage: React.FC = () => {
                 aria-label="Select CSV file for import"
               />
             </div>
-            
+
             {importFile && (
               <div className="p-4 bg-green-50 rounded-lg">
                 <p className="text-sm text-green-800">
@@ -971,7 +977,7 @@ const SubjectManagementPage: React.FC = () => {
                 </p>
               </div>
             )}
-            
+
             <Button
               onClick={handleImport}
               disabled={!importFile || importing}
@@ -997,7 +1003,7 @@ const SubjectManagementPage: React.FC = () => {
                 ✕
               </Button>
             </div>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1022,24 +1028,23 @@ const SubjectManagementPage: React.FC = () => {
                   <strong>Type:</strong> {showSubjectDetails.type}
                 </div>
                 <div>
-                  <strong>Status:</strong> 
-                  <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                    showSubjectDetails.isActive 
-                      ? 'bg-green-100 text-green-800' 
+                  <strong>Status:</strong>
+                  <span className={`ml-2 px-2 py-1 text-xs rounded-full ${showSubjectDetails.isActive
+                      ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
-                  }`}>
+                    }`}>
                     {showSubjectDetails.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
               </div>
-              
+
               {showSubjectDetails.description && (
                 <div>
                   <strong>Description:</strong>
                   <p className="mt-1 text-gray-600">{showSubjectDetails.description}</p>
                 </div>
               )}
-              
+
               {showSubjectDetails.prerequisites && showSubjectDetails.prerequisites.length > 0 && (
                 <div>
                   <strong>Prerequisites:</strong>

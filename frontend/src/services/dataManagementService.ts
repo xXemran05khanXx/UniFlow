@@ -1,18 +1,9 @@
 import axios from 'axios';
-import { 
-  DEPARTMENTS, 
-  DEPARTMENT_LIST, 
-  DepartmentType, 
-  SEMESTERS, 
-  SemesterType,
-  ROOM_TYPES,
-  ROOM_TYPE_LIST,
-  RoomType,
-  COURSE_TYPES,
-  COURSE_TYPE_LIST,
+import {
   CourseType,
-  TEACHER_DESIGNATIONS,
-  TEACHER_DESIGNATION_LIST,
+  DepartmentType,
+  RoomType,
+  SemesterType,
   TeacherDesignationType
 } from '../constants';
 
@@ -189,21 +180,48 @@ export const dataManagementService = {
   // Teacher methods
   async getTeachers(): Promise<Teacher[]> {
     try {
-      // Use users endpoint to get teacher users since Teachers collection is empty
+      // Primary source: Teacher profiles collection (matches timetable generation requirements)
+      try {
+        const teacherRes = await apiClient.get('/teachers');
+        const teacherDocs = teacherRes.data?.data || teacherRes.data || [];
+
+        return teacherDocs.map((t: any) => ({
+          _id: t._id,
+          name: t.name || t.user?.name || 'Unknown Teacher',
+          email: t.user?.email || t.email || '',
+          employeeId: t.employeeId || `T${String(t._id).slice(-4)}`,
+          // Keep both department fields for compatibility with existing consumers.
+          department: t.primaryDepartment || t.department || 'Not Assigned',
+          designation: t.designation || 'Teacher',
+          qualifications: t.qualifications || [],
+          contactInfo: t.contactInfo || { staffRoom: '' },
+          workload: {
+            maxHoursPerWeek: t.workload?.maxHoursPerWeek || 18,
+            minHoursPerWeek: t.workload?.minHoursPerWeek || 8
+          },
+          availability: t.availability || [],
+          user: t.user,
+          primaryDepartment: t.primaryDepartment,
+          allowedDepartments: t.allowedDepartments || []
+        } as any));
+      } catch (teacherErr) {
+        console.warn('Teacher profiles fetch failed, falling back to users endpoint:', teacherErr);
+      }
+
+      // Fallback source: users endpoint filtered by teacher role
       const response = await apiClient.get('/users?role=teacher');
-      const teacherUsers = response.data.data || response.data;
-      
-      // Transform user data to teacher format for display
+      const teacherUsers = response.data?.data || response.data || [];
+
       return teacherUsers.map((user: any) => ({
         _id: user._id,
         name: user.name,
         email: user.email,
-        employeeId: user.employeeId || `T${user._id.slice(-4)}`,
+        employeeId: user.employeeId || `T${String(user._id).slice(-4)}`,
         department: user.department || 'Not Assigned',
         designation: user.designation || 'Teacher',
         qualifications: user.qualifications || [],
         contactInfo: { staffRoom: user.staffRoom || '' },
-        workload: { 
+        workload: {
           maxHoursPerWeek: user.maxHoursPerWeek || 18,
           minHoursPerWeek: user.minHoursPerWeek || 8
         },
@@ -302,9 +320,9 @@ export const dataManagementService = {
   async getSubjects(): Promise<Subject[]> {
     try {
       console.log('🔍 DataManagement: Fetching subjects from /subjects endpoint...');
-      
+
       const response = await apiClient.get('/subjects');
-      
+
       console.log('🔍 DataManagement: Raw subject response:', response.data);
 
       // Handle both correct and legacy ApiResponse shapes
@@ -315,16 +333,16 @@ export const dataManagementService = {
           || response.data?.data?.subjects
           || response.data?.message?.subjects
           || []);
-      
+
       console.log('🔍 DataManagement: Extracted subjects:', subjects);
       console.log('🔍 DataManagement: Is array?', Array.isArray(subjects));
       console.log('🔍 DataManagement: Number of subjects found:', subjects.length);
-      
+
       if (!Array.isArray(subjects)) {
         console.error('❌ DataManagement: subjects is not an array:', subjects);
         return [];
       }
-      
+
       console.log('✅ DataManagement: Subjects:', subjects);
       return subjects;
     } catch (error) {
@@ -422,7 +440,7 @@ export const dataManagementService = {
       const response = await apiClient.get(endpoint, {
         responseType: 'blob',
       });
-      
+
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -450,7 +468,7 @@ export const dataManagementService = {
       const response = await apiClient.get(endpoint, {
         responseType: 'blob',
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;

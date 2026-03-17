@@ -1,31 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Card from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
 import {
-  Calendar,
-  Download,
-  RefreshCw,
-  Search,
+  AlertCircle,
   BookOpen,
-  Users,
-  Clock,
-  MapPin,
+  Calendar,
   ChevronDown,
+  Clock,
+  Download,
+  FileText,
   Grid,
   List,
-  FileText,
+  RefreshCw,
+  Search,
   Star,
-  AlertCircle,
-  TrendingUp
+  TrendingUp,
+  Users
 } from 'lucide-react';
-import '../css/GeneratePage.module.css';
-import { timetableAPI } from '../../services/timetableService';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ScheduleModal from '../../components/timetable/ScheduleModal';
+import TimetableBlock from '../../components/timetable/TimetableBlock';
+import { TimetableDisplayEntry } from '../../components/timetable/types';
+import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
 import departmentService from '../../services/departmentService';
 import { subjectManagementService } from '../../services/subjectManagementService';
-import TimetableBlock from '../../components/timetable/TimetableBlock';
-import ScheduleModal from '../../components/timetable/ScheduleModal';
-import { TimetableDisplayEntry } from '../../components/timetable/types';
+import { timetableAPI } from '../../services/timetableService';
+import '../css/GeneratePage.module.css';
 
 type TimetableEntry = TimetableDisplayEntry;
 
@@ -110,14 +109,19 @@ const normalizeDayName = (day?: string): string => {
 
 const mapBackendTimetables = (timetables: any[], fallbackSemester: string, fallbackDepartment: string): TimetableEntry[] => {
   return (timetables || []).flatMap((tt: any) => {
-    const department = tt?.studentGroup?.department || (fallbackDepartment !== 'all' ? fallbackDepartment : 'Unknown');
+    const departmentValue = tt?.studentGroup?.department;
+    const department = (
+      typeof departmentValue === 'string'
+        ? departmentValue
+        : (departmentValue?.name || departmentValue?.code)
+    ) || (fallbackDepartment !== 'all' ? fallbackDepartment : 'Unknown');
     const year = tt?.studentGroup?.year || 0;
     const division = tt?.studentGroup?.division || '-';
 
     const inferredSemesterFromName = parseSemesterFromName(tt?.name);
 
     return (tt?.schedule || []).map((session: any, index: number) => {
-      const course = session?.course || {};
+      const course = session?.course || session?.Course || {};
       const teacher = session?.teacher || {};
       const room = session?.room || {};
       const startTime = session?.startTime || '';
@@ -132,10 +136,10 @@ const mapBackendTimetables = (timetables: any[], fallbackSemester: string, fallb
 
       return {
         id: `${tt._id || 'tt'}-${index}`,
-        courseId: (course?._id || session?.course?._id || '').toString() || undefined,
+        courseId: (course?._id || session?.course?._id || session?.Course?._id || '').toString() || undefined,
         subject: session?.courseName || course.courseName || course.name || course.title || 'Untitled Course',
         subjectCode: session?.courseCode || course.courseCode || course.code || '',
-        teacher: session?.teacherName || teacher.name || teacher.employeeId || 'Unassigned',
+        teacher: session?.teacherName || teacher.name || teacher.user?.name || teacher.employeeId || 'Unassigned',
         teacherEmail: teacher.email || teacher.user?.email || undefined,
         room: session?.roomName || room.name || room.roomNumber || room.code || 'TBD',
         roomName: room.name || session?.roomName || undefined,
@@ -170,7 +174,7 @@ const TimetablePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [departments, setDepartments] = useState<string[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<TimetableEntry | null>(null);
-  
+
   const semesters = React.useMemo(() => {
     const fromData = Array.from(new Set(
       timetableData.map(t => t.semester || numberToRoman(t.semesterNumber || 0)).filter(Boolean)
@@ -280,12 +284,12 @@ const TimetablePage: React.FC = () => {
       ? true
       : entry.semester === selectedSemester || entry.semesterNumber === romanToNumber(selectedSemester);
 
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       entry.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.teacher.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.subjectCode.toLowerCase().includes(searchTerm.toLowerCase());
-    
-      return matchesDepartment && matchesSemester && matchesSearch;
+
+    return matchesDepartment && matchesSemester && matchesSearch;
   });
 
   const activeDepartmentLabel = React.useMemo(() => {
@@ -437,33 +441,31 @@ const TimetablePage: React.FC = () => {
             <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all ${
-                  viewMode === 'grid' 
-                    ? 'bg-white text-blue-600 shadow-sm' 
+                className={`p-2 rounded-lg transition-all ${viewMode === 'grid'
+                    ? 'bg-white text-blue-600 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
-                }`}
+                  }`}
                 aria-label="Grid view"
               >
                 <Grid className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all ${
-                  viewMode === 'list' 
-                    ? 'bg-white text-blue-600 shadow-sm' 
+                className={`p-2 rounded-lg transition-all ${viewMode === 'list'
+                    ? 'bg-white text-blue-600 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
-                }`}
+                  }`}
                 aria-label="List view"
               >
                 <List className="h-5 w-5" />
               </button>
             </div>
-            
+
             <Button variant="outline" className="flex items-center">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            
+
             <Button variant="outline" className="flex items-center">
               <Download className="h-4 w-4 mr-2" />
               Export
@@ -517,9 +519,8 @@ const TimetablePage: React.FC = () => {
                     </div>
                   </th>
                   {timeSlots.map((slot, index) => (
-                    <th key={slot} className={`text-center py-3 px-3 font-semibold text-white border-r border-white/20 min-w-[90px] ${
-                      index === timeSlots.length - 1 ? 'rounded-tr-2xl border-r-0' : ''
-                    }`}>
+                    <th key={slot} className={`text-center py-3 px-3 font-semibold text-white border-r border-white/20 min-w-[90px] ${index === timeSlots.length - 1 ? 'rounded-tr-2xl border-r-0' : ''
+                      }`}>
                       <div className="text-xs leading-tight">
                         {slot}
                       </div>
@@ -529,19 +530,16 @@ const TimetablePage: React.FC = () => {
               </thead>
               <tbody>
                 {days.map((day, dayIndex) => (
-                  <tr key={day} className={`group transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 ${
-                    dayIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                  }`}>
-                    <td className={`py-4 px-4 font-bold text-gray-800 border-r border-gray-200 bg-gradient-to-r from-gray-100 to-gray-50 ${
-                      dayIndex === days.length - 1 ? 'rounded-bl-2xl' : ''
+                  <tr key={day} className={`group transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 ${dayIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                     }`}>
+                    <td className={`py-4 px-4 font-bold text-gray-800 border-r border-gray-200 bg-gradient-to-r from-gray-100 to-gray-50 ${dayIndex === days.length - 1 ? 'rounded-bl-2xl' : ''
+                      }`}>
                       <div className="flex items-center space-x-2">
-                        <div className={`w-3 h-3 rounded-full ${
-                          dayIndex === 0 ? 'bg-blue-500' :
-                          dayIndex === 1 ? 'bg-green-500' :
-                          dayIndex === 2 ? 'bg-purple-500' :
-                          'bg-orange-500'
-                        }`}></div>
+                        <div className={`w-3 h-3 rounded-full ${dayIndex === 0 ? 'bg-blue-500' :
+                            dayIndex === 1 ? 'bg-green-500' :
+                              dayIndex === 2 ? 'bg-purple-500' :
+                                'bg-orange-500'
+                          }`}></div>
                         <span className="text-sm">{day}</span>
                       </div>
                     </td>
@@ -553,9 +551,8 @@ const TimetablePage: React.FC = () => {
                       });
 
                       return (
-                        <td key={`${day}-${slot}`} className={`py-2 px-1 border-r border-gray-100 relative group-hover:border-blue-200 transition-colors ${
-                          dayIndex === days.length - 1 && slotIndex === timeSlots.length - 1 ? 'rounded-br-2xl border-r-0' : ''
-                        }`}>
+                        <td key={`${day}-${slot}`} className={`py-2 px-1 border-r border-gray-100 relative group-hover:border-blue-200 transition-colors ${dayIndex === days.length - 1 && slotIndex === timeSlots.length - 1 ? 'rounded-br-2xl border-r-0' : ''
+                          }`}>
                           {slotEntries.length > 0 ? (
                             <div className="space-y-2">
                               {slotEntries.map(entry => (

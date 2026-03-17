@@ -1,28 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Download, 
-  Upload, 
-  Settings, 
-  Shield, 
-  Lock, 
-  Unlock,
-  UserCheck,
-  UserX,
-  Eye,
-  Edit,
-  Trash2,
+import {
   AlertCircle,
   CheckCircle,
-  RefreshCw
+  Download,
+  Edit,
+  Eye,
+  Lock,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings,
+  Shield,
+  Trash2,
+  Unlock,
+  Upload,
+  UserCheck,
+  Users,
+  UserX
 } from 'lucide-react';
-import Card from '../../components/ui/Card';
+import React, { useEffect, useState } from 'react';
 import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
-import { userManagementService, User, UserForm, UserFilters, UserStats } from '../../services/userManagementService';
 import { DEPARTMENT_LIST, getDepartmentCode } from '../../constants';
+import { User, UserFilters, UserForm, userManagementService, UserStats } from '../../services/userManagementService';
 
 const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -237,10 +237,10 @@ const UserManagementPage: React.FC = () => {
   const handleBulkAction = async (action: 'activate' | 'deactivate' | 'delete') => {
     if (selectedUsers.length === 0) return;
 
-    const confirmMessage = action === 'delete' 
-      ? 'Are you sure you want to delete the selected users?' 
+    const confirmMessage = action === 'delete'
+      ? 'Are you sure you want to delete the selected users?'
       : `Are you sure you want to ${action} the selected users?`;
-    
+
     if (!window.confirm(confirmMessage)) return;
 
     setLoading(true);
@@ -301,6 +301,8 @@ const UserManagementPage: React.FC = () => {
       department: typeof user.department === 'string' ? user.department : user.department?.name || '',
       semester: user.semester,
       isActive: user.isActive,
+      employeeId: user.employeeId || '',
+      designation: user.designation || '',
       profile: {
         firstName: user.profile?.firstName || '',
         lastName: user.profile?.lastName || '',
@@ -348,7 +350,7 @@ const UserManagementPage: React.FC = () => {
             </div>
           </div>
         </Card>
-        
+
         <Card className="p-6">
           <div className="flex items-center">
             <UserCheck className="h-8 w-8 text-green-600" />
@@ -410,9 +412,9 @@ const UserManagementPage: React.FC = () => {
         <select
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={filters.isActive === undefined ? '' : filters.isActive.toString()}
-          onChange={(e) => setFilters({ 
-            ...filters, 
-            isActive: e.target.value === '' ? undefined : e.target.value === 'true' 
+          onChange={(e) => setFilters({
+            ...filters,
+            isActive: e.target.value === '' ? undefined : e.target.value === 'true'
           })}
           aria-label="Filter by status"
         >
@@ -438,7 +440,7 @@ const UserManagementPage: React.FC = () => {
           <h3 className="text-lg font-semibold mb-4">
             {editingUser ? 'Edit User' : 'Add New User'}
           </h3>
-          
+
           <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
@@ -447,7 +449,7 @@ const UserManagementPage: React.FC = () => {
                 onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
                 required
               />
-              
+
               <Input
                 label="Email"
                 type="email"
@@ -484,8 +486,8 @@ const UserManagementPage: React.FC = () => {
               <Input
                 label="First Name"
                 value={userForm.profile.firstName}
-                onChange={(e) => setUserForm({ 
-                  ...userForm, 
+                onChange={(e) => setUserForm({
+                  ...userForm,
                   profile: { ...userForm.profile, firstName: e.target.value }
                 })}
               />
@@ -493,8 +495,8 @@ const UserManagementPage: React.FC = () => {
               <Input
                 label="Last Name"
                 value={userForm.profile.lastName}
-                onChange={(e) => setUserForm({ 
-                  ...userForm, 
+                onChange={(e) => setUserForm({
+                  ...userForm,
                   profile: { ...userForm.profile, lastName: e.target.value }
                 })}
               />
@@ -502,8 +504,8 @@ const UserManagementPage: React.FC = () => {
               <Input
                 label="Phone"
                 value={userForm.profile.phone}
-                onChange={(e) => setUserForm({ 
-                  ...userForm, 
+                onChange={(e) => setUserForm({
+                  ...userForm,
                   profile: { ...userForm.profile, phone: e.target.value }
                 })}
               />
@@ -614,7 +616,7 @@ const UserManagementPage: React.FC = () => {
       <div className="p-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Users ({totalUsers})</h3>
-          
+
           <div className="flex space-x-2">
             {selectedUsers.length > 0 && (
               <div className="flex space-x-2">
@@ -707,19 +709,17 @@ const UserManagementPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                      user.role === 'teacher' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
+                        user.role === 'teacher' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                      }`}>
                       {user.role}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
                         {user.isActive ? 'Active' : 'Inactive'}
                       </span>
                       {user.lockUntil && new Date(user.lockUntil) > new Date() && (
@@ -872,9 +872,8 @@ const UserManagementPage: React.FC = () => {
 
       {/* Message Alert */}
       {message && (
-        <div className={`mb-6 p-4 rounded-md flex items-center ${
-          message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-        }`}>
+        <div className={`mb-6 p-4 rounded-md flex items-center ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          }`}>
           {message.type === 'success' ? (
             <CheckCircle className="h-5 w-5 mr-2" />
           ) : (

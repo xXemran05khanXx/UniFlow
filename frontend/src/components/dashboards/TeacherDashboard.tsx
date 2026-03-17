@@ -1,13 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, Clock, BookOpen, Users, MapPin, AlertCircle, Plus, 
-  Building2, GraduationCap, BarChart3, RefreshCw, CheckCircle,
-  ArrowUpDown, Target, Award, TrendingUp, User, ExternalLink
+import {
+  AlertCircle,
+  ArrowUpDown,
+  Award,
+  BarChart3,
+  BookOpen,
+  Building2,
+  Calendar,
+  CheckCircle,
+  Clock,
+  GraduationCap,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Target,
+  TrendingUp, User,
+  Users
 } from 'lucide-react';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import TimetableGenerator from '../timetable/TimetableGenerator';
+import Button from '../ui/Button';
+import Card from '../ui/Card';
 import './TeacherDashboard.css';
 
 // Enhanced interfaces for teacher data
@@ -92,8 +105,8 @@ const TeacherDashboard: React.FC = () => {
           if (teacherResponse.ok) {
             const teacherData = await teacherResponse.json();
             const teachers = teacherData.data || teacherData;
-            
-            const currentTeacher = teachers.find((teacher: any) => 
+
+            const currentTeacher = teachers.find((teacher: any) =>
               teacher.user?._id === userId || teacher.user === userId
             );
 
@@ -107,6 +120,90 @@ const TeacherDashboard: React.FC = () => {
                 designation: currentTeacher.designation,
                 experience: currentTeacher.experience || 0
               });
+
+              const scheduleResponse = await fetch('/api/timetable/my-schedule', {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+
+              if (scheduleResponse.ok) {
+                const scheduleData = await scheduleResponse.json();
+                const sessions = scheduleData?.data?.allSessions || [];
+                const now = new Date();
+                const todayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+
+                const todayClassesFromApi: TodayClass[] = sessions
+                  .filter((s: any) => s.dayOfWeek === todayName)
+                  .map((s: any) => {
+                    const [sh, sm] = (s.startTime || '00:00').split(':').map(Number);
+                    const [eh, em] = (s.endTime || '00:00').split(':').map(Number);
+                    const start = new Date();
+                    start.setHours(sh, sm, 0, 0);
+                    const end = new Date();
+                    end.setHours(eh, em, 0, 0);
+
+                    const status: 'upcoming' | 'ongoing' | 'completed' =
+                      now < start ? 'upcoming' : now > end ? 'completed' : 'ongoing';
+
+                    return {
+                      id: s.entryId || `${s.dayOfWeek}-${s.startTime}-${s.courseCode}`,
+                      subject: s.courseName || 'N/A',
+                      subjectCode: s.courseCode || 'N/A',
+                      timeSlot: `${s.startTime}-${s.endTime}`,
+                      room: s.roomNumber || 'TBA',
+                      type: (s.type || '').toLowerCase() === 'lab' ? 'practical' : 'lecture',
+                      duration: Math.max(0, (eh * 60 + em) - (sh * 60 + sm)),
+                      status,
+                      students: 0,
+                      canSwap: true
+                    };
+                  });
+
+                const dayOrder: Record<string, number> = {
+                  Monday: 1,
+                  Tuesday: 2,
+                  Wednesday: 3,
+                  Thursday: 4,
+                  Friday: 5,
+                  Saturday: 6,
+                  Sunday: 7
+                };
+
+                const groupedByCourse = sessions.reduce((acc: Record<string, any>, s: any) => {
+                  const key = s.courseCode || s.courseName || 'UNKNOWN';
+                  if (!acc[key]) {
+                    acc[key] = {
+                      id: s.courseId || key,
+                      name: s.courseName || 'N/A',
+                      code: s.courseCode || 'N/A',
+                      totalLectures: 0,
+                      completedLectures: 0,
+                      department: s.department || 'N/A',
+                      semester: String(s.semester || ''),
+                      credits: s.credits || 0,
+                      type: (s.type || '').toLowerCase() === 'lab' ? 'practical' : 'theory'
+                    };
+                  }
+                  acc[key].totalLectures += 1;
+
+                  const [endH, endM] = (s.endTime || '00:00').split(':').map(Number);
+                  const sessionEnd = new Date();
+                  sessionEnd.setHours(endH, endM, 0, 0);
+                  const todayIndex = dayOrder[todayName] || 0;
+                  const sessionDayIndex = dayOrder[s.dayOfWeek] || 0;
+                  if (todayIndex > sessionDayIndex || (todayIndex === sessionDayIndex && now > sessionEnd)) {
+                    acc[key].completedLectures += 1;
+                  }
+
+                  return acc;
+                }, {});
+
+                const progressFromApi = Object.values(groupedByCourse) as SubjectProgress[];
+                if (todayClassesFromApi.length > 0) setTodaySchedule(todayClassesFromApi);
+                if (progressFromApi.length > 0) setSubjectProgress(progressFromApi);
+              }
             }
           }
         }
@@ -120,7 +217,7 @@ const TeacherDashboard: React.FC = () => {
     loadTeacherProfile();
   }, []);
 
-  const [subjectProgress] = useState<SubjectProgress[]>([
+  const [subjectProgress, setSubjectProgress] = useState<SubjectProgress[]>([
     {
       id: '1',
       name: 'Data Structures & Algorithms',
@@ -167,7 +264,7 @@ const TeacherDashboard: React.FC = () => {
     }
   ]);
 
-  const [todaySchedule] = useState<TodayClass[]>([
+  const [todaySchedule, setTodaySchedule] = useState<TodayClass[]>([
     {
       id: '1',
       subject: 'Data Structures & Algorithms',
@@ -234,7 +331,7 @@ const TeacherDashboard: React.FC = () => {
     // Calculate stats from mock data
     const totalClasses = subjectProgress.reduce((acc, subject) => acc + subject.totalLectures, 0);
     const completedClasses = subjectProgress.reduce((acc, subject) => acc + subject.completedLectures, 0);
-    
+
     setWeeklyStats({
       totalClasses,
       completedClasses,
@@ -437,12 +534,12 @@ const TeacherDashboard: React.FC = () => {
                     <CheckCircle className="h-5 w-5 text-green-500" />
                   )}
                 </div>
-                
+
                 <div className="mb-2">
                   <h4 className="font-medium text-gray-900">{classItem.subject}</h4>
                   <p className="text-sm text-gray-600">{classItem.subjectCode}</p>
                 </div>
-                
+
                 <div className="flex items-center text-sm text-gray-500 space-x-4 mb-3">
                   <span className="flex items-center">
                     <Clock className="h-3 w-3 mr-1" />
@@ -467,9 +564,9 @@ const TeacherDashboard: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="flex items-center text-xs"
                       onClick={() => handleSwapRequest(classItem)}
                     >
@@ -501,20 +598,20 @@ const TeacherDashboard: React.FC = () => {
                       <p className="text-xs text-gray-500">{subject.credits} credits</p>
                     </div>
                   </div>
-                  
+
                   <div className="mb-2">
                     <div className="flex items-center justify-between text-sm mb-1">
                       <span className="text-gray-600">Progress</span>
                       <span className="font-medium text-gray-900">{Math.round(progressPercentage)}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
+                      <div
                         className={`h-2 rounded-full transition-all duration-300 ${getProgressBarClass(progressPercentage)}`}
                         data-width={Math.round(progressPercentage)}
                       ></div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(subject.type)}`}>
                       {subject.type}
@@ -550,7 +647,7 @@ const TeacherDashboard: React.FC = () => {
               <BarChart3 className="h-4 w-4 mr-2" />
               Generate Reports
             </Button>
-            <Button 
+            <Button
               className="w-full justify-start bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
               onClick={() => setShowTimetableGenerator(true)}
             >
@@ -618,8 +715,8 @@ const TeacherDashboard: React.FC = () => {
           <div className="bg-white rounded-lg max-w-6xl w-full max-h-screen overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">Timetable Generator</h2>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowTimetableGenerator(false)}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -649,7 +746,7 @@ const TeacherDashboard: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Teacher to Swap With
                   </label>
-                  <select 
+                  <select
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     title="Select teacher for swap"
                     aria-label="Select teacher for lecture swap"
@@ -663,7 +760,7 @@ const TeacherDashboard: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Reason for Swap
                   </label>
-                  <textarea 
+                  <textarea
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows={3}
                     placeholder="Please provide a reason for the lecture swap request..."

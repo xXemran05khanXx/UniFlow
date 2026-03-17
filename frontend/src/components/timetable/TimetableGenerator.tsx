@@ -1,15 +1,17 @@
+import { AlertTriangle, BookOpen, Calendar, CheckCircle, Clock, Download, Play, RefreshCw, Settings, Users } from 'lucide-react';
 import React, { useState } from 'react';
-import { Calendar, Clock, Users, BookOpen, Settings, Download, Play, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { timetableAPI, TimetableGenerationResult } from '../../services/timetableService';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
 import LoadingSpinner from '../ui/LoadingSpinner';
-import { timetableAPI, TimetableGenerationResult } from '../../services/timetableService';
-import { useAuth } from '../../hooks/useAuth';
 
 interface TimetableGeneratorProps {
   onTimetableGenerated?: (result: TimetableGenerationResult) => void;
 }
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGenerated }) => {
   const { user } = useAuth();
@@ -39,7 +41,7 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
     console.log('🔍 Debug - User role:', user?.role);
     console.log('🔍 Debug - Token in localStorage:', localStorage.getItem('token'));
     console.log('🔍 Debug - User data in localStorage:', localStorage.getItem('user'));
-    
+
     if (!user || (user.role !== 'admin' && user.role !== 'teacher')) {
       setError('You do not have permission to generate timetables');
       return;
@@ -51,21 +53,21 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
 
     try {
       console.log('🚀 Starting timetable generation with options:', options);
-      
+
       const result = await timetableAPI.generateTimetable(options);
-      
+
       console.log('✅ Timetable generated successfully:', result);
-      
+
       // Extract the actual timetable data from the response
       const timetableData: TimetableGenerationResult = (result as any).data || result;
-      
+
       setGenerationResult(timetableData);
       setSuccess(`Timetable generated successfully! ${timetableData.timetable?.length || 0} sessions scheduled with ${timetableData.conflicts?.length || 0} conflicts.`);
-      
+
       if (onTimetableGenerated) {
         onTimetableGenerated(timetableData);
       }
-      
+
     } catch (err: any) {
       console.error('❌ Timetable generation failed:', err);
       setError(err.response?.data?.error || err.message || 'Failed to generate timetable');
@@ -77,7 +79,7 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
   const handleExport = async (format: 'json' | 'csv' = 'json') => {
     try {
       setError('');
-      
+
       if (format === 'csv') {
         // For CSV, download directly from backend
         const token = localStorage.getItem('token');
@@ -85,17 +87,17 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
           format: 'csv',
           semester: options.semester
         });
-        
-        const response = await fetch(`http://localhost:5000/api/timetable/export?${params.toString()}`, {
+
+        const response = await fetch(`${API_BASE_URL}/timetable/export?${params.toString()}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
-        
+
         if (!response.ok) {
           throw new Error('Export failed');
         }
-        
+
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -107,11 +109,11 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
         URL.revokeObjectURL(url);
       } else {
         // For JSON, use the API request
-        const exportData = await timetableAPI.exportTimetable({ 
-          format, 
-          semester: options.semester 
+        const exportData = await timetableAPI.exportTimetable({
+          format,
+          semester: options.semester
         });
-        
+
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -122,7 +124,7 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }
-      
+
       setSuccess(`Timetable exported as ${format.toUpperCase()} successfully!`);
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Failed to export timetable');
@@ -249,7 +251,7 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
             <div className="text-sm text-gray-600">Courses</div>
           </div>
         </Card>
-        
+
         <Card>
           <div className="p-4 text-center">
             <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
@@ -257,7 +259,7 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
             <div className="text-sm text-gray-600">Teachers</div>
           </div>
         </Card>
-        
+
         <Card>
           <div className="p-4 text-center">
             <Settings className="h-8 w-8 text-purple-600 mx-auto mb-2" />
@@ -265,7 +267,7 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
             <div className="text-sm text-gray-600">Rooms</div>
           </div>
         </Card>
-        
+
         <Card>
           <div className="p-4 text-center">
             <Clock className="h-8 w-8 text-orange-600 mx-auto mb-2" />
@@ -306,7 +308,7 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
               <Download className="h-5 w-5" />
               Export JSON
             </Button>
-            
+
             <Button
               onClick={() => handleExport('csv')}
               variant="outline"
@@ -350,14 +352,14 @@ const TimetableGenerator: React.FC<TimetableGeneratorProps> = ({ onTimetableGene
                 </div>
                 <div className="text-sm text-blue-800">Quality Score</div>
               </div>
-              
+
               <div className="bg-green-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
                   {generationResult?.timetable?.length || 0}
                 </div>
                 <div className="text-sm text-green-800">Sessions Scheduled</div>
               </div>
-              
+
               <div className="bg-orange-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-orange-600">
                   {generationResult?.conflicts?.length || 0}
