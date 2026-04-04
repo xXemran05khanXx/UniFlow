@@ -1,667 +1,630 @@
-import {
-  AlertCircle,
-  BookOpen,
-  Calendar,
-  ChevronDown,
-  Clock,
-  Download,
-  FileText,
-  Grid,
-  List,
-  RefreshCw,
-  Search,
-  Star,
-  TrendingUp,
-  Users
-} from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+// pages/Admin/TimetablePage.tsx
+// ── COMPLETE REWRITE ─────────────────────────────────────────────────────────
+// Fixes:
+//  1. Reads populated fields (courseCode, courseName, teacherName, roomNumber)
+//     that the fixed /list backend now returns
+//  2. Filters by semester, division, academicYear server-side via query params
+//  3. Shows one tab per (semester × division) timetable doc — not one flat list
+//  4. Fixed canonical slot grid matching TimetableGenerator exactly
+//  5. Lab sessions grouped per batch, rendered distinctly
+// ─────────────────────────────────────────────────────────────────────────────
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ScheduleModal from '../../components/timetable/ScheduleModal';
-import TimetableBlock from '../../components/timetable/TimetableBlock';
-import { TimetableDisplayEntry } from '../../components/timetable/types';
-import Button from '../../components/ui/Button';
-import Card from '../../components/ui/Card';
-import departmentService from '../../services/departmentService';
-import { subjectManagementService } from '../../services/subjectManagementService';
-import { timetableAPI } from '../../services/timetableService';
-import '../css/GeneratePage.module.css';
+import axios from 'axios';
+import {
+  Calendar, Search, RefreshCw, Download, ChevronDown, ChevronRight,
+  AlertCircle, Zap, BookOpen, FlaskConical, X, GraduationCap,
+  Building2, Clock3, Users2, Eye, Filter, Layers
+} from 'lucide-react';
 
-type TimetableEntry = TimetableDisplayEntry;
+const API = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
 
-const romanToNumber = (roman: string): number | undefined => {
-  const map: Record<string, number> = {
-    I: 1,
-    II: 2,
-    III: 3,
-    IV: 4,
-    V: 5,
-    VI: 6,
-    VII: 7,
-    VIII: 8
+// ─────────────────────────────────────────────────────────────────────────────
+// CANONICAL SLOTS — mirrors TimetableGenerator exactly
+// ─────────────────────────────────────────────────────────────────────────────
+const FIXED_SLOTS = [
+  { id: 1,  start: '08:10', end: '10:00', label: '8:10 – 10:00',   kind: 'lab'    },
+  { id: 3,  start: '10:20', end: '11:15', label: '10:20 – 11:15',  kind: 'theory' },
+  { id: 4,  start: '11:15', end: '12:10', label: '11:15 – 12:10',  kind: 'theory' },
+  { id: 5,  start: '12:10', end: '13:05', label: '12:10 – 1:05',   kind: 'theory' },
+  { id: 9,  start: '12:50', end: '14:45', label: '12:50 – 2:45',   kind: 'lab'    },
+  { id: 6,  start: '13:50', end: '14:45', label: '1:50 – 2:45',    kind: 'theory' },
+  { id: 7,  start: '14:45', end: '15:40', label: '2:45 – 3:40',    kind: 'theory' },
+  { id: 8,  start: '15:40', end: '16:35', label: '3:40 – 4:35',    kind: 'theory' },
+];
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────────────────────
+interface ScheduleEntry {
+  courseCode:   string;
+  courseName:   string;
+  courseType:   string;
+  credits:      number | null;
+  teacherName:  string;
+  teacherEmail: string | null;
+  roomNumber:   string;
+  roomType:     string | null;
+  type:         'Theory' | 'Lab';
+  dayOfWeek:    string;
+  startTime:    string;
+  endTime:      string;
+  semester:     number;
+  division:     string;
+  batch:        string | null;
+}
+
+interface TimetableDoc {
+  _id:          string;
+  name:         string;
+  status:       'Draft' | 'Published' | 'Archived';
+  academicYear: number;
+  studentGroup: {
+    semester:        number;
+    division:        string;
+    department?:     any;
+    departmentName?: string;
   };
-  return map[roman?.toUpperCase()];
+  schedule: ScheduleEntry[];
+  createdAt: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+const toMin = (t: string) => { const [h, m] = (t || '0:0').split(':').map(Number); return h * 60 + m; };
+const overlaps = (s1: string, e1: string, s2: string, e2: string) =>
+  toMin(s1) < toMin(e2) && toMin(s2) < toMin(e1);
+
+function slotForSession(entry: ScheduleEntry) {
+  return FIXED_SLOTS.find(sl => overlaps(entry.startTime, entry.endTime, sl.start, sl.end));
+}
+
+function authHeader() {
+  const t = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COLOUR PALETTE
+// ─────────────────────────────────────────────────────────────────────────────
+const PALETTE = [
+  { bg: '#EFF6FF', border: '#3B82F6', text: '#1D4ED8', badge: '#DBEAFE' },
+  { bg: '#F0FDF4', border: '#22C55E', text: '#15803D', badge: '#DCFCE7' },
+  { bg: '#FDF4FF', border: '#A855F7', text: '#7E22CE', badge: '#F3E8FF' },
+  { bg: '#FFF7ED', border: '#F97316', text: '#C2410C', badge: '#FFEDD5' },
+  { bg: '#FFF1F2', border: '#F43F5E', text: '#BE123C', badge: '#FFE4E6' },
+  { bg: '#F0FDFA', border: '#14B8A6', text: '#0F766E', badge: '#CCFBF1' },
+  { bg: '#FFFBEB', border: '#EAB308', text: '#A16207', badge: '#FEF9C3' },
+  { bg: '#F5F3FF', border: '#8B5CF6', text: '#6D28D9', badge: '#EDE9FE' },
+  { bg: '#FFF5F5', border: '#FC8181', text: '#C53030', badge: '#FED7D7' },
+  { bg: '#F0FFF4', border: '#68D391', text: '#276749', badge: '#C6F6D5' },
+];
+const colorMap: Record<string, typeof PALETTE[0]> = {};
+let ci = 0;
+const courseColor = (code: string) => {
+  if (!colorMap[code]) colorMap[code] = PALETTE[ci++ % PALETTE.length];
+  return colorMap[code];
 };
 
-const numberToRoman = (num?: number): string => {
-  const map: Record<number, string> = {
-    1: 'I',
-    2: 'II',
-    3: 'III',
-    4: 'IV',
-    5: 'V',
-    6: 'VI',
-    7: 'VII',
-    8: 'VIII'
-  };
-  return (num && map[num]) || 'I';
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION CARD
+// ─────────────────────────────────────────────────────────────────────────────
+const SessionCard: React.FC<{ entry: ScheduleEntry; onClick: () => void }> = ({ entry, onClick }) => {
+  const c = courseColor(entry.courseCode);
+  const isLab = entry.type === 'Lab';
+
+  // FIX: Provide a fallback string if teacherName is missing
+  const displayName = entry.teacherName 
+    ? entry.teacherName.split(' ').slice(0, 2).join(' ') 
+    : 'No Teacher';
+
+  // FIX: Provide a fallback for courseName to prevent the previous 'length' error
+  const displayCourse = (entry.courseName || 'Untitled Course');
+
+  return (
+    <button
+      onClick={onClick}
+      className="tt-card"
+      style={{
+        background:      c.bg,
+        borderLeft:      `3px solid ${c.border}`,
+        border:          `1px solid ${c.border}30`,
+        borderLeftWidth: 3,
+        borderLeftColor: c.border,
+        borderRadius:    8,
+        padding:         '7px 9px',
+        width:           '100%',
+        textAlign:       'left',
+        cursor:          'pointer',
+        marginBottom:    3,
+        display:         'block',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: c.text, fontFamily: "'DM Mono', monospace", letterSpacing: '-.2px' }}>
+          {entry.courseCode}
+        </span>
+        <span style={{ fontSize: 9, fontWeight: 700, background: c.badge, color: c.text, padding: '1px 6px', borderRadius: 99, whiteSpace: 'nowrap', flexShrink: 0 }}>
+          {isLab ? '🧪' : '📖'} {entry.type}{entry.batch ? ` · ${entry.batch}` : ''}
+        </span>
+      </div>
+      <div style={{ fontSize: 10, color: '#374151', marginTop: 3, lineHeight: 1.3, fontWeight: 500 }}>
+        {displayCourse.length > 26 ? displayCourse.slice(0, 26) + '…' : displayCourse}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 5, fontSize: 9, color: '#6B7280' }}>
+        <span>👤 {displayName}</span>
+        {entry.roomNumber !== '—' && <span>🚪 {entry.roomNumber}</span>}
+      </div>
+    </button>
+  );
 };
 
-const normalizeSessionType = (courseType?: string): 'lecture' | 'lab' | 'tutorial' => {
-  const type = (courseType || '').toLowerCase();
-  if (type === 'practical' || type === 'lab') return 'lab';
-  if (type === 'tutorial') return 'tutorial';
-  return 'lecture';
-};
-
-const calculateDurationMinutes = (startTime?: string, endTime?: string): number => {
-  if (!startTime || !endTime) return 0;
-  const [startHour, startMinute] = startTime.split(':').map(Number);
-  const [endHour, endMinute] = endTime.split(':').map(Number);
-  return Math.max(0, (endHour * 60 + endMinute) - (startHour * 60 + startMinute));
-};
-
-const parseSemesterFromName = (name?: string): number | undefined => {
-  if (!name) return undefined;
-  const match = name.match(/sem(?:ester)?\s*([1-8])/i);
-  if (match && match[1]) {
-    const num = Number(match[1]);
-    if (!Number.isNaN(num)) return num;
-  }
-  return undefined;
-};
-
-const formatTimeRange = (startTime?: string, endTime?: string): string => {
-  if (!startTime || !endTime) return 'TBD';
-  const to12Hour = (time: string) => {
-    const [hStr, mStr] = time.split(':');
-    const h = Number(hStr);
-    const m = Number(mStr);
-    const suffix = h >= 12 ? 'PM' : 'AM';
-    const hour12 = ((h + 11) % 12) + 1;
-    return `${hour12}:${m.toString().padStart(2, '0')}${suffix}`;
-  };
-  return `${to12Hour(startTime)}-${to12Hour(endTime)}`;
-};
-
-const normalizeDayName = (day?: string): string => {
-  if (!day) return 'Monday';
-  const d = day.toLowerCase();
-  const map: Record<string, string> = {
-    mon: 'Monday', monday: 'Monday',
-    tue: 'Tuesday', tues: 'Tuesday', tuesday: 'Tuesday',
-    wed: 'Wednesday', wednesday: 'Wednesday',
-    thu: 'Thursday', thur: 'Thursday', thurs: 'Thursday', thursday: 'Thursday',
-    fri: 'Friday', friday: 'Friday',
-    sat: 'Saturday', saturday: 'Saturday'
-  };
-  return map[d] || (d.charAt(0).toUpperCase() + d.slice(1));
-};
-
-const mapBackendTimetables = (timetables: any[], fallbackSemester: string, fallbackDepartment: string): TimetableEntry[] => {
-  return (timetables || []).flatMap((tt: any) => {
-    const departmentValue = tt?.studentGroup?.department;
-    const department = (
-      typeof departmentValue === 'string'
-        ? departmentValue
-        : (departmentValue?.name || departmentValue?.code)
-    ) || (fallbackDepartment !== 'all' ? fallbackDepartment : 'Unknown');
-    const year = tt?.studentGroup?.year || 0;
-    const division = tt?.studentGroup?.division || '-';
-
-    const inferredSemesterFromName = parseSemesterFromName(tt?.name);
-
-    return (tt?.schedule || []).map((session: any, index: number) => {
-      const course = session?.course || session?.Course || {};
-      const teacher = session?.teacher || {};
-      const room = session?.room || {};
-      const startTime = session?.startTime || '';
-      const endTime = session?.endTime || '';
-      const semesterNumber = session?.courseSemester
-        || course?.semester
-        || inferredSemesterFromName
-        || (year ? year * 2 : undefined);
-      const semesterLabel = semesterNumber
-        ? numberToRoman(semesterNumber)
-        : (fallbackSemester !== 'all' ? fallbackSemester : 'I');
-
-      return {
-        id: `${tt._id || 'tt'}-${index}`,
-        courseId: (course?._id || session?.course?._id || session?.Course?._id || '').toString() || undefined,
-        subject: session?.courseName || course.courseName || course.name || course.title || 'Untitled Course',
-        subjectCode: session?.courseCode || course.courseCode || course.code || '',
-        teacher: session?.teacherName || teacher.name || teacher.user?.name || teacher.employeeId || 'Unassigned',
-        teacherEmail: teacher.email || teacher.user?.email || undefined,
-        room: session?.roomName || room.name || room.roomNumber || room.code || 'TBD',
-        roomName: room.name || session?.roomName || undefined,
-        roomNumber: room.roomNumber || undefined,
-        roomType: room.type || undefined,
-        timeSlot: formatTimeRange(startTime, endTime),
-        startTime,
-        endTime,
-        day: normalizeDayName(session.dayOfWeek),
-        type: normalizeSessionType(session?.courseType || course.courseType || course.type),
-        duration: calculateDurationMinutes(startTime, endTime),
-        department,
-        departmentLabel: department,
-        year: year || Math.ceil((course.semester || 1) / 2),
-        semester: semesterLabel,
-        semesterNumber: semesterNumber || undefined,
-        division
-      };
-    });
-  });
-};
-
-const TimetablePage: React.FC = () => {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
-  const [selectedSemester, setSelectedSemester] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [timetableData, setTimetableData] = useState<TimetableEntry[]>([]);
-  const [showTimetableGenerator, setShowTimetableGenerator] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [departments, setDepartments] = useState<string[]>([]);
-  const [selectedEntry, setSelectedEntry] = useState<TimetableEntry | null>(null);
-
-  const semesters = React.useMemo(() => {
-    const fromData = Array.from(new Set(
-      timetableData.map(t => t.semester || numberToRoman(t.semesterNumber || 0)).filter(Boolean)
-    ));
-    const allRomans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
-    const merged = Array.from(new Set([...allRomans, ...fromData]));
-    return merged;
-  }, [timetableData]);
-
-  const departmentOptions = React.useMemo(() => {
-    const safeDepartments = Array.isArray(departments) ? departments : [];
-    const timetableDepts = timetableData.map(t => t.departmentLabel || t.department).filter(Boolean);
-    const uniques = Array.from(new Set([
-      ...safeDepartments,
-      ...timetableDepts
-    ]));
-    return uniques.length > 0 ? uniques : [];
-  }, [timetableData, departments]);
-
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  const timeSlots = React.useMemo(() => {
-    const slots = Array.from(new Set(
-      timetableData
-        .map(s => formatTimeRange(s.startTime, s.endTime))
-        .filter(label => label && label !== 'TBD')
-    ));
-
-    if (slots.length > 0) return slots;
-
-    return [
-      '8:00AM-9:00AM', '9:00AM-10:00AM', '10:00AM-11:00AM', '11:00AM-12:00PM',
-      '12:00PM-1:00PM', '1:00PM-2:00PM', '2:00PM-3:00PM', '3:00PM-4:00PM', '4:00PM-5:00PM'
-    ];
-  }, [timetableData]);
-
-  useEffect(() => {
-    const loadTimetables = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Fetch all timetables and filter client-side to avoid backend query mismatches
-        const response = await timetableAPI.getSavedTimetables();
-
-        const timetables = response?.data || [];
-        const mapped = mapBackendTimetables(timetables, selectedSemester, selectedDepartment);
-        setTimetableData(mapped);
-      } catch (err) {
-        console.error('Error loading timetables:', err);
-        setError('Failed to load timetables. Please try again.');
-        setTimetableData([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTimetables();
-  }, []);
-
-  // Load departments for filters
-  useEffect(() => {
-    const loadDepartments = async () => {
-      try {
-        // Prefer dynamic departments from DB; fall back to subject service constants if needed
-        let names: string[] = [];
-        try {
-          const deptData = await departmentService.getAllDepartments();
-          if (Array.isArray(deptData)) {
-            names = deptData.map((d: any) => d.name || d.code).filter(Boolean);
-          } else if (deptData && Array.isArray((deptData as any).data)) {
-            names = (deptData as any).data.map((d: any) => d.name || d.code).filter(Boolean);
-          }
-        } catch (innerErr) {
-          console.error('Department service failed, falling back to subjectManagementService.getDepartments', innerErr);
-        }
-
-        if (names.length === 0) {
-          try {
-            names = await subjectManagementService.getDepartments();
-          } catch (fallbackErr) {
-            console.error('Fallback department list failed', fallbackErr);
-          }
-        }
-
-        setDepartments(names);
-      } catch (err) {
-        console.error('Error loading departments:', err);
-      }
-    };
-
-    loadDepartments();
-  }, []);
-
-  const filteredTimetables = timetableData.filter(entry => {
-    const entryDept = entry.department || '';
-    const entryDeptLabel = entry.departmentLabel || entryDept;
-    const entryIsObjectId = /^[a-f\d]{24}$/i.test(entryDept);
-
-    const matchesDepartment = selectedDepartment === 'all'
-      ? true
-      : entryIsObjectId
-        ? entryDept === selectedDepartment
-        : entryDeptLabel.toLowerCase() === selectedDepartment.toLowerCase();
-
-
-    const matchesSemester = selectedSemester === 'all'
-      ? true
-      : entry.semester === selectedSemester || entry.semesterNumber === romanToNumber(selectedSemester);
-
-    const matchesSearch = searchTerm === '' ||
-      entry.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.teacher.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.subjectCode.toLowerCase().includes(searchTerm.toLowerCase());
-
-    return matchesDepartment && matchesSemester && matchesSearch;
-  });
-
-  const activeDepartmentLabel = React.useMemo(() => {
-    if (selectedDepartment !== 'all') return selectedDepartment;
-    const unique = Array.from(new Set(filteredTimetables.map(t => t.departmentLabel || t.department).filter(Boolean)));
-    if (unique.length === 1) return unique[0];
-    if (unique.length > 1) return 'Multiple Departments';
-    return 'All Departments';
-  }, [selectedDepartment, filteredTimetables]);
-
-  const activeSemesterLabel = React.useMemo(() => {
-    if (selectedSemester !== 'all') return `Sem ${selectedSemester}`;
-    const unique = Array.from(new Set(filteredTimetables.map(t => t.semester).filter(Boolean)));
-    if (unique.length === 1) return `Sem ${unique[0]}`;
-    if (unique.length > 1) return 'Multiple Semesters';
-    return 'All Semesters';
-  }, [selectedSemester, filteredTimetables]);
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'lecture': return <BookOpen className="h-4 w-4" />;
-      case 'lab': return <Users className="h-4 w-4" />;
-      case 'tutorial': return <FileText className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
-    }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'lecture': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'lab': return 'bg-green-100 text-green-800 border-green-200';
-      case 'tutorial': return 'bg-purple-100 text-purple-800 border-purple-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getSubjectColor = (subject: string) => {
-    const colors = {
-      'Data Structures & Algorithms': {
-        bg: 'from-blue-100 to-blue-200',
-        hoverBg: 'hover:from-blue-200 hover:to-blue-300',
-        border: 'border-blue-400',
-        text: 'text-blue-900'
-      },
-      'Database Management Systems': {
-        bg: 'from-green-100 to-green-200',
-        hoverBg: 'hover:from-green-200 hover:to-green-300',
-        border: 'border-green-400',
-        text: 'text-green-900'
-      },
-      'Computer Networks Lab': {
-        bg: 'from-purple-100 to-purple-200',
-        hoverBg: 'hover:from-purple-200 hover:to-purple-300',
-        border: 'border-purple-400',
-        text: 'text-purple-900'
-      },
-      'Mathematics': {
-        bg: 'from-orange-100 to-orange-200',
-        hoverBg: 'hover:from-orange-200 hover:to-orange-300',
-        border: 'border-orange-400',
-        text: 'text-orange-900'
-      },
-      'Physics': {
-        bg: 'from-red-100 to-red-200',
-        hoverBg: 'hover:from-red-200 hover:to-red-300',
-        border: 'border-red-400',
-        text: 'text-red-900'
-      },
-      'Chemistry': {
-        bg: 'from-teal-100 to-teal-200',
-        hoverBg: 'hover:from-teal-200 hover:to-teal-300',
-        border: 'border-teal-400',
-        text: 'text-teal-900'
-      },
-      'Software Engineering': {
-        bg: 'from-indigo-100 to-indigo-200',
-        hoverBg: 'hover:from-indigo-200 hover:to-indigo-300',
-        border: 'border-indigo-400',
-        text: 'text-indigo-900'
-      },
-      'Operating Systems': {
-        bg: 'from-pink-100 to-pink-200',
-        hoverBg: 'hover:from-pink-200 hover:to-pink-300',
-        border: 'border-pink-400',
-        text: 'text-pink-900'
-      }
-    };
-
-    return colors[subject as keyof typeof colors] || {
-      bg: 'from-gray-100 to-gray-200',
-      hoverBg: 'hover:from-gray-200 hover:to-gray-300',
-      border: 'border-gray-400',
-      text: 'text-gray-900'
-    };
-  };
-
-  const renderFilters = () => (
-    <Card className="mb-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-      <div className="p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search subjects, teachers, or codes..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+// ─────────────────────────────────────────────────────────────────────────────
+// DETAIL MODAL
+// ─────────────────────────────────────────────────────────────────────────────
+const DetailModal: React.FC<{ entry: ScheduleEntry; onClose: () => void }> = ({ entry, onClose }) => {
+  const c    = courseColor(entry.courseCode);
+  const slot = slotForSession(entry);
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(6px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 20, padding: 28, maxWidth: 460, width: '100%', boxShadow: '0 32px 80px rgba(0,0,0,.2)', border: `2px solid ${c.border}30`, animation: 'ttModalIn .2s ease' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ background: c.bg, border: `2px solid ${c.border}`, borderRadius: 12, width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {entry.type === 'Lab' ? <FlaskConical size={22} color={c.text} /> : <BookOpen size={22} color={c.text} />}
             </div>
-
-            {/* Department Filter */}
-            <div className="relative">
-              <select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[200px]"
-                aria-label="Select department"
-              >
-                <option value="all">All Departments</option>
-                {departmentOptions.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-            </div>
-
-            {/* Semester Filter */}
-            <div className="relative">
-              <select
-                value={selectedSemester}
-                onChange={(e) => setSelectedSemester(e.target.value)}
-                className="appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px]"
-                aria-label="Select semester"
-              >
-                <option value="all">All Semesters</option>
-                {semesters.map(sem => (
-                  <option key={sem} value={sem}>Semester {sem}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: c.text, fontFamily: 'monospace', letterSpacing: 1, textTransform: 'uppercase' }}>{entry.courseCode}</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: '#111827', marginTop: 1, lineHeight: 1.2 }}>{entry.courseName}</div>
             </div>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'grid'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                aria-label="Grid view"
-              >
-                <Grid className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'list'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                aria-label="List view"
-              >
-                <List className="h-5 w-5" />
-              </button>
+          <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', flexShrink: 0 }}>
+            <X size={14} />
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {[
+            { icon: <GraduationCap size={13} />, label: 'Teacher',  val: entry.teacherName || 'No Teacher Assigned' },
+            { icon: <Building2     size={13} />, label: 'Room',     val: entry.roomNumber !== '—' ? entry.roomNumber : 'Not assigned' },
+            { icon: <Calendar      size={13} />, label: 'Day',      val: entry.dayOfWeek },
+            { icon: <Clock3        size={13} />, label: 'Time',     val: slot?.label || `${entry.startTime} – ${entry.endTime}` },
+            { icon: <Users2        size={13} />, label: 'Division', val: `Div ${entry.division}${entry.batch ? ` · Batch ${entry.batch}` : ''}` },
+            { icon: <Layers        size={13} />, label: 'Semester', val: `Semester ${entry.semester}` },
+          ].map(({ icon, label, val }) => (
+            <div key={label} style={{ background: '#F9FAFB', borderRadius: 10, padding: '10px 12px', border: '1px solid #F3F4F6' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#9CA3AF', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: .5, marginBottom: 4 }}>{icon}{label}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{val}</div>
             </div>
-
-            <Button variant="outline" className="flex items-center">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-
-            <Button variant="outline" className="flex items-center">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-          </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: c.bg, borderRadius: 10, border: `1px solid ${c.border}40`, display: 'flex', alignItems: 'center', gap: 8 }}>
+          {entry.type === 'Lab' ? <FlaskConical size={14} color={c.text} /> : <BookOpen size={14} color={c.text} />}
+          <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>{entry.type === 'Lab' ? 'Laboratory Session' : 'Theory Lecture'}</span>
+          {entry.credits && <span style={{ marginLeft: 'auto', fontSize: 11, color: c.text, opacity: .7 }}>{entry.credits} credits</span>}
         </div>
       </div>
-    </Card>
+    </div>
   );
+};
 
-  const renderTimetableGrid = () => (
-    <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-            <Calendar className="h-7 w-7 mr-3 text-blue-600" />
-            Weekly Timetable
-            <span className="ml-3 text-lg text-gray-600">
-              - {activeDepartmentLabel} • {activeSemesterLabel}
-            </span>
-          </h2>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">{filteredTimetables.length} entries</span>
+// ─────────────────────────────────────────────────────────────────────────────
+// TIMETABLE GRID
+// ─────────────────────────────────────────────────────────────────────────────
+const TimetableGrid: React.FC<{
+  doc: TimetableDoc;
+  onSessionClick: (e: ScheduleEntry) => void;
+  onEdit: (id: string) => void;
+}> = ({ doc, onSessionClick, onEdit }) => {
+  const usedStarts = new Set(doc.schedule.map(s => slotForSession(s)?.start).filter(Boolean));
+  const visSlots   = FIXED_SLOTS.filter(sl => sl.kind === 'theory' || usedStarts.has(sl.start));
+
+  const grid: Record<string, Record<string, ScheduleEntry[]>> = {};
+  DAYS.forEach(d => { grid[d] = {}; });
+  doc.schedule.forEach(entry => {
+    const slot = slotForSession(entry);
+    if (!slot || !DAYS.includes(entry.dayOfWeek as any)) return;
+    if (!grid[entry.dayOfWeek][slot.start]) grid[entry.dayOfWeek][slot.start] = [];
+    grid[entry.dayOfWeek][slot.start].push(entry);
+  });
+
+  const stats = {
+    theory:   doc.schedule.filter(s => s.type === 'Theory').length,
+    lab:      doc.schedule.filter(s => s.type === 'Lab').length,
+    teachers: new Set(doc.schedule.map(s => s.teacherName)).size,
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Theory', val: stats.theory,          color: '#3B82F6', bg: '#EFF6FF' },
+          { label: 'Labs',   val: stats.lab,             color: '#8B5CF6', bg: '#F5F3FF' },
+          { label: 'Teachers', val: stats.teachers,      color: '#10B981', bg: '#F0FDF4' },
+          { label: 'Total',  val: doc.schedule.length,   color: '#F59E0B', bg: '#FFFBEB' },
+        ].map(({ label, val, color, bg }) => (
+          <div key={label} style={{ background: bg, border: `1px solid ${color}20`, borderRadius: 10, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 18, fontWeight: 800, color, lineHeight: 1 }}>{val}</span>
+            <span style={{ fontSize: 11, color: '#6B7280' }}>{label}</span>
           </div>
+        ))}
+      </div>
+
+      {doc.schedule.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: '#9CA3AF' }}>
+          <AlertCircle size={32} style={{ margin: '0 auto 10px', display: 'block', color: '#D1D5DB' }} />
+          <p style={{ fontSize: 14 }}>No sessions in this timetable</p>
         </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600">Loading timetables...</p>
-            </div>
-          </div>
-        ) : filteredTimetables.length === 0 ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Timetables Found</h3>
-              <p className="text-gray-600">Try adjusting your filters or search terms.</p>
-            </div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] border-separate border-spacing-0 rounded-2xl overflow-hidden shadow-lg">
-              <thead>
-                <tr className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600">
-                  <th className="text-left py-3 px-4 font-bold text-white rounded-tl-2xl border-r border-white/20">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="h-5 w-5" />
-                      <span>Day</span>
-                    </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
+            <thead>
+              <tr style={{ background: '#F8FAFC' }}>
+                <th style={{ width: 130, padding: '11px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#94A3B8', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '2px solid #E5E7EB', borderRight: '1px solid #F1F5F9' }}>
+                  TIME SLOT
+                </th>
+                {DAYS.map((day, i) => (
+                  <th key={day} style={{ padding: '11px 8px', textAlign: 'center', borderBottom: '2px solid #E5E7EB', borderRight: i < DAYS.length - 1 ? '1px solid #F1F5F9' : 'none', minWidth: 152 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>{day.slice(0, 3).toUpperCase()}</div>
+                    <div style={{ fontSize: 9, color: '#94A3B8', fontWeight: 400, marginTop: 1 }}>{day.slice(3)}</div>
                   </th>
-                  {timeSlots.map((slot, index) => (
-                    <th key={slot} className={`text-center py-3 px-3 font-semibold text-white border-r border-white/20 min-w-[90px] ${index === timeSlots.length - 1 ? 'rounded-tr-2xl border-r-0' : ''
-                      }`}>
-                      <div className="text-xs leading-tight">
-                        {slot}
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visSlots.map((slot, ri) => {
+                const isLab = slot.kind === 'lab';
+                return (
+                  <tr key={slot.id} style={{ background: ri % 2 === 0 ? '#fff' : '#FAFAFA' }}>
+                    <td style={{ padding: '10px 14px', borderBottom: '1px solid #F1F5F9', borderRight: '1px solid #F1F5F9', verticalAlign: 'top', background: isLab ? '#FFFCF0' : undefined }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: isLab ? '#92400E' : '#374151', fontFamily: "'DM Mono', monospace", lineHeight: 1.5, whiteSpace: 'nowrap' }}>
+                        {slot.label}
                       </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {days.map((day, dayIndex) => (
-                  <tr key={day} className={`group transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 ${dayIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                    }`}>
-                    <td className={`py-4 px-4 font-bold text-gray-800 border-r border-gray-200 bg-gradient-to-r from-gray-100 to-gray-50 ${dayIndex === days.length - 1 ? 'rounded-bl-2xl' : ''
-                      }`}>
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-3 h-3 rounded-full ${dayIndex === 0 ? 'bg-blue-500' :
-                            dayIndex === 1 ? 'bg-green-500' :
-                              dayIndex === 2 ? 'bg-purple-500' :
-                                'bg-orange-500'
-                          }`}></div>
-                        <span className="text-sm">{day}</span>
-                      </div>
+                      <span style={{ fontSize: 9, fontWeight: 700, background: isLab ? '#FEF3C7' : '#EFF6FF', color: isLab ? '#B45309' : '#1D4ED8', padding: '2px 7px', borderRadius: 99, display: 'inline-block', marginTop: 4, letterSpacing: .3 }}>
+                        {isLab ? '🧪 Lab block' : '📖 Theory'}
+                      </span>
                     </td>
-                    {timeSlots.map((slot, slotIndex) => {
-                      const slotEntries = filteredTimetables.filter(e => {
-                        if (e.day !== day) return false;
-                        if (e.timeSlot === slot) return true;
-                        return formatTimeRange(e.startTime, e.endTime) === slot;
-                      });
-
+                    {DAYS.map((day, di) => {
+                      const cells = grid[day]?.[slot.start] || [];
                       return (
-                        <td key={`${day}-${slot}`} className={`py-2 px-1 border-r border-gray-100 relative group-hover:border-blue-200 transition-colors ${dayIndex === days.length - 1 && slotIndex === timeSlots.length - 1 ? 'rounded-br-2xl border-r-0' : ''
-                          }`}>
-                          {slotEntries.length > 0 ? (
-                            <div className="space-y-2">
-                              {slotEntries.map(entry => (
-                                <TimetableBlock
-                                  key={entry.id}
-                                  entry={entry}
-                                  onClick={setSelectedEntry}
-                                  compact
-                                />
-                              ))}
+                        <td key={day} style={{ padding: '5px', borderBottom: '1px solid #F1F5F9', borderRight: di < DAYS.length - 1 ? '1px solid #F1F5F9' : 'none', verticalAlign: 'top' }}>
+                          {cells.length === 0 ? (
+                            <div style={{ minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <div style={{ width: 18, height: 1, background: '#E5E7EB' }} />
                             </div>
                           ) : (
-                            <div className="h-20 flex items-center justify-center text-gray-300 hover:bg-gradient-to-br hover:from-gray-50 hover:to-gray-100 rounded-lg transition-all duration-200 group">
-                              <Clock className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                            </div>
+                            cells.map((entry, ei) => (
+                              <SessionCard key={ei} entry={entry} onClick={() => onEdit(doc._id)} />
+                            ))
                           )}
                         </td>
                       );
                     })}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </Card>
-  );
-
-  const renderTimetableList = () => (
-    <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-            <List className="h-7 w-7 mr-3 text-blue-600" />
-            Timetable Entries
-          </h2>
-          <span className="text-sm text-gray-500">{filteredTimetables.length} entries</span>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredTimetables.map((entry) => (
-              <div key={entry.id} className="rounded-xl border border-gray-200 bg-white p-4">
-                <TimetableBlock entry={entry} onClick={setSelectedEntry} compact={false} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </Card>
-  );
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 flex items-center">
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-2xl mr-4">
-                  <Calendar className="h-8 w-8 text-white" />
-                </div>
-                Timetable Management
-              </h1>
-              <p className="text-gray-600 mt-3 text-lg">
-                View and manage timetables across all departments and academic years
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" className="flex items-center">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Analytics
-              </Button>
-              <Button className="flex items-center bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                onClick={() => navigate('/timetable-generation')}
-              >
-                <Star className="h-4 w-4 mr-2" />
-                Generate
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        {renderFilters()}
-
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {/* Main Content */}
-        {viewMode === 'grid' ? renderTimetableGrid() : renderTimetableList()}
-      </div>
-
-      <ScheduleModal
-        isOpen={!!selectedEntry}
-        entry={selectedEntry}
-        onClose={() => setSelectedEntry(null)}
-      />
+      )}
     </div>
   );
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN PAGE
+// ─────────────────────────────────────────────────────────────────────────────
+const TimetablePage: React.FC = () => {
+  const navigate = useNavigate();
+
+  const [docs,         setDocs]         = useState<TimetableDoc[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+
+  const [filterSem,    setFilterSem]    = useState<string>('all');
+  const [filterDiv,    setFilterDiv]    = useState<string>('all');
+  const [filterYear,   setFilterYear]   = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [search,       setSearch]       = useState('');
+  const [activeId,     setActiveId]     = useState<string>('');
+  const [modal,        setModal]        = useState<ScheduleEntry | null>(null);
+
+  // ── LOAD ────────────────────────────────────────────────────────────────────
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params: Record<string, string> = {};
+      if (filterSem    !== 'all') params.semester     = filterSem;
+      if (filterDiv    !== 'all') params.division     = filterDiv;
+      if (filterYear   !== 'all') params.academicYear = filterYear;
+      if (filterStatus !== 'all') params.status       = filterStatus;
+
+      const res = await axios.get(`${API}/timetable/list`, {
+        headers: authHeader(),
+        params,
+      });
+
+      const fetched: TimetableDoc[] = res.data?.data || [];
+      setDocs(fetched);
+      if (fetched.length > 0 && !fetched.find(d => d._id === activeId)) {
+        setActiveId(fetched[0]._id);
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e.message || 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  }, [filterSem, filterDiv, filterYear, filterStatus]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // ── DERIVED ─────────────────────────────────────────────────────────────────
+  const semOptions  = useMemo(() => Array.from(new Set(docs.map(d => d.studentGroup.semester).filter(Boolean))).sort((a, b) => a - b), [docs]);
+  const divOptions  = useMemo(() => Array.from(new Set(docs.map(d => d.studentGroup.division).filter(Boolean))).sort(), [docs]);
+  const yearOptions = useMemo(() => Array.from(new Set(docs.map(d => d.academicYear).filter(Boolean))).sort((a, b) => b - a), [docs]);
+
+  const activeDoc = docs.find(d => d._id === activeId) || docs[0];
+
+  const filteredSchedule: ScheduleEntry[] = useMemo(() => {
+    if (!activeDoc) return [];
+    if (!search) return activeDoc.schedule;
+    const q = search.toLowerCase();
+    return activeDoc.schedule.filter(s =>
+      s.courseCode.toLowerCase().includes(q)  ||
+      s.courseName.toLowerCase().includes(q)  ||
+      s.teacherName.toLowerCase().includes(q) ||
+      s.roomNumber.toLowerCase().includes(q)
+    );
+  }, [activeDoc, search]);
+
+  const displayDoc: TimetableDoc | null = activeDoc ? { ...activeDoc, schedule: filteredSchedule } : null;
+
+  const deptName = (doc: TimetableDoc) =>
+    doc.studentGroup?.departmentName ||
+    (typeof doc.studentGroup?.department === 'object' ? doc.studentGroup.department?.name || doc.studentGroup.department?.code : null) ||
+    'Dept';
+
+  const statusColor = (s: string) =>
+    s === 'Published' ? { bg: '#F0FDF4', text: '#15803D', border: '#DCFCE7' } :
+    s === 'Draft'     ? { bg: '#FFFBEB', text: '#A16207', border: '#FEF9C3' } :
+                        { bg: '#F1F5F9', text: '#64748B', border: '#E2E8F0' };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Outfit','DM Sans',system-ui,sans-serif" }}>
+      <style>{PAGE_STYLES}</style>
+
+      {/* TOP BAR */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '18px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ background: 'linear-gradient(135deg,#1E40AF,#3B82F6)', borderRadius: 14, width: 46, height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px #3B82F625', flexShrink: 0 }}>
+            <Calendar size={22} color="#fff" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: 21, fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-.4px' }}>Timetable Management</h1>
+            <p style={{ fontSize: 12, color: '#94A3B8', margin: '2px 0 0' }}>
+              {loading ? 'Loading…' : `${docs.length} timetable${docs.length !== 1 ? 's' : ''} found`}
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={load} className="tt-btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <RefreshCw size={13} className={loading ? 'tt-spin-icon' : ''} /> Refresh
+          </button>
+          <button className="tt-btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Download size={13} /> Export
+          </button>
+          <button onClick={() => navigate('/timetable-generation')} className="tt-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Zap size={13} /> Generate New
+          </button>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1440, margin: '0 auto', padding: '22px 28px' }}>
+
+        {/* FILTER BAR */}
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: '14px 16px', marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Filter size={14} color="#9CA3AF" />
+          <TtSelect value={filterSem} onChange={v => { setFilterSem(v); }}>
+            <option value="all">All Semesters</option>
+            {semOptions.map(s => <option key={s} value={s}>Semester {s}</option>)}
+          </TtSelect>
+          <TtSelect value={filterDiv} onChange={v => setFilterDiv(v)}>
+            <option value="all">All Divisions</option>
+            {divOptions.map(d => <option key={d} value={d}>Division {d}</option>)}
+          </TtSelect>
+          <TtSelect value={filterYear} onChange={v => setFilterYear(v)}>
+            <option value="all">All Years</option>
+            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+          </TtSelect>
+          <TtSelect value={filterStatus} onChange={v => setFilterStatus(v)}>
+            <option value="all">All Status</option>
+            <option value="Published">Published</option>
+            <option value="Draft">Draft</option>
+            <option value="Archived">Archived</option>
+          </TtSelect>
+          <div style={{ position: 'relative', marginLeft: 'auto' }}>
+            <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search in timetable…"
+              style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1px solid #E5E7EB', borderRadius: 9, fontSize: 12, outline: 'none', fontFamily: 'inherit', background: '#F9FAFB', width: 200 }} />
+          </div>
+          {(filterSem !== 'all' || filterDiv !== 'all' || filterYear !== 'all' || filterStatus !== 'all' || search) && (
+            <button onClick={() => { setFilterSem('all'); setFilterDiv('all'); setFilterYear('all'); setFilterStatus('all'); setSearch(''); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#EF4444', background: '#FFF1F2', border: '1px solid #FECACA', borderRadius: 7, padding: '5px 10px', cursor: 'pointer' }}>
+              <X size={11} /> Clear
+            </button>
+          )}
+        </div>
+
+        {/* ERROR */}
+        {error && (
+          <div style={{ background: '#FFF1F2', border: '1px solid #FECACA', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center', color: '#B91C1C', fontSize: 13 }}>
+            <AlertCircle size={15} /> {error}
+            <button onClick={load} style={{ marginLeft: 'auto', fontSize: 12, color: '#B91C1C', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>Retry</button>
+          </div>
+        )}
+
+        {/* LOADING */}
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <div className="tt-spin" style={{ width: 38, height: 38, margin: '0 auto 14px' }} />
+            <p style={{ color: '#94A3B8', fontSize: 14 }}>Loading timetables…</p>
+          </div>
+        )}
+
+        {/* EMPTY */}
+        {!loading && !error && docs.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '80px 0', background: '#fff', borderRadius: 20, border: '1px solid #E5E7EB' }}>
+            <Calendar size={40} color="#D1D5DB" style={{ margin: '0 auto 14px', display: 'block' }} />
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: '#374151', marginBottom: 6 }}>No timetables found</h3>
+            <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 20 }}>
+              {filterSem !== 'all' || filterDiv !== 'all' ? 'Try changing the filters above.' : 'Generate a timetable first.'}
+            </p>
+            <button onClick={() => navigate('/timetable-generation')} className="tt-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Zap size={13} /> Generate Timetable
+            </button>
+          </div>
+        )}
+
+        {/* MAIN CONTENT */}
+        {!loading && docs.length > 0 && (
+          <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+
+            {/* SIDEBAR */}
+            <div style={{ width: 242, flexShrink: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, paddingLeft: 4 }}>
+                TIMETABLES ({docs.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {docs.map(doc => {
+                  const active = doc._id === (activeId || docs[0]?._id);
+                  const sc = statusColor(doc.status);
+                  return (
+                    <button key={doc._id} onClick={() => setActiveId(doc._id)} className="tt-doc-tab"
+                      style={{ background: active ? '#EFF6FF' : '#fff', border: active ? '1.5px solid #3B82F6' : '1px solid #E5E7EB', borderRadius: 12, padding: '11px 13px', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: active ? '#1D4ED8' : '#0F172A' }}>
+                          Sem {doc.studentGroup.semester} · Div {doc.studentGroup.division}
+                        </span>
+                        <ChevronRight size={12} color={active ? '#3B82F6' : '#D1D5DB'} />
+                      </div>
+                      <div style={{ fontSize: 10, color: '#6B7280', marginBottom: 6, lineHeight: 1.4 }}>{deptName(doc)} · {doc.academicYear}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}`, padding: '1px 7px', borderRadius: 99 }}>
+                          {doc.status}
+                        </span>
+                        <span style={{ fontSize: 10, color: '#9CA3AF' }}>{doc.schedule.length} sessions</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* GRID PANEL */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {displayDoc ? (
+                <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #E5E7EB', overflow: 'hidden', boxShadow: '0 1px 8px rgba(0,0,0,.04)' }}>
+                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC' }}>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
+                        Semester {displayDoc.studentGroup.semester} · Division {displayDoc.studentGroup.division}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                        {deptName(displayDoc)} · {displayDoc.academicYear} · {displayDoc.name}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+  <div
+    style={{
+      ...statusColor(displayDoc.status),
+      fontSize: 11,
+      fontWeight: 700,
+      padding: '4px 12px',
+      borderRadius: 99,
+      border: `1px solid ${statusColor(displayDoc.status).border}`
+    }}
+  >
+    {displayDoc.status}
+  </div>
+
+  <button
+    onClick={() => navigate(`/admin/timetable/edit/${displayDoc._id}`)}
+    className="tt-btn-primary"
+  >
+    ✏️ Edit
+  </button>
+</div>
+                  </div>
+                  <div style={{ padding: '16px 20px' }}>
+                    <TimetableGrid
+  doc={displayDoc}
+  onSessionClick={setModal}
+  onEdit={(id) => navigate(`/admin/timetable/edit/${id}`)}
+/>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: '#94A3B8' }}>
+                  <Eye size={32} style={{ margin: '0 auto 10px', display: 'block', color: '#D1D5DB' }} />
+                  <p>Select a timetable from the left</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {modal && <DetailModal entry={modal} onClose={() => setModal(null)} />}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SELECT HELPER
+// ─────────────────────────────────────────────────────────────────────────────
+const TtSelect: React.FC<{ value: string; onChange: (v: string) => void; children: React.ReactNode }> = ({ value, onChange, children }) => (
+  <div style={{ position: 'relative' }}>
+    <select value={value} onChange={e => onChange(e.target.value)}
+      style={{ appearance: 'none', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 9, padding: '7px 28px 7px 11px', fontSize: 12, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', outline: 'none' }}>
+      {children}
+    </select>
+    <ChevronDown size={12} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }} />
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STYLES
+// ─────────────────────────────────────────────────────────────────────────────
+const PAGE_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+  * { box-sizing: border-box; }
+  .tt-btn-primary {
+    background: linear-gradient(135deg,#1E40AF,#3B82F6); color:#fff; border:none;
+    border-radius:9px; padding:8px 15px; font-size:13px; font-weight:700;
+    cursor:pointer; font-family:inherit; transition:opacity .15s,transform .15s;
+    box-shadow:0 2px 10px #3B82F625;
+  }
+  .tt-btn-primary:hover { opacity:.9; transform:translateY(-1px); }
+  .tt-btn-outline {
+    background:#fff; color:#374151; border:1px solid #E5E7EB; border-radius:9px;
+    padding:7px 13px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; transition:background .12s;
+  }
+  .tt-btn-outline:hover { background:#F9FAFB; }
+  .tt-card { transition:transform .12s,box-shadow .12s; }
+  .tt-card:hover { transform:translateY(-2px); box-shadow:0 4px 14px rgba(0,0,0,.1); }
+  .tt-doc-tab { transition:all .15s; }
+  .tt-doc-tab:hover { box-shadow:0 2px 10px rgba(0,0,0,.06); }
+  .tt-spin { border-radius:50%; border:3px solid #E5E7EB; border-top-color:#3B82F6; animation:ttSpin .8s linear infinite; }
+  .tt-spin-icon { animation:ttSpin .8s linear infinite; }
+  @keyframes ttSpin { to { transform:rotate(360deg); } }
+  @keyframes ttModalIn { from{opacity:0;transform:scale(.96)} to{opacity:1;transform:scale(1)} }
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:#F1F5F9; }
+  ::-webkit-scrollbar-thumb { background:#CBD5E1; border-radius:3px; }
+`;
 
 export default TimetablePage;

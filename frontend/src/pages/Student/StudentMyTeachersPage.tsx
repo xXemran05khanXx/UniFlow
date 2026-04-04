@@ -182,7 +182,7 @@ const StudentMyTeachersPage: React.FC = () => {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
+          <h1>
             My Teachers
           </h1>
           <p className="text-gray-600 text-lg">

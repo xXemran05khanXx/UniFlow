@@ -1,0 +1,1293 @@
+/**
+ * Room Controller
+ * Handles all room-related operations for Mumbai University engineering college
+ */
+
+const Room = require('../models/Room');
+const Department = require('../models/Department');
+const Timetable = require('../models/Timetable');
+const TimeSlot = require('../models/TimeSlot');
+const asyncHandler = require('../middleware/asyncHandler');
+const ApiError = require('../utils/ApiError');
+const ApiResponse = require('../utils/ApiResponse');
+const csv = require('csv-parser');
+const fs = require('fs');
+const path = require('path');
+
+const DAY_INDEX_TO_NAME = {
+  0: 'Sunday',
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday'
+};
+
+const sortTimeLabels = (a, b) => {
+  const [aStart] = String(a || '').split('-');
+  const [bStart] = String(b || '').split('-');
+  return aStart.localeCompare(bStart);
+};
+
+const normalizeDay = (dayValue) => {
+  if (typeof dayValue === 'number' && DAY_INDEX_TO_NAME[dayValue] !== undefined) {
+    return DAY_INDEX_TO_NAME[dayValue];
+  }
+  const day = String(dayValue || '').trim();
+  if (!day) return null;
+  const normalized = day.charAt(0).toUpperCase() + day.slice(1).toLowerCase();
+  return normalized;
+};
+
+const createRoomBooking = asyncHandler(async (req, res) => {
+  const room = await Room.findById(req.params.id);
+  if (!room) throw new ApiError(404, 'Room not found');
+
+  const { purpose, startTime, endTime, notes } = req.body;
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  if (room.isBookedAt(start, end)) {
+    throw new ApiError(409, 'Room is already booked for this time slot');
+  }
+
+  room.bookings.push({
+    userId: req.user._id,
+    purpose, startTime: start, endTime: end,
+    status: 'pending', notes
+  });
+
+  await room.save();
+  res.status(201).json(new ApiResponse(true, 'Booking request submitted', room, 201));
+});
+
+const updateBookingStatus = asyncHandler(async (req, res) => {
+  const room = await Room.findById(req.params.id);
+  const booking = room.bookings.id(req.params.bookingId);
+  if (!booking) throw new ApiError(404, 'Booking not found');
+
+  booking.status = req.body.status; // 'approved' | 'rejected' | 'cancelled'
+  booking.approvedBy = req.user._id;
+  await room.save();
+
+  res.status(200).json(new ApiResponse(true, `Booking ${req.body.status}`, booking, 200));
+});
+
+const getSchedulingDimensions = async () => {
+  const activeSlots = await TimeSlot.find({ isActive: true })
+    .select('dayOfWeek startTime endTime')
+    .lean();
+
+  if (activeSlots.length > 0) {
+    const daySet = new Set();
+    const timeSet = new Set();
+
+    activeSlots.forEach(slot => {
+      const dayName = normalizeDay(slot.dayOfWeek);
+      if (dayName) daySet.add(dayName);
+      timeSet.add(`${slot.startTime}-${slot.endTime}`);
+    });
+
+    return {
+      days: Array.from(daySet),
+      timeSlots: Array.from(timeSet).sort(sortTimeLabels),
+      totalSlotsPerRoom: activeSlots.length
+    };
+  }
+
+  const fallback = await Timetable.aggregate([
+    { $match: { status: { $ne: 'Archived' } } },
+    { $unwind: '$schedule' },
+    {
+      $group: {
+        _id: {
+          dayOfWeek: '$schedule.dayOfWeek',
+          startTime: '$schedule.startTime',
+          endTime: '$schedule.endTime'
+        }
+      }
+    }
+  ]);
+
+  const daySet = new Set();
+  const timeSet = new Set();
+
+  fallback.forEach(item => {
+    const dayName = normalizeDay(item?._id?.dayOfWeek);
+    if (dayName) daySet.add(dayName);
+    if (item?._id?.startTime && item?._id?.endTime) {
+      timeSet.add(`${item._id.startTime}-${item._id.endTime}`);
+    }
+  });
+
+  return {
+    days: Array.from(daySet),
+    timeSlots: Array.from(timeSet).sort(sortTimeLabels),
+    totalSlotsPerRoom: fallback.length
+  };
+};
+
+/**
+ * @desc    Get all rooms with filtering, pagination and search
+ * @route   GET /api/rooms
+ * @access  Private (Admin/Staff)
+ */
+const getAllRooms = asyncHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    building,
+    floor,
+    type,
+    department,
+    isActive,
+    isAvailable,
+    minCapacity,
+    maxCapacity,
+    hasProjector,
+    hasAirConditioning,
+    hasSmartBoard,
+    hasWifi,
+    sortBy = 'roomNumber',
+    sortOrder = 'asc'
+  } = req.query;
+
+  // Build query object
+  const query = {};
+
+  // Text search across multiple fields
+ if (search) {
+  query.$or = [
+    { roomNumber: { $regex: search, $options: 'i' } },
+    { name: { $regex: search, $options: 'i' } },
+    { building: { $regex: search, $options: 'i' } }
+  ];
+}
+
+  // Filter by building
+  if (building) {
+    query.building = building;
+  }
+
+  // Filter by floor
+  if (floor) {
+    query.floor = parseInt(floor);
+  }
+
+  // Filter by type
+  if (type) {
+    query.type = type;
+  }
+
+  // Filter by department
+  if (department) {
+  if (department.match(/^[0-9a-fA-F]{24}$/)) {
+    query.department = department;
+  } else {
+    const dept = await Department.findOne({
+      $or: [
+        { coursecode: department },
+        { name: department }
+      ]
+    });
+
+    if (dept) query.department = dept._id;
+    else query.department = null; // returns empty result
+  }
+}
+
+  // Filter by status
+  if (isActive !== undefined) {
+    query.isActive = isActive === 'true';
+  }
+
+  // Filter by availability
+  if (isAvailable !== undefined) {
+    query.isAvailable = isAvailable === 'true';
+  }
+
+  // Filter by capacity range
+  if (minCapacity || maxCapacity) {
+    query.capacity = {};
+    if (minCapacity) query.capacity.$gte = parseInt(minCapacity);
+    if (maxCapacity) query.capacity.$lte = parseInt(maxCapacity);
+  }
+
+  // Filter by features
+  if (hasProjector === 'true') query.projector = true;
+  if (hasAirConditioning === 'true') query.airConditioning = true;
+  if (hasSmartBoard === 'true') query.smartBoard = true;
+  if (hasWifi === 'true') query.wifi = true;
+
+  // Calculate pagination
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+  const skip = (pageNum - 1) * limitNum;
+
+  // Build sort object
+  const sortObj = {};
+  sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+  try {
+    // Get total count for pagination
+    // Execute query with pagination + count in parallel
+const [rooms, totalRooms] = await Promise.all([
+  Room.find(query)
+    .populate('department', 'coursecode name')
+    .populate('createdBy', 'name email')
+    .populate('updatedBy', 'name email')
+    .sort(sortObj)
+    .skip(skip)
+    .limit(limitNum)
+    .lean(),
+  Room.countDocuments(query)
+]);
+
+  const totalPages = Math.ceil(totalRooms / limitNum);
+
+    res.status(200).json(new ApiResponse(
+      true,
+      'Rooms retrieved successfully',
+      {
+        rooms,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalRooms,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1
+        }
+      },
+      200
+    ));
+  } catch (error) {
+    console.error('Error in getAllRooms:', error); // Added logging for debugging
+    throw new ApiError(500, 'Error retrieving rooms');
+  }
+});
+
+/**
+ * @desc    Get room by ID
+ * @route   GET /api/rooms/:id
+ * @access  Private (Admin/Staff)
+ */
+const getRoomById = asyncHandler(async (req, res) => {
+  const room = await Room.findById(req.params.id)
+    .populate('department', 'coursecode name')
+    .populate('createdBy', 'name email')
+    .populate('updatedBy', 'name email')
+    .populate('bookings.userId', 'name email')
+    .populate('utilizationHistory.sessions.userId', 'name email');
+
+  if (!room) {
+    throw new ApiError(404, 'Room not found');
+  }
+
+  res.status(200).json(new ApiResponse(true, 'Room retrieved successfully', room, 200));
+});
+
+/**
+ * @desc    Create new room
+ * @route   POST /api/rooms
+ * @access  Private (Admin)
+ */
+const createRoom = asyncHandler(async (req, res) => {
+  console.log('Creating room with data:', req.body);
+  console.log('User creating room:', req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'No user');
+  
+  // Prepare room data
+  const roomData = {
+    ...req.body,
+    createdBy: req.user._id
+  };
+
+  // Convert department name/coursecode to ObjectId if needed
+  if (roomData.department && !roomData.department.match?.(/^[0-9a-fA-F]{24}$/)) {
+    const dept = await Department.findOne({
+      $or: [
+        { coursecode: roomData.department },
+        { name: roomData.department }
+      ]
+    });
+    if (dept) {
+      roomData.department = dept._id;
+    } else {
+      throw new ApiError(400, `Department '${roomData.department}' not found`);
+    }
+  }
+
+  console.log('Final room data:', roomData);
+
+  // Check if room number already exists
+  const existingRoom = await Room.findOne({ 
+    roomNumber: roomData.roomNumber.toUpperCase() 
+  });
+
+  if (existingRoom) {
+    console.log('Room number already exists:', roomData.roomNumber);
+    throw new ApiError(400, 'Room number already exists');
+  }
+
+  try {
+    const room = await Room.create(roomData);
+    console.log('✅ Room created successfully:', room._id);
+    await room.populate('createdBy', 'name email');
+
+    res.status(201).json(new ApiResponse(true, 'Room created successfully', room, 201));
+  } catch (mongoError) {
+    console.error('❌ MongoDB error creating room:', mongoError);
+    if (mongoError.name === 'ValidationError') {
+      const validationErrors = Object.values(mongoError.errors).map(err => err.message);
+      throw new ApiError(400, `Validation error: ${validationErrors.join(', ')}`);
+    }
+    throw new ApiError(500, 'Database error creating room');
+  }
+});
+
+/**
+ * @desc    Update room
+ * @route   PUT /api/rooms/:id
+ * @access  Private (Admin)
+ */
+const updateRoom = asyncHandler(async (req, res) => {
+  const room = await Room.findById(req.params.id);
+
+  if (!room) {
+    throw new ApiError(404, 'Room not found');
+  }
+
+  // Check if updating room number to one that already exists
+  if (req.body.roomNumber && req.body.roomNumber !== room.roomNumber) {
+    const existingRoom = await Room.findOne({ 
+      roomNumber: req.body.roomNumber.toUpperCase(),
+      _id: { $ne: req.params.id }
+    });
+
+    if (existingRoom) {
+      throw new ApiError(400, 'Room number already exists');
+    }
+  }
+
+  // Convert department name/coursecode to ObjectId if needed
+  if (req.body.department && !req.body.department.match?.(/^[0-9a-fA-F]{24}$/)) {
+    const dept = await Department.findOne({
+      $or: [
+        { coursecode: req.body.department },
+        { name: req.body.department }
+      ]
+    });
+    if (dept) {
+      req.body.department = dept._id;
+    } else {
+      throw new ApiError(400, `Department '${req.body.department}' not found`);
+    }
+  }
+
+  // Update fields
+  Object.assign(room, req.body);
+  room.updatedBy = req.user._id;
+
+  await room.save();
+  await room.populate([
+  { path: 'createdBy', select: 'name email' },
+  { path: 'updatedBy', select: 'name email' }
+]);
+
+  res.status(200).json(
+  new ApiResponse(true, 'Room updated successfully', room, 200)
+);
+});
+
+/**
+ * @desc    Delete room
+ * @route   DELETE /api/rooms/:id
+ * @access  Private (Admin)
+ */
+const deleteRoom = asyncHandler(async (req, res) => {
+  const room = await Room.findById(req.params.id);
+
+  if (!room) {
+    throw new ApiError(404, 'Room not found');
+  }
+
+  const now = new Date();
+  const activeBookings = room.bookings.filter(
+    booking => booking.status === 'approved' && booking.endTime > now
+  );
+
+  if (activeBookings.length > 0) {
+    throw new ApiError(400, 'Cannot delete room with active bookings');
+  }
+
+  await Room.findByIdAndDelete(req.params.id);
+
+  res.status(200).json(
+    new ApiResponse(true, 'Room deleted successfully', null, 200)
+  );
+});
+
+/**
+ * @desc    Toggle room status (active/inactive)
+ * @route   PATCH /api/rooms/:id/status
+ * @access  Private (Admin)
+ */
+const toggleRoomStatus = asyncHandler(async (req, res) => {
+  const { isActive } = req.body;
+  
+  const room = await Room.findByIdAndUpdate(
+    req.params.id,
+    { 
+      isActive,
+      updatedBy: req.user._id 
+    },
+    { new: true }
+  ).populate('createdBy updatedBy', 'name email');
+
+  if (!room) {
+    throw new ApiError(404, 'Room not found');
+  }
+
+  res.status(200).json(
+  new ApiResponse(
+    true,
+    `Room ${isActive ? 'activated' : 'deactivated'} successfully`,
+    room,
+    200
+  )
+);
+});
+
+/**
+ * @desc    Toggle room availability
+ * @route   PATCH /api/rooms/:id/availability
+ * @access  Private (Admin)
+ */
+const toggleRoomAvailability = asyncHandler(async (req, res) => {
+  const { isAvailable } = req.body;
+  
+  const room = await Room.findByIdAndUpdate(
+    req.params.id,
+    { 
+      isAvailable,
+      updatedBy: req.user._id 
+    },
+    { new: true }
+  ).populate('createdBy updatedBy', 'name email');
+
+  if (!room) {
+    throw new ApiError(404, 'Room not found');
+  }
+
+  res.status(200).json(
+  new ApiResponse(
+    true,
+    `Room marked as ${isAvailable ? 'available' : 'unavailable'} successfully`,
+    room,
+    200
+  )
+);
+});
+
+/**
+ * @desc    Bulk update rooms
+ * @route   PATCH /api/rooms/bulk
+ * @access  Private (Admin)
+ */
+const bulkUpdateRooms = asyncHandler(async (req, res) => {
+  const { roomIds, action, data } = req.body;
+
+  if (!roomIds || !Array.isArray(roomIds) || roomIds.length === 0) {
+    throw new ApiError(400, 'Room IDs array is required');
+  }
+
+  if (!action) {
+    throw new ApiError(400, 'Action is required');
+  }
+
+  let updateData = { updatedBy: req.user._id };
+
+  switch (action) {
+    case 'activate':
+      updateData.isActive = true;
+      break;
+    case 'deactivate':
+      updateData.isActive = false;
+      break;
+    case 'makeAvailable':
+      updateData.isAvailable = true;
+      break;
+    case 'makeUnavailable':
+      updateData.isAvailable = false;
+      break;
+    case 'delete':
+      // Check for active bookings before deletion
+      const roomsWithBookings = await Room.find({
+        _id: { $in: roomIds },
+        'bookings.status': 'approved',
+        'bookings.endTime': { $gt: new Date() }
+      });
+
+      if (roomsWithBookings.length > 0) {
+        throw new ApiError(400, 'Cannot delete rooms with active bookings');
+      }
+
+      await Room.deleteMany({ _id: { $in: roomIds } });
+      return res.status(200).json(
+  new ApiResponse(
+    true,
+    'Rooms deleted successfully',
+    { deletedCount: roomIds.length },
+    200
+  )
+);
+    default:
+      if (data) {
+        updateData = { ...updateData, ...data };
+      }
+  }
+
+  const result = await Room.updateMany(
+    { _id: { $in: roomIds } },
+    updateData
+  );
+
+  return res.status(200).json(
+  new ApiResponse(
+    true,
+    'Rooms deleted successfully',
+    { deletedCount: roomIds.length },
+    200
+  )
+);
+});
+
+/**
+ * @desc    Get room statistics
+ * @route   GET /api/rooms/stats
+ * @access  Private (Admin/Staff)
+ */
+const getRoomStats = asyncHandler(async (req, res) => {
+  try {
+    const stats = await Room.getRoomStats();
+    
+    // Process the aggregation result
+    const processedStats = {
+      totalRooms: stats[0].totalRooms[0]?.count || 0,
+      activeRooms: stats[0].activeRooms[0]?.count || 0,
+      availableRooms: stats[0].availableRooms[0]?.count || 0,
+      totalCapacity: stats[0].capacityStats[0]?.totalCapacity || 0,
+      averageCapacity: stats[0].capacityStats[0]?.averageCapacity || 0,
+      maxCapacity: stats[0].capacityStats[0]?.maxCapacity || 0,
+      minCapacity: stats[0].capacityStats[0]?.minCapacity || 0,
+      typeDistribution: {},
+      buildingDistribution: {}
+    };
+
+    // Process type distribution
+    stats[0].typeDistribution.forEach(item => {
+      processedStats.typeDistribution[item._id] = item.count;
+    });
+
+    // Process building distribution
+    stats[0].buildingDistribution.forEach(item => {
+      processedStats.buildingDistribution[item._id] = item.count;
+    });
+
+    res.status(200).json(
+  new ApiResponse(
+    true,
+    'Room statistics retrieved successfully',
+    processedStats,
+    200
+  )
+);
+  } catch (error) {
+    throw new ApiError(500, 'Error retrieving room statistics');
+  }
+});
+
+/**
+ * @desc    Find available rooms for a time slot
+ * @route   GET /api/rooms/available
+ * @access  Private (Admin/Staff)
+ */
+const findAvailableRooms = asyncHandler(async (req, res) => {
+  const { startTime, endTime, capacity, type, features } = req.query;
+
+  if (!startTime || !endTime) {
+    throw new ApiError(400, 'Start time and end time are required');
+  }
+
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  if (start >= end) {
+    throw new ApiError(400, 'Start time must be before end time');
+  }
+
+  // Build filter object
+  const filters = {};
+  if (capacity) filters.capacity = { $gte: parseInt(capacity) };
+  if (type) filters.type = type;
+  if (features) {
+    const featureArray = Array.isArray(features) ? features : [features];
+    filters.features = { $all: featureArray };
+  }
+
+  try {
+    const availableRooms = await Room.findAvailableRooms(start, end, filters);
+
+    res.status(200).json(
+  new ApiResponse(
+    true,
+    'Available rooms retrieved successfully',
+    availableRooms,
+    200
+  )
+);
+  } catch (error) {
+    throw new ApiError(500, 'Error finding available rooms');
+  }
+});
+
+/**
+ * @desc    Get room utilization report
+ * @route   GET /api/rooms/utilization
+ * @access  Private (Admin/Staff)
+ */
+const getRoomUtilization = asyncHandler(async (req, res) => {
+  const { roomId } = req.query;
+
+  const [{ totalSlotsPerRoom }, bookedByRoom, rooms] = await Promise.all([
+    getSchedulingDimensions(),
+    Timetable.aggregate([
+      { $match: { status: { $ne: 'Archived' } } },
+      { $unwind: '$schedule' },
+      {
+        $match: {
+          'schedule.room': { $exists: true, $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: '$schedule.room',
+          bookedSlots: { $sum: 1 }
+        }
+      }
+    ]),
+    Room.find(roomId ? { _id: roomId } : {})
+      .select('_id name roomNumber')
+      .lean()
+  ]);
+
+  const bookedMap = new Map(
+    bookedByRoom.map(item => [String(item._id), item.bookedSlots || 0])
+  );
+
+  const utilization = rooms.map(room => {
+    const bookedSlots = bookedMap.get(String(room._id)) || 0;
+    const utilizationPercentage = totalSlotsPerRoom > 0
+      ? Number(((bookedSlots / totalSlotsPerRoom) * 100).toFixed(2))
+      : 0;
+
+    return {
+      roomId: room._id,
+      roomName: room.name,
+      roomNumber: room.roomNumber,
+      bookedSlots,
+      totalSlots: totalSlotsPerRoom,
+      utilizationPercentage,
+      underUtilized: utilizationPercentage < 30
+    };
+  }).sort((a, b) => b.utilizationPercentage - a.utilizationPercentage);
+
+  res.status(200).json(new ApiResponse(
+    true,
+    'Room utilization data retrieved successfully',
+    utilization,
+    200
+  ));
+});
+
+/**
+ * @desc    Get room occupancy heatmap data
+ * @route   GET /api/rooms/heatmap
+ * @access  Private (Admin/Staff)
+ */
+const getRoomHeatmap = asyncHandler(async (_req, res) => {
+  const [dimensions, rooms, occupancyRows] = await Promise.all([
+    getSchedulingDimensions(),
+    Room.find({}).select('_id name roomNumber').lean(),
+    Timetable.aggregate([
+      { $match: { status: { $ne: 'Archived' } } },
+      { $unwind: '$schedule' },
+      {
+        $match: {
+          'schedule.room': { $exists: true, $ne: null }
+        }
+      },
+      {
+        $lookup: {
+          from: 'courses',
+          localField: 'schedule.course',
+          foreignField: '_id',
+          as: 'CourseDoc'
+        }
+      },
+      {
+        $lookup: {
+          from: 'teachers',
+          localField: 'schedule.teacher',
+          foreignField: '_id',
+          as: 'teacherDoc'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'schedule.teacher',
+          foreignField: '_id',
+          as: 'userDoc'
+        }
+      },
+      {
+        $project: {
+          roomId: '$schedule.room',
+          dayOfWeek: '$schedule.dayOfWeek',
+          startTime: '$schedule.startTime',
+          endTime: '$schedule.endTime',
+          CourseName: {
+            $ifNull: [
+              { $arrayElemAt: ['$courseDoc.courseName', 0] },
+              { $arrayElemAt: ['$CourseDoc.name', 0] }
+            ]
+          },
+          teacherName: {
+            $ifNull: [
+              { $arrayElemAt: ['$teacherDoc.name', 0] },
+              { $arrayElemAt: ['$userDoc.name', 0] }
+            ]
+          }
+        }
+      }
+    ])
+  ]);
+  const getRoomBookings = asyncHandler(async (req, res) => {
+  const { status, startDate, endDate } = req.query;
+
+  const room = await Room.findById(req.params.id)
+    .populate('bookings.userId', 'name email')
+    .lean();
+
+  if (!room) {
+    throw new ApiError(404, 'Room not found');
+  }
+
+  let bookings = room.bookings || [];
+
+  // 🔍 Filter by status (optional)
+  if (status) {
+    const allowedStatus = ['pending', 'approved', 'rejected', 'cancelled'];
+    if (!allowedStatus.includes(status)) {
+      throw new ApiError(400, 'Invalid booking status');
+    }
+    bookings = bookings.filter(b => b.status === status);
+  }
+
+  // 📅 Filter by date range (optional)
+  if (startDate || endDate) {
+    const start = startDate ? new Date(startDate) : new Date(0);
+    const end = endDate ? new Date(endDate) : new Date();
+
+    bookings = bookings.filter(b => {
+      return new Date(b.startTime) >= start && new Date(b.endTime) <= end;
+    });
+  }
+
+  // ⏳ Sort by latest booking first
+  bookings.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+
+  res.status(200).json(
+    new ApiResponse(
+      true,
+      'Room bookings retrieved successfully',
+      {
+        roomId: room._id,
+        roomName: room.name,
+        roomNumber: room.roomNumber,
+        totalBookings: bookings.length,
+        bookings
+      },
+      200
+    )
+  );
+});
+
+  const days = dimensions.days;
+  const timeSlots = dimensions.timeSlots;
+
+  const heatmapByRoom = new Map();
+
+  rooms.forEach(room => {
+    const matrix = {};
+    const details = {};
+
+    days.forEach(day => {
+      matrix[day] = {};
+      details[day] = {};
+      timeSlots.forEach(slot => {
+        matrix[day][slot] = 0;
+        details[day][slot] = null;
+      });
+    });
+
+    heatmapByRoom.set(String(room._id), {
+      roomId: room._id,
+      roomName: room.name,
+      roomNumber: room.roomNumber,
+      matrix,
+      details
+    });
+  });
+
+  occupancyRows.forEach(row => {
+    const roomKey = String(row.roomId);
+    const day = normalizeDay(row.dayOfWeek);
+    const slot = `${row.startTime}-${row.endTime}`;
+
+    if (!heatmapByRoom.has(roomKey)) return;
+
+    const roomHeat = heatmapByRoom.get(roomKey);
+
+    if (!roomHeat.matrix[day]) {
+      roomHeat.matrix[day] = {};
+      roomHeat.details[day] = {};
+    }
+    if (roomHeat.matrix[day][slot] === undefined) {
+      roomHeat.matrix[day][slot] = 0;
+      roomHeat.details[day][slot] = null;
+    }
+
+    roomHeat.matrix[day][slot] = 1;
+    roomHeat.details[day][slot] = {
+      CourseName: row.CourseName || 'N/A',
+      teacherName: row.teacherName || 'N/A'
+    };
+  });
+
+  const response = {
+    days,
+    timeSlots,
+    rooms: Array.from(heatmapByRoom.values())
+  };
+
+  res.status(200).json(new ApiResponse(
+    true,
+    'Room heatmap data retrieved successfully',
+    response,
+    200
+  ));
+});
+
+/**
+ * @desc    Get peak hour analysis from timetable bookings
+ * @route   GET /api/rooms/peak-hours
+ * @access  Private (Admin/Staff)
+ */
+const getRoomPeakHours = asyncHandler(async (_req, res) => {
+  const peakHours = await Timetable.aggregate([
+    { $match: { status: { $ne: 'Archived' } } },
+    { $unwind: '$schedule' },
+    {
+      $match: {
+        'schedule.room': { $exists: true, $ne: null }
+      }
+    },
+    {
+      $group: {
+        _id: {
+          dayOfWeek: '$schedule.dayOfWeek',
+          startTime: '$schedule.startTime'
+        },
+        bookingCount: { $sum: 1 }
+      }
+    },
+    { $sort: { bookingCount: -1 } },
+    { $limit: 3 },
+    {
+      $project: {
+        _id: 0,
+        dayOfWeek: '$_id.dayOfWeek',
+        startTime: '$_id.startTime',
+        bookingCount: 1
+      }
+    }
+  ]);
+
+  const normalized = peakHours.map(item => ({
+    dayOfWeek: normalizeDay(item.dayOfWeek),
+    startTime: item.startTime,
+    bookingCount: item.bookingCount
+  }));
+
+  res.status(200).json(new ApiResponse(
+    true,
+    'Peak hour analysis retrieved successfully',
+    normalized,
+    200
+  ));
+});
+
+/**
+ * @desc    Schedule room maintenance
+ * @route   POST /api/rooms/:id/maintenance
+ * @access  Private (Admin)
+ */
+const scheduleRoomMaintenance = asyncHandler(async (req, res) => {
+  const room = await Room.findById(req.params.id);
+
+  if (!room) {
+    throw new ApiError(404, 'Room not found');
+  }
+
+  const maintenanceData = {
+    ...req.body,
+    createdAt: new Date()
+  };
+
+  await room.scheduleMaintenance(maintenanceData);
+
+  res.status(200).json(
+    new ApiResponse(
+      true,
+      'Maintenance scheduled successfully',
+      room,
+      200
+    )
+  );
+});
+
+/**
+ * @desc    Get maintenance schedule
+ * @route   GET /api/rooms/maintenance/schedule
+ * @access  Private (Admin/Staff)
+ */
+const getMaintenanceSchedule = asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query;
+
+  const start = startDate ? new Date(startDate) : new Date();
+  const end = endDate ? new Date(endDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  try {
+    const schedule = await Room.getMaintenanceSchedule(start, end);
+
+    res.status(200).json(
+  new ApiResponse(
+    true,
+    'Maintenance schedule retrieved successfully',
+    schedule,
+    200
+  )
+);
+  } catch (error) {
+    throw new ApiError(500, 'Error retrieving maintenance schedule');
+  }
+});
+
+/**
+ * @desc    Import rooms from CSV
+ * @route   POST /api/rooms/import
+ * @access  Private (Admin)
+ */
+const importRooms = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, 'CSV file is required');
+  }
+
+  const results = [];
+  const errors = [];
+  let imported = 0;
+  let failed = 0;
+
+  // Read and parse CSV file
+  const filePath = req.file.path;
+
+  try {
+    const parsePromise = new Promise((resolve, reject) => {
+      fs.createReadStream(filePath)
+        .pipe(csv())
+        .on('data', (data) => results.push(data))
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    await parsePromise;
+
+    // Process each row
+    for (const row of results) {
+      try {
+        // Validate required fields
+        if (!row.roomNumber || !row.name || !row.building || !row.capacity) {
+          errors.push({
+            row: row,
+            error: 'Missing required fields (roomNumber, name, building, capacity)'
+          });
+          failed++;
+          continue;
+        }
+
+        // Parse boolean fields
+        const roomData = {
+          roomNumber: row.roomNumber?.toUpperCase().trim(),
+          name: row.name?.trim(),
+          building: row.building?.trim(),
+          floor: parseInt(row.floor) || 0,
+          capacity: parseInt(row.capacity),
+          type: row.type?.toLowerCase() || 'classroom',
+          department: row.department?.trim() || undefined,
+          airConditioning: row.airConditioning === 'true' || row.airConditioning === '1',
+          projector: row.projector === 'true' || row.projector === '1',
+          smartBoard: row.smartBoard === 'true' || row.smartBoard === '1',
+          wifi: row.wifi === 'true' || row.wifi === '1',
+          powerOutlets: parseInt(row.powerOutlets) || 0,
+          features: row.features ? row.features.split(',').map(f => f.trim()) : [],
+          notes: row.notes?.trim() || '',
+          createdBy: req.user._id
+        };
+
+        // Convert department name/coursecode to ObjectId if provided
+        if (roomData.department && !roomData.department.match?.(/^[0-9a-fA-F]{24}$/)) {
+          const dept = await Department.findOne({
+            $or: [
+              { coursecode: roomData.department },
+              { name: roomData.department }
+            ]
+          });
+          if (dept) {
+            roomData.department = dept._id;
+          } else {
+            // Clear invalid department - room can still be created
+            roomData.department = undefined;
+          }
+        }
+
+        // Parse accessibility features
+        if (row.wheelchairAccessible || row.elevatorAccess || row.disabledParking || row.accessibleRestroom) {
+          roomData.accessibility = {
+            wheelchairAccessible: row.wheelchairAccessible === 'true' || row.wheelchairAccessible === '1',
+            elevatorAccess: row.elevatorAccess === 'true' || row.elevatorAccess === '1',
+            disabledParking: row.disabledParking === 'true' || row.disabledParking === '1',
+            accessibleRestroom: row.accessibleRestroom === 'true' || row.accessibleRestroom === '1'
+          };
+        }
+
+        // Check if room already exists
+        const existingRoom = await Room.findOne({ roomNumber: roomData.roomNumber });
+        if (existingRoom) {
+          errors.push({
+            row: row,
+            error: 'Room number already exists'
+          });
+          failed++;
+          continue;
+        }
+
+        // Create room
+        await Room.create(roomData);
+        imported++;
+
+      } catch (error) {
+        errors.push({
+          row: row,
+          error: error.message
+        });
+        failed++;
+      }
+    }
+
+    // Clean up uploaded file
+    fs.unlinkSync(filePath);
+
+    res.status(200).json(
+  new ApiResponse(
+    true,
+    `Import completed. ${imported} rooms imported, ${failed} failed.`,
+    {
+      imported,
+      failed,
+      errors: errors.slice(0, 10)
+    },
+    200
+  )
+);
+
+  } catch (error) {
+    // Clean up uploaded file
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    throw new ApiError(500, 'Error processing CSV file');
+  }
+});
+
+/**
+ * @desc    Export rooms to CSV
+ * @route   GET /api/rooms/export
+ * @access  Private (Admin/Staff)
+ */
+const exportRooms = asyncHandler(async (req, res) => {
+  const { format = 'csv' } = req.query;
+
+  try {
+    const rooms = await Room.find({})
+  .populate('department', 'coursecode name')
+  .lean();
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename=rooms.json');
+      return res.send(JSON.stringify(rooms, null, 2));
+    }
+
+    // CSV format
+    const csvHeaders = [
+      'roomNumber',
+      'name',
+      'building',
+      'floor',
+      'capacity',
+      'type',
+      'department',
+      'airConditioning',
+      'projector',
+      'smartBoard',
+      'wifi',
+      'powerOutlets',
+      'features',
+      'wheelchairAccessible',
+      'elevatorAccess',
+      'disabledParking',
+      'accessibleRestroom',
+      'isActive',
+      'isAvailable',
+      'notes'
+    ];
+
+    const csvData = rooms.map(room => [
+      room.roomNumber,
+      room.name,
+      room.building,
+      room.floor,
+      room.capacity,
+      room.type,
+      room.department?.name || '',
+      room.airConditioning ? 'true' : 'false',
+      room.projector ? 'true' : 'false',
+      room.smartBoard ? 'true' : 'false',
+      room.wifi ? 'true' : 'false',
+      room.powerOutlets || 0,
+      room.features?.join(', ') || '',
+      room.accessibility?.wheelchairAccessible ? 'true' : 'false',
+      room.accessibility?.elevatorAccess ? 'true' : 'false',
+      room.accessibility?.disabledParking ? 'true' : 'false',
+      room.accessibility?.accessibleRestroom ? 'true' : 'false',
+      room.isActive ? 'true' : 'false',
+      room.isAvailable ? 'true' : 'false',
+      room.notes || ''
+    ]);
+
+    const csvContent = [csvHeaders, ...csvData]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=rooms.csv');
+    res.send(csvContent);
+
+  } catch (error) {
+    throw new ApiError(500, 'Error exporting rooms');
+  }
+});
+
+/**
+ * @desc    Get room import template
+ * @route   GET /api/rooms/template
+ * @access  Private (Admin)
+ */
+const getRoomTemplate = asyncHandler(async (req, res) => {
+  const csvHeaders = [
+    'roomNumber',
+    'name',
+    'building',
+    'floor',
+    'capacity',
+    'type',
+    'department',
+    'airConditioning',
+    'projector',
+    'smartBoard',
+    'wifi',
+    'powerOutlets',
+    'features',
+    'wheelchairAccessible',
+    'elevatorAccess',
+    'disabledParking',
+    'accessibleRestroom',
+    'notes'
+  ];
+
+  const sampleData = [
+    'A101',
+    'Computer Science Lab 1',
+    'Computer Science Block',
+    '1',
+    '30',
+    'laboratory',
+    'Computer Science',
+    'true',
+    'true',
+    'true',
+    'true',
+    '10',
+    'Computer Lab, Internet Access, Power Outlets',
+    'true',
+    'true',
+    'false',
+    'true',
+    'Main computer lab for CS department'
+  ];
+
+  const csvContent = [csvHeaders, sampleData]
+    .map(row => row.map(field => `"${field}"`).join(','))
+    .join('\n');
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=room_template.csv');
+  res.send(csvContent);
+});
+
+module.exports = {
+  getAllRooms,
+  getRoomById,
+  createRoom,
+  updateRoom,
+  deleteRoom,
+  toggleRoomStatus,
+  toggleRoomAvailability,
+  bulkUpdateRooms,
+  getRoomStats,
+  findAvailableRooms,
+  getRoomUtilization,
+  getRoomHeatmap,
+  getRoomPeakHours,
+  scheduleRoomMaintenance,
+  getMaintenanceSchedule,
+  importRooms,
+  exportRooms,
+  getRoomTemplate,
+  updateBookingStatus ,
+  createRoomBooking,
+  getRoomBookings
+};

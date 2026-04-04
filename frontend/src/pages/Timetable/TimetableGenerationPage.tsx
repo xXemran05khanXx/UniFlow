@@ -1,1644 +1,761 @@
-import { AlertCircle, BookOpen, Calendar, CheckCircle2, Clock, Download, Loader2, Play, Settings, Users } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
-import Button from '../../components/ui/Button';
-import Card from '../../components/ui/Card';
-import Input from '../../components/ui/Input';
-import { DEPARTMENT_LIST, getDepartmentCode } from '../../constants';
-import { useToast } from '../../contexts/ToastContext';
-import { roomsAPI, timeSlotsAPI } from '../../services/api';
-import { dataManagementService } from '../../services/dataManagementService';
-import { subjectManagementService } from '../../services/subjectManagementService';
-import { timetableService } from '../../services/timetableService';
+// pages/TimetableGenerationPage.tsx
+//
+// ── WHAT THIS FILE DOES ──────────────────────────────────────────────────────
+// Replaces the old 4-step flow that required manual teacher assignment.
+// The backend TimetableGenerator (v2) auto-extracts teachers from
+// Course.qualifiedFaculties — so the UI only needs:
+//   1. Semester(s) to generate
+//   2. Division(s)
+//   3. Department
+//   4. Academic year
+// Then it calls POST /api/timetable/generate and displays the result grid.
+// ─────────────────────────────────────────────────────────────────────────────
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-interface Teacher {
-  _id: string;
-  name: string;
-  email: string;
-  department: string;
-  qualifications: string[];
-}
+const API = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
 
-interface Subject {
-  _id: string;
-  name: string;
-  code: string;
-  department: string | { code: string; name: string };
-  semester: number;
-  credits: number;
-  type: string;
-}
-
-interface TimeSlot {
-  _id: string;
-  startTime: string;
-  endTime: string;
-  dayOfWeek: number;
-  isActive: boolean;
-}
-
-interface Assignment {
-  subject: Subject;
-  teacher: Teacher;
-  allocatedHours: number;
-}
-
-interface GeneratedClass {
-  subject: string;
-  subjectName: string;
-  teacher: string;
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────────────────────
+interface Session {
+  id:          string;
+  courseCode:  string;
+  courseName:  string;
   teacherName: string;
-  timeSlot: string;
-  day: number;
-  startTime: string;
-  endTime: string;
-  room?: string;
-  sessionType: 'theory' | 'practical';
+  roomNumber:  string;
+  dayOfWeek:   string;
+  startTime:   string;
+  endTime:     string;
+  type:        'theory' | 'lab';
+  division:    string;
+  batch:       string | null;
+  semester:    number | string;
+  credits:     number;
+  timeSlot?:   { id: number; label: string };
 }
 
-// Color palette for different subjects
-const subjectColors = [
-  { bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-800', accent: 'bg-blue-500' },
-  { bg: 'bg-purple-100', border: 'border-purple-300', text: 'text-purple-800', accent: 'bg-purple-500' },
-  { bg: 'bg-emerald-100', border: 'border-emerald-300', text: 'text-emerald-800', accent: 'bg-emerald-500' },
-  { bg: 'bg-orange-100', border: 'border-orange-300', text: 'text-orange-800', accent: 'bg-orange-500' },
-  { bg: 'bg-pink-100', border: 'border-pink-300', text: 'text-pink-800', accent: 'bg-pink-500' },
-  { bg: 'bg-cyan-100', border: 'border-cyan-300', text: 'text-cyan-800', accent: 'bg-cyan-500' },
-  { bg: 'bg-amber-100', border: 'border-amber-300', text: 'text-amber-800', accent: 'bg-amber-500' },
-  { bg: 'bg-indigo-100', border: 'border-indigo-300', text: 'text-indigo-800', accent: 'bg-indigo-500' },
-  { bg: 'bg-rose-100', border: 'border-rose-300', text: 'text-rose-800', accent: 'bg-rose-500' },
-  { bg: 'bg-teal-100', border: 'border-teal-300', text: 'text-teal-800', accent: 'bg-teal-500' },
+interface GenerateResult {
+  division:  string;
+  semester:  number | string;
+  timetable: Session[];
+  metrics:   {
+    qualityScore:      number;
+    schedulingRate:    number;
+    totalSessions:     number;
+    coursesScheduled:  number;
+    totalCourses:      number;
+    totalConflicts:    number;
+  };
+}
+
+interface Conflict {
+  type:    string;
+  course?: string;
+  batch?:  string;
+  message: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS — matches TimetableGenerator exactly
+// ─────────────────────────────────────────────────────────────────────────────
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+const ALL_SLOTS = [
+  { id: 1,  start: '08:10', end: '10:00', label: '8:10–10:00',  type: 'lab'    },
+  { id: 3,  start: '10:20', end: '11:15', label: '10:20–11:15', type: 'theory' },
+  { id: 4,  start: '11:15', end: '12:10', label: '11:15–12:10', type: 'theory' },
+  { id: 5,  start: '12:10', end: '13:05', label: '12:10–1:05',  type: 'theory' },
+  { id: 6,  start: '13:50', end: '14:45', label: '1:50–2:45',   type: 'theory' },
+  { id: 7,  start: '14:45', end: '15:40', label: '2:45–3:40',   type: 'theory' },
+  { id: 8,  start: '15:40', end: '16:35', label: '3:40–4:35',   type: 'theory' },
+  { id: 9,  start: '12:50', end: '14:45', label: '12:50–2:45',  type: 'lab'    },
 ];
 
-// Weekly Timetable Grid Component
-interface WeeklyTimetableGridProps {
-  classes: GeneratedClass[];
-  timeSlots: TimeSlot[];
-  daysOfWeek: string[];
-}
-
-const WeeklyTimetableGrid: React.FC<WeeklyTimetableGridProps> = ({ classes, timeSlots, daysOfWeek }) => {
-  const workingDays = [1, 2, 3, 4, 5]; // Monday to Friday
-  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-  const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-
-  // Get unique time slots sorted by start time
-  const uniqueTimeSlots = Array.from(
-    new Map(
-      classes
-        .map(c => ({ startTime: c.startTime, endTime: c.endTime }))
-        .sort((a, b) => a.startTime.localeCompare(b.startTime))
-        .map(slot => [`${slot.startTime}-${slot.endTime}`, slot])
-    ).values()
-  );
-
-  // Create a map of subject to color
-  const subjectColorMap = new Map<string, typeof subjectColors[0]>();
-  const uniqueSubjects = Array.from(new Set(classes.map(c => c.subject)));
-  uniqueSubjects.forEach((subject, index) => {
-    subjectColorMap.set(subject, subjectColors[index % subjectColors.length]);
-  });
-
-  // Get class for a specific day and time slot
-  const getClassForSlot = (day: number, startTime: string, endTime: string): GeneratedClass | undefined => {
-    return classes.find(c => c.day === day && c.startTime === startTime && c.endTime === endTime);
-  };
-
-  // Format time to be more readable
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const formattedHour = hour % 12 || 12;
-    return `${formattedHour}:${minutes} ${ampm}`;
-  };
-
-  if (classes.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-        <Calendar className="w-16 h-16 mb-4 text-gray-300" />
-        <p className="text-lg font-medium">No classes scheduled yet</p>
-        <p className="text-sm">Generate a timetable to see the weekly view</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 pb-4 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-600">Subjects:</span>
-          {uniqueSubjects.map(subjectId => {
-            const cls = classes.find(c => c.subject === subjectId);
-            const colors = subjectColorMap.get(subjectId);
-            const subjectCode = cls?.subjectName.split(' - ')[0] || 'Unknown';
-            return (
-              <div key={subjectId} className="flex items-center gap-1.5">
-                <div className={`w-3 h-3 rounded-full ${colors?.accent}`}></div>
-                <span className="text-xs text-gray-600">{subjectCode}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div className="h-4 w-px bg-gray-300"></div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-600">Type:</span>
-          <div className="flex items-center gap-1.5">
-            <BookOpen className="w-3 h-3 text-blue-600" />
-            <span className="text-xs text-gray-600">Theory</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Settings className="w-3 h-3 text-green-600" />
-            <span className="text-xs text-gray-600">Practical</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Timetable Grid */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[800px]">
-          {/* Header Row - Days */}
-          <div className="grid grid-cols-6 gap-2 mb-2">
-            <div className="p-3"></div>
-            {workingDays.map((day, idx) => (
-              <div
-                key={day}
-                className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-4 text-center shadow-md"
-              >
-                <span className="text-white/80 text-xs font-medium uppercase tracking-wider">{dayNames[idx]}</span>
-                <p className="text-white font-bold text-sm mt-0.5">{fullDayNames[idx]}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Time Slots Rows */}
-          <div className="space-y-2">
-            {uniqueTimeSlots.map((slot, slotIdx) => (
-              <div key={`${slot.startTime}-${slot.endTime}`} className="grid grid-cols-6 gap-2">
-                {/* Time Column */}
-                <div className="bg-gray-50 rounded-xl p-3 flex flex-col justify-center items-center border border-gray-100">
-                  <span className="text-sm font-semibold text-gray-800">{formatTime(slot.startTime)}</span>
-                  <span className="text-xs text-gray-400 my-1">to</span>
-                  <span className="text-sm font-semibold text-gray-800">{formatTime(slot.endTime)}</span>
-                </div>
-
-                {/* Day Columns */}
-                {workingDays.map((day) => {
-                  const classItem = getClassForSlot(day, slot.startTime, slot.endTime);
-
-                  if (classItem) {
-                    const colors = subjectColorMap.get(classItem.subject);
-                    const [code, name] = classItem.subjectName.split(' - ');
-                    const isPractical = classItem.sessionType === 'practical';
-
-                    return (
-                      <div
-                        key={`${day}-${slot.startTime}`}
-                        className={`relative group ${colors?.bg} ${colors?.border} border-2 rounded-xl p-3 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer overflow-hidden`}
-                      >
-                        {/* Accent bar */}
-                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors?.accent} rounded-l-xl`}></div>
-
-                        {/* Session type badge */}
-                        <div className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${isPractical
-                          ? 'bg-green-500 text-white'
-                          : 'bg-blue-500 text-white'
-                          }`}>
-                          {isPractical ? 'LAB' : 'LEC'}
-                        </div>
-
-                        {/* Content */}
-                        <div className="pl-2 pr-8">
-                          <div className={`font-bold text-sm ${colors?.text} truncate`}>
-                            {code}
-                          </div>
-                          <div className={`text-xs ${colors?.text} opacity-80 truncate mt-0.5`}>
-                            {name}
-                          </div>
-                          <div className="flex items-center mt-2 pt-2 border-t border-current/10">
-                            <Users className={`w-3 h-3 ${colors?.text} opacity-60 mr-1`} />
-                            <span className={`text-xs ${colors?.text} opacity-70 truncate`}>
-                              {classItem.teacherName}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Hover overlay with full details */}
-                        <div className="absolute inset-0 bg-gray-900/95 rounded-xl p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-center">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-white font-bold text-sm">{code}</p>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isPractical ? 'bg-green-500' : 'bg-blue-500'
-                              } text-white`}>
-                              {isPractical ? 'Practical' : 'Theory'}
-                            </span>
-                          </div>
-                          <p className="text-gray-300 text-xs">{name}</p>
-                          <div className="mt-3 space-y-1">
-                            <div className="flex items-center text-gray-400 text-xs">
-                              <Users className="w-3 h-3 mr-2" />
-                              {classItem.teacherName}
-                            </div>
-                            <div className="flex items-center text-gray-400 text-xs">
-                              <Clock className="w-3 h-3 mr-2" />
-                              {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // Empty slot
-                  return (
-                    <div
-                      key={`${day}-${slot.startTime}`}
-                      className="bg-gray-50/50 border-2 border-dashed border-gray-200 rounded-xl p-3 flex items-center justify-center min-h-[100px]"
-                    >
-                      <span className="text-gray-300 text-xs">Free</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Summary Table - Compact View */}
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
-          <BookOpen className="w-4 h-4 mr-2" />
-          Detailed Schedule
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {classes
-            .sort((a, b) => a.day - b.day || a.startTime.localeCompare(b.startTime))
-            .map((cls, idx) => {
-              const colors = subjectColorMap.get(cls.subject);
-              const [code] = cls.subjectName.split(' - ');
-              const isPractical = cls.sessionType === 'practical';
-              return (
-                <div
-                  key={idx}
-                  className={`flex items-center p-3 rounded-lg ${colors?.bg} ${colors?.border} border`}
-                >
-                  <div className={`w-2 h-8 ${colors?.accent} rounded-full mr-3`}></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`font-semibold text-sm ${colors?.text}`}>{code}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${isPractical ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'
-                          }`}>
-                          {isPractical ? 'LAB' : 'LEC'}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500">{daysOfWeek[cls.day]?.slice(0, 3)}</span>
-                    </div>
-                    <div className="flex items-center mt-1 text-xs text-gray-600">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {formatTime(cls.startTime)} - {formatTime(cls.endTime)}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </div>
-    </div>
-  );
+const PALETTE = [
+  { bg: '#05172e', border: '#2563eb', text: '#93c5fd', pill: '#1e3a6e' },
+  { bg: '#052e1a', border: '#16a34a', text: '#86efac', pill: '#14532d' },
+  { bg: '#1e0d30', border: '#7c3aed', text: '#c4b5fd', pill: '#3b0764' },
+  { bg: '#2e1a05', border: '#c2410c', text: '#fdba74', pill: '#431407' },
+  { bg: '#1a0d22', border: '#be185d', text: '#f9a8d4', pill: '#500724' },
+  { bg: '#04242e', border: '#0e7490', text: '#67e8f9', pill: '#083344' },
+  { bg: '#1e1905', border: '#a16207', text: '#fde68a', pill: '#451a03' },
+  { bg: '#1a0a0a', border: '#b91c1c', text: '#fca5a5', pill: '#450a0a' },
+];
+const colorCache: Record<string, typeof PALETTE[0]> = {};
+let ci = 0;
+const courseColor = (code: string) => {
+  if (!colorCache[code]) colorCache[code] = PALETTE[ci++ % PALETTE.length];
+  return colorCache[code];
 };
 
+const toMin = (t: string) => {
+  const [h, m] = (t || '0:0').split(':').map(Number);
+  return h * 60 + m;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN PAGE
+// ─────────────────────────────────────────────────────────────────────────────
 const TimetableGenerationPage: React.FC = () => {
-  const { addToast } = useToast();
+  const navigate = useNavigate();
 
-  // Configuration State
-  const [department, setDepartment] = useState('');
-  const [semester, setSemester] = useState<number>(1);
-  const [academicYear, setAcademicYear] = useState('2024-2025');
+  // ── Config ────────────────────────────────────────────────────────────────
+  const [semesters,  setSemesters]  = useState<number[]>([8]);
+  const [divisions,  setDivisions]  = useState<string[]>(['A']);
+  const [dept,       setDept]       = useState('Information Technology');
+  const [year,       setYear]       = useState(new Date().getFullYear());
+  const [algo,       setAlgo]       = useState<'genetic' | 'greedy'>('genetic');
 
-  // Data State
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  // ── Status ────────────────────────────────────────────────────────────────
+  const [status,     setStatus]     = useState<{ courses: number; teachers: number; rooms: number } | null>(null);
+  const [phase,      setPhase]      = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [log,        setLog]        = useState<string[]>([]);
+  const [errMsg,     setErrMsg]     = useState('');
 
-  // Generation State
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedTimetable, setGeneratedTimetable] = useState<GeneratedClass[]>([]);
-  const [conflicts, setConflicts] = useState<string[]>([]);
-  const [timetableId, setTimetableId] = useState<string | null>(null);
+  // ── Results ───────────────────────────────────────────────────────────────
+  const [results,    setResults]    = useState<GenerateResult[]>([]);
+  const [savedIds,   setSavedIds]   = useState<Record<string, string>>({});
+  const [conflicts,  setConflicts]  = useState<Conflict[]>([]);
+  const [activeDiv,  setActiveDiv]  = useState('');
+  const [saveState,  setSaveState]  = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({});
 
-  // UI State
-  const [loading, setLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  // ── Drag state ────────────────────────────────────────────────────────────
+  const [dragSrc,    setDragSrc]    = useState<{ session: Session; fromDay: string; fromStart: string } | null>(null);
+  const [dropOver,   setDropOver]   = useState<{ day: string; start: string } | null>(null);
 
+  // ── Detail modal ──────────────────────────────────────────────────────────
+  const [modal,      setModal]      = useState<Session | null>(null);
 
-  const semesters = [1, 2, 3, 4, 5, 6, 7, 8];
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  const [toast,      setToast]      = useState<{ msg: string; ok: boolean } | null>(null);
 
-  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const logRef = useRef<HTMLDivElement>(null);
 
+  const flash = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3200);
+  };
+
+  const addLog = (m: string) => setLog(p => [...p, m]);
+
+  // Auto-scroll log
   useEffect(() => {
-    fetchTimeSlots();
-    fetchRooms();
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [log]);
+
+  // Load system status on mount
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await axios.get(`${API}/timetable/status`);
+        setStatus(res.data.data?.overview || null);
+      } catch { /* ignore */ }
+    };
+    load();
   }, []);
 
-  useEffect(() => {
-    if (department && semester) {
-      fetchTeachers();
-      fetchSubjects();
-    }
-  }, [department, semester]);
+  // ── Toggle helpers ────────────────────────────────────────────────────────
+  const toggleSem = (n: number) =>
+    setSemesters(p => p.includes(n) ? p.filter(x => x !== n) : [...p, n].sort());
+  const toggleDiv = (d: string) =>
+    setDivisions(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d].sort());
 
-  const fetchTeachers = async () => {
-    try {
-      setLoading(true);
-      const teachersData = await dataManagementService.getTeachers();
-
-      // Convert selected department name (e.g., "Information Technology") to code (e.g., "IT")
-      const selectedDeptCode = getDepartmentCode(department);
-
-      const toDeptCode = (dept: any): string => {
-        if (!dept) return '';
-        if (typeof dept === 'string') return dept.toUpperCase();
-        return (dept.coursecode || dept.code || dept.courseCode || '').toUpperCase();
-      };
-
-      const filteredTeachers = teachersData.filter((t: any) => {
-        const primaryCode = toDeptCode(t.primaryDepartment || t.department);
-        const allowedCodes = Array.isArray(t.allowedDepartments)
-          ? t.allowedDepartments.map((d: any) => toDeptCode(d))
-          : [];
-
-        return primaryCode === selectedDeptCode || allowedCodes.includes(selectedDeptCode);
-      });
-
-      // Normalize service teacher shape to the local Teacher interface to avoid type mismatches
-      const normalizedTeachers: Teacher[] = filteredTeachers.map((t: any) => ({
-        _id: t._id,
-        name: t.name || t.user?.name || 'Unknown Teacher',
-        email: t.email || t.user?.email || '',
-        department: t.primaryDepartment || t.department,
-        qualifications: t.qualifications ?? []
-      }));
-
-      setTeachers(normalizedTeachers);
-    } catch (error) {
-      console.error('Error fetching teachers:', error);
-      addToast({ title: 'Error', message: 'Failed to fetch teachers', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRooms = async () => {
-    try {
-      const response = await roomsAPI.getAll();
-      const payload = (response as any)?.data;
-      const messagePayload = (response as any)?.message;
-
-      const roomData = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.rooms)
-          ? payload.rooms
-          : Array.isArray(messagePayload)
-            ? messagePayload
-            : Array.isArray(messagePayload?.rooms)
-              ? messagePayload.rooms
-              : [];
-
-      console.log('[TimetableGeneration] rooms loaded:', roomData.length);
-      setRooms(roomData);
-    } catch (error) {
-      console.error('Error fetching rooms:', error);
-      setRooms([]);
-    }
-  };
-
-  const fetchSubjects = async () => {
-    try {
-      setLoading(true);
-      // Convert selected department name (e.g., "Information Technology") to code (e.g., "IT")
-      const selectedDeptCode = getDepartmentCode(department);
-
-      let mappedSubjects: Subject[] = [];
-
-      // Primary source: subjects endpoint (existing behavior)
-      try {
-        const result = await subjectManagementService.getAllSubjects(
-          { department: selectedDeptCode, semester },
-          1,
-          100
-        );
-
-        const subjectsData = result.subjects || [];
-        mappedSubjects = subjectsData.map((s: any) => ({
-          _id: s._id,
-          name: s.name,
-          code: s.code,
-          department: s.department,
-          semester: s.semester,
-          credits: s.credits,
-          type: s.type
-        }));
-      } catch (subjectError) {
-        console.warn('Subjects endpoint failed, falling back to Courses endpoint:', subjectError);
-      }
-
-      // Fallback source: courses endpoint (for deployments using Course collection only)
-      if (mappedSubjects.length === 0) {
-        const token = localStorage.getItem('token');
-        const headers = {
-          Authorization: token ? `Bearer ${token}` : ''
-        };
-
-        const fetchCourses = async (departmentFilter: string) => {
-          const params = new URLSearchParams({
-            department: departmentFilter,
-            semester: String(semester),
-            page: '1',
-            limit: '100'
-          });
-
-          const response = await fetch(`${API_BASE_URL}/Courses?${params.toString()}`, {
-            headers
-          });
-
-          if (!response.ok) {
-            throw new Error(`Courses fetch failed with status ${response.status}`);
-          }
-
-          const raw = await response.json();
-          const courseList = raw?.data?.courses || raw?.message?.courses || raw?.courses || [];
-          return Array.isArray(courseList) ? courseList : [];
-        };
-
-        // Backend CourseController resolves department by ObjectId or full name first.
-        // Try department full name, then fallback to code.
-        let courseList: any[] = [];
-        try {
-          courseList = await fetchCourses(department);
-        } catch (nameErr) {
-          console.warn('Courses fetch by department name failed:', nameErr);
-        }
-
-        if (courseList.length === 0) {
-          courseList = await fetchCourses(selectedDeptCode);
-        }
-
-        mappedSubjects = courseList.map((c: any) => ({
-          _id: c._id,
-          name: c.name || c.courseName || 'Unnamed Course',
-          code: c.code || c.courseCode || 'N/A',
-          department: c.department,
-          semester: c.semester,
-          credits: c.credits,
-          type: c.type || c.courseType || 'theory'
-        }));
-      }
-
-      setSubjects(mappedSubjects);
-
-      // Initialize assignments for fetched subjects
-      const initialAssignments = mappedSubjects.map((subject) => ({
-        subject,
-        teacher: null as any,
-        allocatedHours: subject.credits || 3
-      }));
-      setAssignments(initialAssignments as Assignment[]);
-    } catch (error) {
-      console.error('Error fetching subjects:', error);
-      addToast({ title: 'Error', message: 'Failed to fetch subjects/courses', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTimeSlots = async () => {
-    try {
-      const response = await timeSlotsAPI.getAll();
-      const payload = (response as any)?.data;
-      const messagePayload = (response as any)?.message;
-      const slots = Array.isArray(payload)
-        ? payload
-        : Array.isArray(messagePayload)
-          ? messagePayload
-          : [];
-
-      if (slots.length > 0) {
-        const activeSlots = slots.filter((slot: TimeSlot) => slot.isActive);
-
-        if (activeSlots.length > 0) {
-          console.log('[TimetableGeneration] active timeslots loaded:', activeSlots.length);
-          setTimeSlots(activeSlots);
-        } else {
-          // Fallback: if no slot is marked active, still allow generation with all configured slots.
-          console.warn('[TimetableGeneration] no active timeslots found, using all slots as fallback:', slots.length);
-          setTimeSlots(slots);
-          addToast({
-            title: 'No Active Time Slots',
-            message: 'Using all configured time slots as fallback. Please activate slots in Time Slot Management.',
-            type: 'warning'
-          });
-        }
-      } else {
-        console.warn('[TimetableGeneration] no timeslots returned from API');
-        setTimeSlots([]);
-      }
-    } catch (error) {
-      console.error('Error fetching time slots:', error);
-      setTimeSlots([]);
-    }
-  };
-
-  const handleAssignTeacher = (subjectId: string, teacherId: string) => {
-    setAssignments(prev => prev.map(assignment => {
-      if (assignment.subject._id === subjectId) {
-        const teacher = teachers.find(t => t._id === teacherId);
-        return { ...assignment, teacher: teacher! };
-      }
-      return assignment;
-    }));
-  };
-
-  const handleUpdateHours = (subjectId: string, hours: number) => {
-    setAssignments(prev => prev.map(assignment => {
-      if (assignment.subject._id === subjectId) {
-        return { ...assignment, allocatedHours: hours };
-      }
-      return assignment;
-    }));
-  };
-
-  const generateTimetable = async () => {
-    // Validate all subjects have teachers assigned
-    const unassigned = assignments.filter(a => !a.teacher);
-    if (unassigned.length > 0) {
-      addToast({
-        title: 'Incomplete Assignment',
-        message: `Please assign teachers to all subjects. ${unassigned.length} subject(s) unassigned.`,
-        type: 'warning'
-      });
+  // ── GENERATE ──────────────────────────────────────────────────────────────
+  const generate = async () => {
+    if (!semesters.length || !divisions.length) {
+      flash('Select at least one semester and division', false);
       return;
     }
 
-    if (!timeSlots.length) {
-      addToast({
-        title: 'Missing Time Slots',
-        message: 'No active time slots found. Please create/activate time slots first.',
-        type: 'error'
-      });
-      return;
-    }
-
-    if (!rooms.length) {
-      addToast({
-        title: 'Missing Rooms',
-        message: 'No rooms found. Please add rooms before generating timetable.',
-        type: 'error'
-      });
-      return;
-    }
-
-    setIsGenerating(true);
+    setPhase('running');
+    setLog([]);
+    setResults([]);
     setConflicts([]);
 
+    addLog('🔌 Connecting to UniFlow backend…');
+    await tick(200);
+    addLog(`📚 Loading Semester ${semesters.join(', ')} courses…`);
+    await tick(350);
+    addLog(`👥 Teachers auto-resolved from Course.qualifiedFaculties…`);
+    await tick(300);
+    addLog(`🏫 Loading rooms…`);
+    await tick(250);
+    addLog(`⚙️  Running ${algo === 'genetic' ? 'Genetic' : 'Greedy'} algorithm…`);
+    addLog(`📐 ScheduleTracker: time-range overlap detection active…`);
+
     try {
-      // Run the scheduling algorithm
-      const { schedule, conflicts: detectedConflicts } = await scheduleClasses(
-        assignments,
-        timeSlots
+      const token = localStorage.getItem('token');
+      const res = await axios.post(
+        `${API}/timetable/generate`,
+        {
+          semesters,
+          divisions,
+          departmentId: dept,
+          academicYear: year,
+          algorithm:    algo,
+          autoSave:     true,
+          respectExisting: true,
+        },
+        { headers: { Authorization: token ? `Bearer ${token}` : '' } }
       );
 
-      setGeneratedTimetable(schedule);
-      setConflicts(detectedConflicts);
+      const data = res.data;
+      if (!data.success) throw new Error(data.message || 'Generation failed');
 
-      console.log('[TimetableGeneration] generation summary:', {
-        scheduledClasses: schedule.length,
-        conflictCount: detectedConflicts.length,
-        subjects: subjects.length,
-        teachers: teachers.length,
-        rooms: rooms.length,
-        timeSlots: timeSlots.length
-      });
+      const apiResults: GenerateResult[] = data.data?.results || [];
+      const apiSaved   = data.data?.saved    || [];
+      const apiConflicts: Conflict[] = data.data?.conflicts || [];
 
-      if (schedule.length === 0) {
-        const reason = detectedConflicts[0] || 'No feasible allocation found. Check room/time-slot/teacher constraints.';
-        addToast({
-          title: 'Generation Failed',
-          message: reason,
-          type: 'error'
-        });
-        return;
-      }
+      const total = apiResults.reduce((a: number, r: GenerateResult) => a + r.timetable.length, 0);
+      addLog(`✅ Complete — ${total} sessions across ${apiResults.length} timetable(s)`);
+      if (apiConflicts.length) addLog(`⚠️  ${apiConflicts.length} conflict(s) (see panel below)`);
+      else addLog(`✓ Zero clashes detected`);
 
-      if (detectedConflicts.length === 0) {
-        addToast({
-          title: 'Success!',
-          message: 'Timetable generated successfully with zero conflicts',
-          type: 'success'
-        });
-      } else {
-        console.log('[TimetableGeneration] conflicts:', detectedConflicts);
-        addToast({
-          title: 'Warning',
-          message: `Generated with ${detectedConflicts.length} conflict(s)`,
-          type: 'warning'
-        });
-      }
-    } catch (error: any) {
-      console.error('Generation error:', error);
-      addToast({
-        title: 'Generation Failed',
-        message: error.message || 'Failed to generate timetable',
-        type: 'error'
-      });
-    } finally {
-      setIsGenerating(false);
+      // Build savedIds map: division → doc _id
+      const ids: Record<string, string> = {};
+      apiSaved.forEach((s: any) => { ids[s.division] = s.id; });
+
+      setResults(apiResults);
+      setSavedIds(ids);
+      setConflicts(apiConflicts);
+      setActiveDiv(apiResults[0]?.division || divisions[0]);
+      setPhase('done');
+      flash(`Generated ${apiResults.length} timetable(s) — ${total} sessions`);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Unknown error';
+      addLog(`❌ Error: ${msg}`);
+      setErrMsg(msg);
+      setPhase('error');
+      flash(msg, false);
     }
   };
 
-  // Advanced constraint-based scheduling algorithm
-  const scheduleClasses = async (
-    assignments: Assignment[],
-    slots: TimeSlot[]
-  ): Promise<{ schedule: GeneratedClass[]; conflicts: string[] }> => {
-    const schedule: GeneratedClass[] = [];
-    const conflicts: string[] = [];
-
-    const getRoomId = (room: any): string | null => {
-      if (!room) return null;
-      if (typeof room === 'string') return room;
-      return room._id || room.id || room.roomId || null;
-    };
-
-    const availableRoomIds = rooms
-      .map(getRoomId)
-      .filter((id): id is string => Boolean(id));
-
-    if (availableRoomIds.length === 0) {
-      conflicts.push('No valid rooms available for scheduling.');
-      return { schedule, conflicts };
-    }
-
-    // Track usage to prevent conflicts
-    const teacherSchedule = new Map<string, Set<string>>(); // teacherId -> Set of "day-timeSlot" keys
-    const slotUsage = new Map<string, boolean>(); // "day-timeSlot" -> used
-    const roomSchedule = new Map<string, Set<string>>(); // roomId -> Set of "day-start-end" keys
-
-    // Track schedule per day for constraint checking
-    const daySchedule = new Map<number, GeneratedClass[]>(); // day -> classes scheduled that day
-
-    // Working days (Monday to Friday)
-    const workingDays = [1, 2, 3, 4, 5];
-
-    // Initialize day schedule tracking
-    workingDays.forEach(day => daySchedule.set(day, []));
-
-    // Group slots by day and sort by time
-    const slotsByDay = new Map<number, TimeSlot[]>();
-    slots.forEach(slot => {
-      if (!slotsByDay.has(slot.dayOfWeek)) {
-        slotsByDay.set(slot.dayOfWeek, []);
-      }
-      slotsByDay.get(slot.dayOfWeek)!.push(slot);
-    });
-
-    // Sort slots by start time within each day
-    slotsByDay.forEach((daySlots, day) => {
-      daySlots.sort((a, b) => a.startTime.localeCompare(b.startTime));
-      slotsByDay.set(day, daySlots);
-    });
-
-    // Separate theory and practical subjects
-    const theoryAssignments = assignments.filter(a =>
-      a.subject.type?.toLowerCase() !== 'practical' && a.subject.type?.toLowerCase() !== 'lab'
-    );
-    const practicalAssignments = assignments.filter(a =>
-      a.subject.type?.toLowerCase() === 'practical' || a.subject.type?.toLowerCase() === 'lab'
-    );
-
-    // Calculate total theory hours needed per subject for equal distribution
-    const totalTheoryHours = theoryAssignments.reduce((sum, a) => sum + a.allocatedHours, 0);
-    const theoryHoursPerDay = Math.ceil(totalTheoryHours / workingDays.length);
-
-    // Track remaining hours for each assignment
-    const remainingHours = new Map<string, number>();
-    assignments.forEach(a => remainingHours.set(a.subject._id, a.allocatedHours));
-
-    // Helper: Check if adding a class would create more than 2 consecutive same subjects
-    const wouldExceedConsecutiveLimit = (day: number, subjectId: string, slotIndex: number): boolean => {
-      const dayClasses = daySchedule.get(day) || [];
-      const sortedClasses = [...dayClasses].sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-      // Find classes immediately before and after the proposed slot
-      let consecutiveCount = 1;
-
-      // Check previous slots
-      for (let i = slotIndex - 1; i >= 0 && i >= slotIndex - 2; i--) {
-        const prevClass = sortedClasses.find(c => {
-          const slots = slotsByDay.get(day) || [];
-          return slots[i] && c.startTime === slots[i].startTime;
-        });
-        if (prevClass && prevClass.subject === subjectId) {
-          consecutiveCount++;
-        } else {
-          break;
-        }
-      }
-
-      // Check next slots
-      for (let i = slotIndex + 1; i < (slotsByDay.get(day)?.length || 0) && i <= slotIndex + 2; i++) {
-        const nextClass = sortedClasses.find(c => {
-          const slots = slotsByDay.get(day) || [];
-          return slots[i] && c.startTime === slots[i].startTime;
-        });
-        if (nextClass && nextClass.subject === subjectId) {
-          consecutiveCount++;
-        } else {
-          break;
-        }
-      }
-
-      return consecutiveCount > 2;
-    };
-
-    // Helper: Count practicals scheduled for a day
-    const getPracticalsForDay = (day: number): number => {
-      const dayClasses = daySchedule.get(day) || [];
-      return dayClasses.filter(c => c.sessionType === 'practical').length;
-    };
-
-    // Helper: Get subject occurrences for a day
-    const getSubjectCountForDay = (day: number, subjectId: string): number => {
-      const dayClasses = daySchedule.get(day) || [];
-      return dayClasses.filter(c => c.subject === subjectId).length;
-    };
-
-    // Helper: Schedule a class
-    const scheduleClass = (
-      assignment: Assignment,
-      slot: TimeSlot,
-      day: number,
-      sessionType: 'theory' | 'practical'
-    ): boolean => {
-      const { subject, teacher } = assignment;
-      const slotKey = `${day}-${slot._id}`;
-      const teacherSlotKey = `${day}-${slot.startTime}-${slot.endTime}`;
-
-      // Initialize teacher schedule if not exists
-      if (!teacherSchedule.has(teacher._id)) {
-        teacherSchedule.set(teacher._id, new Set());
-      }
-
-      // Check if slot is already used
-      if (slotUsage.get(slotKey)) {
-        return false;
-      }
-
-      // Check if teacher is already scheduled at this time
-      if (teacherSchedule.get(teacher._id)!.has(teacherSlotKey)) {
-        return false;
-      }
-
-      const selectedRoomId = availableRoomIds.find(roomId => {
-        if (!roomSchedule.has(roomId)) {
-          roomSchedule.set(roomId, new Set());
-        }
-        return !roomSchedule.get(roomId)!.has(teacherSlotKey);
+  // ── PUBLISH ───────────────────────────────────────────────────────────────
+  const publish = async (div: string) => {
+    const id = savedIds[div];
+    if (!id) return flash('No saved ID — generate first', false);
+    setSaveState(p => ({ ...p, [div]: 'saving' }));
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(`${API}/timetable/${id}/publish`, {}, {
+        headers: { Authorization: token ? `Bearer ${token}` : '' }
       });
+      setSaveState(p => ({ ...p, [div]: 'saved' }));
+      flash(`Div ${div} published ✓`);
+    } catch (err: any) {
+      setSaveState(p => ({ ...p, [div]: 'error' }));
+      flash(err.response?.data?.message || err.message, false);
+    }
+  };
 
-      if (!selectedRoomId) {
-        return false;
-      }
+  // ── DRAG & DROP ───────────────────────────────────────────────────────────
+  const onDragStart = (session: Session, day: string, start: string) =>
+    setDragSrc({ session, fromDay: day, fromStart: start });
 
-      const newClass: GeneratedClass = {
-        subject: subject._id,
-        subjectName: `${subject.code} - ${subject.name}`,
-        teacher: teacher._id,
-        teacherName: teacher.name,
-        timeSlot: slot._id,
-        day: day,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        room: selectedRoomId,
-        sessionType: sessionType
+  const onDrop = (toDay: string, toStart: string) => {
+    setDropOver(null);
+    if (!dragSrc) return;
+    const { session, fromDay, fromStart } = dragSrc;
+    setDragSrc(null);
+    if (toDay === fromDay && toStart === fromStart) return;
+
+    const toSlot = ALL_SLOTS.find(s => s.start === toStart);
+    if (!toSlot) return;
+    if (session.type === 'theory' && toSlot.type === 'lab')
+      return flash('Cannot move theory → lab slot', false);
+    if (session.type === 'lab' && toSlot.type === 'theory')
+      return flash('Cannot move lab → theory slot', false);
+
+    setResults(prev => prev.map(r => {
+      if (r.division !== activeDiv) return r;
+      return {
+        ...r,
+        timetable: r.timetable.map(s =>
+          s.id === session.id
+            ? { ...s, dayOfWeek: toDay, startTime: toSlot.start, endTime: toSlot.end,
+                timeSlot: { id: toSlot.id, label: toSlot.label } }
+            : s
+        ),
       };
-
-      schedule.push(newClass);
-      daySchedule.get(day)!.push(newClass);
-      slotUsage.set(slotKey, true);
-      teacherSchedule.get(teacher._id)!.add(teacherSlotKey);
-      roomSchedule.get(selectedRoomId)!.add(teacherSlotKey);
-
-      const currentRemaining = remainingHours.get(subject._id) || 0;
-      remainingHours.set(subject._id, currentRemaining - 1);
-
-      return true;
-    };
-
-    // PHASE 1: Schedule practicals first (1-2 per day)
-    // Distribute practicals evenly across days
-    for (const day of workingDays) {
-      const daySlots = slotsByDay.get(day) || [];
-      let practicalsScheduledToday = 0;
-
-      // Shuffle practical assignments for variety
-      const shuffledPracticals = [...practicalAssignments].sort(() => Math.random() - 0.5);
-
-      for (const assignment of shuffledPracticals) {
-        if (practicalsScheduledToday >= 2) break; // Max 2 practicals per day
-
-        const remaining = remainingHours.get(assignment.subject._id) || 0;
-        if (remaining <= 0) continue;
-
-        // Find a suitable slot (preferably in the middle or end of day for practicals)
-        const preferredSlotIndices = daySlots.length > 4
-          ? [Math.floor(daySlots.length / 2), Math.floor(daySlots.length / 2) + 1, daySlots.length - 1, daySlots.length - 2]
-          : daySlots.map((_, i) => i);
-
-        for (const slotIdx of preferredSlotIndices) {
-          const slot = daySlots[slotIdx];
-          if (!slot) continue;
-
-          if (scheduleClass(assignment, slot, day, 'practical')) {
-            practicalsScheduledToday++;
-            break;
-          }
-        }
-      }
-
-      // Ensure minimum 1 practical per day if we have practicals left
-      if (practicalsScheduledToday === 0) {
-        for (const assignment of shuffledPracticals) {
-          const remaining = remainingHours.get(assignment.subject._id) || 0;
-          if (remaining <= 0) continue;
-
-          for (const slot of daySlots) {
-            if (scheduleClass(assignment, slot, day, 'practical')) {
-              practicalsScheduledToday++;
-              break;
-            }
-          }
-          if (practicalsScheduledToday > 0) break;
-        }
-      }
-    }
-
-    // PHASE 2: Schedule theory classes with equal distribution
-    // Calculate target hours per subject per day for even distribution
-    const subjectDayTargets = new Map<string, Map<number, number>>();
-
-    theoryAssignments.forEach(assignment => {
-      const hoursPerSubjectPerDay = Math.ceil(assignment.allocatedHours / workingDays.length);
-      const dayTargets = new Map<number, number>();
-      workingDays.forEach(day => dayTargets.set(day, hoursPerSubjectPerDay));
-      subjectDayTargets.set(assignment.subject._id, dayTargets);
-    });
-
-    // Round-robin scheduling for theory to ensure variety
-    let schedulingComplete = false;
-    let iterations = 0;
-    const maxIterations = 100; // Prevent infinite loops
-
-    while (!schedulingComplete && iterations < maxIterations) {
-      iterations++;
-      schedulingComplete = true;
-
-      // Shuffle the order of subjects for each iteration to prevent clustering
-      const shuffledTheory = [...theoryAssignments].sort(() => Math.random() - 0.5);
-
-      for (const day of workingDays) {
-        const daySlots = slotsByDay.get(day) || [];
-
-        for (let slotIdx = 0; slotIdx < daySlots.length; slotIdx++) {
-          const slot = daySlots[slotIdx];
-          const slotKey = `${day}-${slot._id}`;
-
-          // Skip if slot is already used
-          if (slotUsage.get(slotKey)) continue;
-
-          // Find the best subject for this slot
-          let bestAssignment: Assignment | null = null;
-          let bestScore = -Infinity;
-
-          for (const assignment of shuffledTheory) {
-            const subjectId = assignment.subject._id;
-            const remaining = remainingHours.get(subjectId) || 0;
-
-            if (remaining <= 0) continue;
-
-            // Check consecutive constraint
-            if (wouldExceedConsecutiveLimit(day, subjectId, slotIdx)) {
-              continue;
-            }
-
-            // Check teacher availability
-            const teacherSlotKey = `${day}-${slot.startTime}-${slot.endTime}`;
-            if (!teacherSchedule.has(assignment.teacher._id)) {
-              teacherSchedule.set(assignment.teacher._id, new Set());
-            }
-            if (teacherSchedule.get(assignment.teacher._id)!.has(teacherSlotKey)) {
-              continue;
-            }
-
-            // Calculate score based on various factors
-            let score = 0;
-
-            // Prefer subjects with more remaining hours
-            score += remaining * 10;
-
-            // Prefer subjects that haven't been scheduled much today (variation)
-            const todayCount = getSubjectCountForDay(day, subjectId);
-            score -= todayCount * 20;
-
-            // Prefer subjects that are below their daily target
-            const dayTarget = subjectDayTargets.get(subjectId)?.get(day) || 0;
-            if (todayCount < dayTarget) {
-              score += 15;
-            }
-
-            if (score > bestScore) {
-              bestScore = score;
-              bestAssignment = assignment;
-            }
-          }
-
-          if (bestAssignment) {
-            scheduleClass(bestAssignment, slot, day, 'theory');
-            schedulingComplete = false; // We scheduled something, keep going
-          }
-        }
-      }
-
-      // Check if any theory subjects still have remaining hours
-      const hasRemainingTheory = theoryAssignments.some(a =>
-        (remainingHours.get(a.subject._id) || 0) > 0
-      );
-
-      if (!hasRemainingTheory) {
-        schedulingComplete = true;
-      }
-    }
-
-    // PHASE 3: Schedule any remaining practical hours
-    for (const assignment of practicalAssignments) {
-      const remaining = remainingHours.get(assignment.subject._id) || 0;
-      if (remaining <= 0) continue;
-
-      for (const day of workingDays) {
-        const practicalsToday = getPracticalsForDay(day);
-        if (practicalsToday >= 2) continue; // Respect max 2 practicals per day
-
-        const daySlots = slotsByDay.get(day) || [];
-        for (const slot of daySlots) {
-          const currentRemaining = remainingHours.get(assignment.subject._id) || 0;
-          if (currentRemaining <= 0) break;
-          if (getPracticalsForDay(day) >= 2) break;
-
-          scheduleClass(assignment, slot, day, 'practical');
-        }
-      }
-    }
-
-    // Generate conflict reports for unscheduled hours
-    assignments.forEach(assignment => {
-      const remaining = remainingHours.get(assignment.subject._id) || 0;
-      if (remaining > 0) {
-        conflicts.push(
-          `Could not schedule all hours for ${assignment.subject.name}. ` +
-          `Scheduled ${assignment.allocatedHours - remaining}/${assignment.allocatedHours}`
-        );
-      }
-    });
-
-    // Validate practical constraints
-    workingDays.forEach(day => {
-      const practicalsToday = getPracticalsForDay(day);
-      if (practicalsToday === 0 && practicalAssignments.length > 0) {
-        conflicts.push(`Warning: No practical session scheduled for ${daysOfWeek[day]}`);
-      }
-    });
-
-    // Sort schedule by day and time for clean output
-    schedule.sort((a, b) => {
-      if (a.day !== b.day) return a.day - b.day;
-      return a.startTime.localeCompare(b.startTime);
-    });
-
-    return { schedule, conflicts };
+    }));
+    flash(`Moved ${session.courseCode} → ${toDay} ${toSlot.label}`);
   };
 
-  const saveTimetable = async () => {
-    if (generatedTimetable.length === 0) {
-      addToast({ title: 'Error', message: 'No timetable to save', type: 'error' });
-      return;
-    }
+  // ── Current division data ─────────────────────────────────────────────────
+  const activeSessions: Session[] = results.find(r => r.division === activeDiv)?.timetable || [];
+  const activeMetrics = results.find(r => r.division === activeDiv)?.metrics;
 
-    if (!rooms.length) {
-      addToast({ title: 'Error', message: 'No rooms available. Please create rooms first.', type: 'error' });
-      return;
-    }
+  // Slots that have data OR are theory (always visible)
+  const usedStarts = new Set(activeSessions.map(s => s.startTime));
+  const visSlots = ALL_SLOTS.filter(sl => sl.type === 'theory' || usedStarts.has(sl.start));
 
-    if (generatedTimetable.some(cls => !cls.room)) {
-      addToast({ title: 'Error', message: 'Some classes are missing room assignments. Please regenerate timetable.', type: 'error' });
-      return;
-    }
-
-    try {
-      const timetableName = `${department} - Semester ${semester} - ${academicYear}`;
-
-      const saved = await timetableService.saveTimetable({
-        name: timetableName,
-        department,
-        semester,
-        academicYear,
-        schedule: generatedTimetable
-      });
-
-      const savedId = (saved as any)?.data?._id || (saved as any)?.timetable?._id;
-      if (savedId) {
-        setTimetableId(savedId);
-      }
-
-      addToast({
-        title: 'Saved',
-        message: 'Timetable saved successfully',
-        type: 'success'
-      });
-    } catch (error: any) {
-      console.error('Error saving timetable:', error);
-      addToast({
-        title: 'Error',
-        message: error.response?.data?.message || 'Failed to save timetable',
-        type: 'error'
-      });
-    }
-  };
-
-  const exportTimetable = () => {
-    if (generatedTimetable.length === 0) {
-      addToast({ title: 'Error', message: 'No timetable to export', type: 'error' });
-      return;
-    }
-
-    // Create CSV content
-    const headers = ['Day', 'Time', 'Subject', 'Teacher'];
-    const rows = generatedTimetable.map(cls => [
-      daysOfWeek[cls.day],
-      `${cls.startTime} - ${cls.endTime}`,
-      cls.subjectName,
-      cls.teacherName
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
-
-    // Download
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `timetable-${department}-sem${semester}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-
-    addToast({ title: 'Success', message: 'Timetable exported', type: 'success' });
-  };
-
-  const buildPayload = () => ({
-    name: `${department} - Semester ${semester} - ${academicYear}`,
-    department,
-    semester,
-    academicYear,
-    schedule: generatedTimetable
+  // Build grid
+  const grid: Record<string, Record<string, Session[]>> = {};
+  DAYS.forEach(d => { grid[d] = {}; });
+  activeSessions.forEach(s => {
+    if (!grid[s.dayOfWeek]) grid[s.dayOfWeek] = {};
+    if (!grid[s.dayOfWeek][s.startTime]) grid[s.dayOfWeek][s.startTime] = [];
+    grid[s.dayOfWeek][s.startTime].push(s);
   });
 
-  const handleSaveDraft = async () => {
-    if (!generatedTimetable.length) {
-      addToast({ title: 'Error', message: 'No timetable to save', type: 'error' });
-      return;
-    }
-    try {
-      const draft = await timetableService.saveDraft(buildPayload());
-      const id = (draft as any)?.data?._id || (draft as any)?.timetable?._id || (draft as any)?._id;
-      if (id) setTimetableId(id);
-      addToast({ title: 'Draft saved', message: 'Timetable draft saved', type: 'success' });
-    } catch (error: any) {
-      addToast({ title: 'Error', message: error.response?.data?.message || 'Failed to save draft', type: 'error' });
-    }
-  };
-
-  const handlePublish = async () => {
-    if (!timetableId) {
-      addToast({ title: 'Error', message: 'Save a draft or timetable first', type: 'error' });
-      return;
-    }
-    try {
-      await timetableService.publishTimetable(timetableId);
-      addToast({ title: 'Published', message: 'Timetable published', type: 'success' });
-    } catch (error: any) {
-      addToast({ title: 'Error', message: error.response?.data?.message || 'Failed to publish', type: 'error' });
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!timetableId) {
-      addToast({ title: 'Error', message: 'No timetable selected to delete', type: 'error' });
-      return;
-    }
-    try {
-      await timetableService.deleteTimetable(timetableId);
-      setTimetableId(null);
-      addToast({ title: 'Deleted', message: 'Timetable deleted', type: 'success' });
-    } catch (error: any) {
-      addToast({ title: 'Error', message: error.response?.data?.message || 'Failed to delete timetable', type: 'error' });
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Timetable Generation</h1>
-          <p className="text-gray-600">Create conflict-free timetables with intelligent scheduling</p>
-        </div>
+    <div style={P.root}>
+      <style>{CSS}</style>
 
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {[
-              { num: 1, label: 'Configuration' },
-              { num: 2, label: 'Assignments' },
-              { num: 3, label: 'Generate' },
-              { num: 4, label: 'Review' }
-            ].map((step, idx) => (
-              <React.Fragment key={step.num}>
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold ${currentStep >= step.num
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-gray-200 text-gray-600'
-                      }`}
-                  >
-                    {step.num}
-                  </div>
-                  <span className="mt-2 text-sm text-gray-600">{step.label}</span>
-                </div>
-                {idx < 3 && (
-                  <div
-                    className={`flex-1 h-1 mx-4 ${currentStep > step.num ? 'bg-primary-600' : 'bg-gray-200'
-                      }`}
-                  />
-                )}
-              </React.Fragment>
+      {/* Toast */}
+      {toast && (
+        <div style={{ ...P.toast, background: toast.ok ? '#052e1a' : '#1a0505', borderColor: toast.ok ? '#16a34a' : '#b91c1c', color: toast.ok ? '#86efac' : '#fca5a5' }}>
+          {toast.ok ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
+
+      {/* ── HEADER ── */}
+      <header style={P.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={P.brandMark}>UF</div>
+          <div>
+            <div style={P.brandName}>Timetable Generation</div>
+            <div style={P.brandSub}>UniFlow · Auto-assigns teachers from course qualifications</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {phase === 'done' && (
+            <button style={P.btnGhost} onClick={() => { setPhase('idle'); setResults([]); setLog([]); }}>
+              ← Regenerate
+            </button>
+          )}
+          <button style={P.btnGhost} onClick={() => navigate('/timetable')}>View All →</button>
+        </div>
+      </header>
+
+      {/* ── STATUS BAR ── */}
+      {status && (
+        <div style={P.statusBar}>
+          {[['Courses', status.courses], ['Teachers', status.teachers], ['Rooms', status.rooms]].map(([k, v]) => (
+            <span key={k as string} style={P.statusChip}>
+              <span style={{ color: '#2563eb', fontWeight: 800 }}>{v}</span>
+              <span style={{ color: '#374151', marginLeft: 4 }}>{k} loaded</span>
+            </span>
+          ))}
+          <span style={{ ...P.statusChip, color: '#16a34a' }}>✓ Teachers auto-resolved</span>
+        </div>
+      )}
+
+      <div style={P.body}>
+        {/* ════════════════════════════════════════════════
+            CONFIG PANEL  (always visible on left / top)
+        ════════════════════════════════════════════════ */}
+        <aside style={P.configPanel} className="config-panel">
+          <div style={P.configTitle}>Configure</div>
+
+          {/* Semester */}
+          <div style={P.fieldGroup}>
+            <div style={P.fieldLabel}>SEMESTER(S)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 7 }}>
+              {[1,2,3,4,5,6,7,8].map(n => (
+                <button key={n} style={{ ...P.togBtn, ...(semesters.includes(n) ? P.togActive : {}) }} onClick={() => toggleSem(n)}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Divisions */}
+          <div style={P.fieldGroup}>
+            <div style={P.fieldLabel}>DIVISION(S)</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {['A','B','C','D'].map(d => (
+                <button key={d} style={{ ...P.divBtn, ...(divisions.includes(d) ? P.togActive : {}) }} onClick={() => toggleDiv(d)}>
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Department */}
+          <div style={P.fieldGroup}>
+            <div style={P.fieldLabel}>DEPARTMENT</div>
+            <input style={P.input} value={dept} onChange={e => setDept(e.target.value)} placeholder="e.g. Information Technology" />
+          </div>
+
+          {/* Year */}
+          <div style={P.fieldGroup}>
+            <div style={P.fieldLabel}>ACADEMIC YEAR</div>
+            <input style={P.input} type="number" value={year} onChange={e => setYear(Number(e.target.value))} />
+          </div>
+
+          {/* Algorithm */}
+          <div style={P.fieldGroup}>
+            <div style={P.fieldLabel}>ALGORITHM</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['genetic','greedy'] as const).map(a => (
+                <button key={a} style={{ ...P.algoBtn, ...(algo === a ? P.togActive : {}) }} onClick={() => setAlgo(a)}>
+                  {a === 'genetic' ? '🧬 Genetic' : '⚡ Greedy'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Info note */}
+          <div style={P.infoNote}>
+            ℹ️ No manual teacher assignment needed. Teachers are auto-selected from each course's <code style={{ background: '#0d1e38', padding: '1px 4px', borderRadius: 3 }}>qualifiedFaculties</code> field with load balancing.
+          </div>
+
+          {/* Summary */}
+          <div style={P.summaryRow}>
+            {[['Sems', semesters.join(',') || '–'],['Divs', divisions.join(',') || '–'],['Batches', String(divisions.length*3)]].map(([k,v]) => (
+              <div key={k} style={P.summaryCell}>
+                <span style={P.summaryK}>{k}</span>
+                <span style={P.summaryV}>{v}</span>
+              </div>
             ))}
           </div>
-        </div>
 
-        {/* Step 1: Configuration */}
-        {currentStep === 1 && (
-          <Card className="mb-6">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-6 flex items-center">
-                <Settings className="mr-2" />
-                Timetable Configuration
-              </h2>
+          {/* Generate Button */}
+          <button
+            style={{ ...P.btnGenerate, ...(phase === 'running' || !semesters.length || !divisions.length ? P.btnDisabled : {}) }}
+            onClick={generate}
+            disabled={phase === 'running' || !semesters.length || !divisions.length}
+            className="generate-btn"
+          >
+            {phase === 'running' ? (
+              <><div className="spin-sm" />Generating…</>
+            ) : (
+              <>⚡ Generate Timetable</>
+            )}
+          </button>
+        </aside>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Department *
-                  </label>
-                  <select
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    <option value="">Select Department</option>
-                    {DEPARTMENT_LIST.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
+        {/* ════════════════════════════════════════════════
+            RIGHT PANEL
+        ════════════════════════════════════════════════ */}
+        <div style={P.rightPanel}>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Semester *
-                  </label>
-                  <select
-                    value={semester}
-                    onChange={(e) => setSemester(parseInt(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    {semesters.map(sem => (
-                      <option key={sem} value={sem}>Semester {sem}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Academic Year
-                  </label>
-                  <Input
-                    value={academicYear}
-                    onChange={(e) => setAcademicYear(e.target.value)}
-                    placeholder="2024-2025"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <Button
-                  onClick={() => {
-                    if (!department) {
-                      addToast({ title: 'Error', message: 'Please select department', type: 'error' });
-                      return;
-                    }
-                    setCurrentStep(2);
-                  }}
-                  disabled={!department || loading}
-                >
-                  Next: Assign Teachers
-                </Button>
-              </div>
+          {/* ── IDLE STATE ── */}
+          {phase === 'idle' && (
+            <div style={P.emptyState}>
+              <div style={P.emptyIcon}>📅</div>
+              <div style={P.emptyTitle}>Ready to Generate</div>
+              <div style={P.emptySub}>Configure parameters on the left, then click Generate. Teachers are assigned automatically — no manual steps required.</div>
             </div>
-          </Card>
-        )}
+          )}
 
-        {/* Step 2: Teacher Assignments */}
-        {currentStep === 2 && (
-          <Card className="mb-6">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold flex items-center">
-                  <Users className="mr-2" />
-                  Teacher-Subject Assignments
-                </h2>
-                <div className="text-sm text-gray-600">
-                  {department} - Semester {semester}
+          {/* ── LOG / RUNNING ── */}
+          {(phase === 'running' || phase === 'error') && (
+            <div style={P.logCard} className="fade-in">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                {phase === 'running' && <div className="spin-lg" />}
+                {phase === 'error'   && <span style={{ fontSize: 24 }}>❌</span>}
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#e2eaf4' }}>
+                  {phase === 'running' ? 'Generating…' : 'Generation Failed'}
                 </div>
               </div>
+              <div ref={logRef} style={P.logBox}>
+                {log.map((l, i) => (
+                  <div key={i} style={{ ...P.logLine, opacity: i === log.length-1 ? 1 : 0.4, fontWeight: i === log.length-1 ? 600 : 400 }}>
+                    {l}
+                  </div>
+                ))}
+              </div>
+              {phase === 'error' && errMsg && (
+                <div style={{ marginTop: 16, background: '#1a0505', border: '1px solid #7f1d1d', color: '#f87171', padding: '12px 14px', borderRadius: 8, fontSize: 13 }}>
+                  {errMsg}
+                </div>
+              )}
+            </div>
+          )}
 
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-                </div>
-              ) : subjects.length === 0 ? (
-                <div className="text-center py-12">
-                  <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No subjects/courses found for this department and semester</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {assignments.map((assignment) => (
-                    <div
-                      key={assignment.subject._id}
-                      className="border border-gray-200 rounded-lg p-4 hover:border-primary-300 transition"
+          {/* ── DONE — RESULTS ── */}
+          {phase === 'done' && (
+            <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%' }}>
+
+              {/* Top bar */}
+              <div style={P.resultTopbar}>
+                {/* Division tabs */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {results.map(r => (
+                    <button
+                      key={r.division}
+                      style={{ ...P.divTab, ...(activeDiv === r.division ? P.divTabActive : {}) }}
+                      onClick={() => setActiveDiv(r.division)}
                     >
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                        <div>
-                          <div className="font-semibold text-gray-900">
-                            {assignment.subject.code}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {assignment.subject.name}
-                          </div>
-                        </div>
-
-                        <div>
-                          <select
-                            value={assignment.teacher?._id || ''}
-                            onChange={(e) => handleAssignTeacher(assignment.subject._id, e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-                          >
-                            <option value="">Select Teacher</option>
-                            {teachers.map(teacher => (
-                              <option key={teacher._id} value={teacher._id}>
-                                {teacher.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">Hours/Week</label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={assignment.allocatedHours}
-                            onChange={(e) => handleUpdateHours(assignment.subject._id, parseInt(e.target.value))}
-                            className="w-24"
-                          />
-                        </div>
-
-                        <div className="flex items-center">
-                          {assignment.teacher ? (
-                            <div className="flex items-center text-green-600 text-sm">
-                              <CheckCircle2 className="w-4 h-4 mr-1" />
-                              Assigned
-                            </div>
-                          ) : (
-                            <div className="flex items-center text-orange-600 text-sm">
-                              <AlertCircle className="w-4 h-4 mr-1" />
-                              Pending
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                      <span style={{ fontSize: 15, fontWeight: 900, color: activeDiv === r.division ? '#60a5fa' : '#3d5470' }}>
+                        {r.division}
+                      </span>
+                      <span style={{ fontSize: 9, color: activeDiv === r.division ? '#3b82f6' : '#1e3050' }}>
+                        {r.timetable.length} sessions
+                      </span>
+                    </button>
                   ))}
                 </div>
-              )}
 
-              <div className="mt-6 flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(1)}>
-                  Back
-                </Button>
-                <Button
-                  onClick={() => {
-                    const unassigned = assignments.filter(a => !a.teacher);
-                    if (unassigned.length > 0) {
-                      addToast({
-                        title: 'Incomplete',
-                        message: `Please assign teachers to all ${unassigned.length} subject(s)`,
-                        type: 'warning'
-                      });
-                      return;
-                    }
-                    setCurrentStep(3);
-                  }}
-                  disabled={subjects.length === 0}
-                >
-                  Next: Generate
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Step 3: Generate */}
-        {currentStep === 3 && (
-          <Card className="mb-6">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-6 flex items-center">
-                <Play className="mr-2" />
-                Generate Timetable
-              </h2>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <h3 className="font-semibold text-blue-900 mb-2">Generation Summary</h3>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Department: <strong>{department}</strong></li>
-                  <li>• Semester: <strong>{semester}</strong></li>
-                  <li>• Subjects: <strong>{subjects.length}</strong></li>
-                  <li>• Teachers: <strong>{new Set(assignments.map(a => a.teacher._id)).size}</strong></li>
-                  <li>• Available Time Slots: <strong>{timeSlots.length}</strong></li>
-                  <li>• Total Classes to Schedule: <strong>{assignments.reduce((sum, a) => sum + a.allocatedHours, 0)}</strong></li>
-                </ul>
-              </div>
-
-              <div className="flex justify-center">
-                <Button
-                  onClick={generateTimetable}
-                  disabled={isGenerating}
-                  size="lg"
-                  className="px-8"
-                >
-                  {isGenerating ? (
+                {/* Metrics + publish */}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginLeft: 'auto' }}>
+                  {activeMetrics && (
                     <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-5 h-5 mr-2" />
-                      Generate Timetable
+                      <div style={P.metricChip}>{activeMetrics.qualityScore}/100 <span style={{ opacity: 0.5 }}>score</span></div>
+                      <div style={{ ...P.metricChip, background: '#052e1a', borderColor: '#16a34a', color: '#86efac' }}>
+                        {activeMetrics.coursesScheduled}/{activeMetrics.totalCourses} <span style={{ opacity: 0.5 }}>courses</span>
+                      </div>
                     </>
                   )}
-                </Button>
+                  <button
+                    style={{ ...P.btnPublish, ...(saveState[activeDiv] === 'saved' ? P.btnPublished : {}) }}
+                    onClick={() => publish(activeDiv)}
+                    disabled={saveState[activeDiv] === 'saving'}
+                  >
+                    {saveState[activeDiv] === 'saving' ? '…' : saveState[activeDiv] === 'saved' ? '✓ Published' : '🚀 Publish'}
+                  </button>
+                </div>
               </div>
 
-              {generatedTimetable.length > 0 && (
-                <div className="mt-6">
-                  <Button
-                    onClick={() => setCurrentStep(4)}
-                    className="w-full"
-                  >
-                    View Generated Timetable
-                  </Button>
+              {/* Conflicts */}
+              {conflicts.length > 0 && (
+                <div style={P.conflictBanner}>
+                  <span style={{ color: '#f59e0b', fontWeight: 700, marginRight: 8 }}>⚠ {conflicts.length} conflict(s)</span>
+                  {conflicts.slice(0, 2).map((c, i) => <span key={i} style={{ fontSize: 11, color: '#78716c', marginRight: 10 }}>{c.message}</span>)}
+                  {conflicts.length > 2 && <span style={{ fontSize: 11, color: '#78716c' }}>+{conflicts.length-2} more</span>}
                 </div>
               )}
 
-              <div className="mt-6 flex justify-start">
-                <Button variant="outline" onClick={() => setCurrentStep(2)}>
-                  Back to Assignments
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Step 4: Review */}
-        {currentStep === 4 && (
-          <div className="space-y-6">
-            {/* Header Card */}
-            <Card className="overflow-hidden">
-              <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-white/20 p-2 rounded-lg">
-                      <Calendar className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-white">Weekly Timetable</h2>
-                      <p className="text-primary-100 text-sm">{department} • Semester {semester} • {academicYear}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={exportTimetable}
-                      className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Export
-                    </Button>
-                    <Button
-                      onClick={saveTimetable}
-                      className="bg-white text-primary-700 hover:bg-primary-50"
-                    >
-                      Save Timetable
-                    </Button>
-                  </div>
-
-                  <div className="flex gap-4 mt-6">
-                    <button
-                      onClick={handleSaveDraft}
-                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg"
-                    >
-                      Save Draft
-                    </button>
-
-                    <button
-                      onClick={handlePublish}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
-                    >
-                      Publish Timetable
-                    </button>
-
-                    <button
-                      onClick={handleDelete}
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
-                    >
-                      Delete
-                    </button>
-                  </div>
+              {/* Log output collapsed */}
+              <details style={{ padding: '6px 16px', borderBottom: '1px solid #0a0f1a' }}>
+                <summary style={{ fontSize: 10, color: '#1e3050', cursor: 'pointer', letterSpacing: 1, fontWeight: 700 }}>GENERATION LOG</summary>
+                <div style={{ ...P.logBox, maxHeight: 120, marginTop: 8 }}>
+                  {log.map((l, i) => <div key={i} style={{ ...P.logLine, opacity: 0.5 }}>{l}</div>)}
                 </div>
-              </div>
-            </Card>
+              </details>
 
-            {/* Status Alerts */}
-            {conflicts.length > 0 && (
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-5 shadow-sm">
-                <div className="flex items-start space-x-3">
-                  <div className="bg-amber-100 p-2 rounded-lg">
-                    <AlertCircle className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-amber-900">Scheduling Conflicts Detected</h3>
-                    <p className="text-amber-700 text-sm mt-1">{conflicts.length} conflict(s) found during generation</p>
-                    <ul className="mt-3 space-y-1">
-                      {conflicts.map((conflict, idx) => (
-                        <li key={idx} className="text-sm text-amber-800 flex items-center">
-                          <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-2"></span>
-                          {conflict}
-                        </li>
+              {/* ── TIMETABLE GRID ── */}
+              <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto' }}>
+                <table style={P.table}>
+                  <thead>
+                    <tr>
+                      <th style={P.thTime}>TIME</th>
+                      {DAYS.map(d => (
+                        <th key={d} style={P.th}>
+                          <div>{d.slice(0,3).toUpperCase()}</div>
+                          <div style={{ fontSize: 8, fontWeight: 400, color: '#1e3050', letterSpacing: 1 }}>{d.slice(3)}</div>
+                        </th>
                       ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {conflicts.length === 0 && generatedTimetable.length > 0 && (
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-5 shadow-sm">
-                <div className="flex items-center space-x-3">
-                  <div className="bg-emerald-100 p-2 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-emerald-900">Perfect Schedule Generated</h3>
-                    <p className="text-emerald-700 text-sm">All {generatedTimetable.length} classes scheduled without any conflicts</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Weekly Timetable Grid */}
-            <Card className="overflow-hidden">
-              <div className="p-6">
-                <WeeklyTimetableGrid
-                  classes={generatedTimetable}
-                  timeSlots={timeSlots}
-                  daysOfWeek={daysOfWeek}
-                />
-              </div>
-            </Card>
-
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-blue-100 text-xs font-medium">Total Classes</p>
-                    <p className="text-2xl font-bold mt-1">{generatedTimetable.length}</p>
-                  </div>
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-indigo-100 text-xs font-medium">Theory</p>
-                    <p className="text-2xl font-bold mt-1">{generatedTimetable.filter(c => c.sessionType === 'theory').length}</p>
-                  </div>
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-green-100 text-xs font-medium">Practicals</p>
-                    <p className="text-2xl font-bold mt-1">{generatedTimetable.filter(c => c.sessionType === 'practical').length}</p>
-                  </div>
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <Settings className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-100 text-xs font-medium">Subjects</p>
-                    <p className="text-2xl font-bold mt-1">{subjects.length}</p>
-                  </div>
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-emerald-100 text-xs font-medium">Teachers</p>
-                    <p className="text-2xl font-bold mt-1">{new Set(assignments.map(a => a.teacher?._id)).size}</p>
-                  </div>
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <Users className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-orange-100 text-xs font-medium">Weekly Hours</p>
-                    <p className="text-2xl font-bold mt-1">{assignments.reduce((sum, a) => sum + a.allocatedHours, 0)}</p>
-                  </div>
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                </div>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visSlots.map(slot => (
+                      <tr key={slot.id}>
+                        <td style={P.tdTime}>
+                          <div style={P.timeLabel}>{slot.label}</div>
+                          <span style={{ ...P.slotBadge, background: slot.type === 'lab' ? '#2d1800' : '#0d1e38', color: slot.type === 'lab' ? '#f59e0b' : '#2563eb' }}>
+                            {slot.type}
+                          </span>
+                        </td>
+                        {DAYS.map(day => {
+                          const cells = grid[day]?.[slot.start] || [];
+                          const isOver = dropOver?.day === day && dropOver?.start === slot.start;
+                          return (
+                            <td
+                              key={day}
+                              style={{ ...P.td, ...(isOver ? P.tdOver : {}) }}
+                              onDragOver={e => { e.preventDefault(); setDropOver({ day, start: slot.start }); }}
+                              onDragLeave={() => setDropOver(null)}
+                              onDrop={() => onDrop(day, slot.start)}
+                            >
+                              {cells.length === 0 && !isOver && <div style={{ height: 52 }} />}
+                              {cells.length === 0 && isOver && <div style={P.dropHint}>Drop here</div>}
+                              {cells.map(session => (
+                                <SessionCard
+                                  key={session.id}
+                                  session={session}
+                                  onDragStart={() => onDragStart(session, day, slot.start)}
+                                  onClick={() => setModal(session)}
+                                />
+                              ))}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+          )}
+        </div>
+      </div>
 
-            {/* Navigation */}
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setCurrentStep(3)}>
-                Back
-              </Button>
-              <Button onClick={() => setCurrentStep(1)} variant="outline">
-                Start New Generation
-              </Button>
-            </div>
-          </div>
-        )}
+      {/* ── DETAIL MODAL ── */}
+      {modal && <DetailModal session={modal} onClose={() => setModal(null)} />}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION CARD
+// ─────────────────────────────────────────────────────────────────────────────
+const SessionCard: React.FC<{ session: Session; onDragStart: () => void; onClick: () => void }> = ({ session, onDragStart, onClick }) => {
+  const c    = courseColor(session.courseCode);
+  const isLab = session.type === 'lab';
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onClick={onClick}
+      className="session-card"
+      style={{ background: c.bg, borderLeft: `3px solid ${c.border}`, borderRadius: 7, padding: '8px 9px', marginBottom: 3, cursor: 'grab', userSelect: 'none' }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: c.text, fontFamily: 'monospace', letterSpacing: '0.3px' }}>
+          {session.courseCode}
+        </span>
+        <span style={{ fontSize: 8, fontWeight: 700, background: c.pill, color: c.text, padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>
+          {isLab ? 'LAB' : 'LEC'}{session.batch ? ` · ${session.batch}` : ''}
+        </span>
+      </div>
+      <div style={{ fontSize: 10, color: '#6b85a0', marginTop: 3, lineHeight: 1.3 }}>
+        {(session.courseName || '').slice(0, 22)}{(session.courseName || '').length > 22 ? '…' : ''}
+      </div>
+      <div style={{ fontSize: 9, color: '#374151', marginTop: 4, fontFamily: 'monospace' }}>
+        👤 {(session.teacherName || '').split(' ')[0]}
+        {session.roomNumber ? ` · 🚪 ${session.roomNumber}` : ''}
       </div>
     </div>
   );
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DETAIL MODAL
+// ─────────────────────────────────────────────────────────────────────────────
+const DetailModal: React.FC<{ session: Session; onClose: () => void }> = ({ session, onClose }) => {
+  const c = courseColor(session.courseCode);
+  return (
+    <div style={P.modalBg} onClick={onClose}>
+      <div style={{ ...P.modal, borderColor: `${c.border}44` }} onClick={e => e.stopPropagation()} className="modal-in">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: c.text, fontFamily: 'monospace' }}>{session.courseCode}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#e2eaf4', marginTop: 2 }}>{session.courseName}</div>
+          </div>
+          <button onClick={onClose} style={P.modalClose}>✕</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+          {([
+            ['Teacher',  session.teacherName],
+            ['Room',     session.roomNumber || '—'],
+            ['Day',      session.dayOfWeek],
+            ['Time',     `${session.startTime} – ${session.endTime}`],
+            ['Type',     session.type.toUpperCase()],
+            ['Division', session.division + (session.batch ? ` · ${session.batch}` : '')],
+            ['Semester', String(session.semester)],
+            ['Credits',  String(session.credits || '—')],
+          ] as [string,string][]).map(([k, v]) => (
+            <div key={k} style={{ background: '#06090e', border: '1px solid #0e1826', borderRadius: 7, padding: '9px 11px' }}>
+              <div style={{ fontSize: 8, color: '#1e3050', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>{k}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af' }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STYLES
+// ─────────────────────────────────────────────────────────────────────────────
+const P: Record<string, React.CSSProperties> = {
+  root:        { minHeight: '100vh', background: '#05080f', color: '#c4d4e8', fontFamily: "'Syne','DM Sans',system-ui,sans-serif", display: 'flex', flexDirection: 'column' },
+  header:      { position: 'sticky', top: 0, zIndex: 50, background: '#06090eee', backdropFilter: 'blur(16px)', borderBottom: '1px solid #0a0f1a', padding: '13px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  brandMark:   { width: 34, height: 34, borderRadius: 9, background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: '#fff', flexShrink: 0 },
+  brandName:   { fontSize: 16, fontWeight: 800, color: '#e2eaf4', letterSpacing: '-0.5px' },
+  brandSub:    { fontSize: 9, color: '#1e3050', letterSpacing: '0.3px', marginTop: 1 },
+  btnGhost:    { background: 'transparent', border: '1px solid #0e1826', color: '#3d5470', padding: '6px 14px', borderRadius: 7, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 },
+
+  statusBar:   { background: '#06090f', borderBottom: '1px solid #0a0f1a', padding: '7px 24px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
+  statusChip:  { fontSize: 11, background: '#090f1c', border: '1px solid #0a0f1a', padding: '3px 10px', borderRadius: 20, fontFamily: 'monospace' },
+
+  body:        { flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 },
+
+  // Config panel
+  configPanel: { width: 260, minWidth: 260, background: '#07090f', borderRight: '1px solid #0a0f1a', padding: '20px 16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 },
+  configTitle: { fontSize: 10, fontWeight: 800, color: '#1e3050', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 18 },
+  fieldGroup:  { marginBottom: 18 },
+  fieldLabel:  { fontSize: 9, fontWeight: 800, color: '#1e3050', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8 },
+  togBtn:      { padding: '9px 0', background: '#060c18', border: '1px solid #0e1826', color: '#1e3050', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' },
+  togActive:   { background: '#0d1e38', borderColor: '#2563eb', color: '#60a5fa' },
+  divBtn:      { width: 50, height: 50, background: '#060c18', border: '2px solid #0e1826', color: '#1e3050', borderRadius: 9, cursor: 'pointer', fontSize: 18, fontWeight: 800, fontFamily: 'inherit' },
+  algoBtn:     { flex: 1, padding: '8px 0', background: '#060c18', border: '1px solid #0e1826', color: '#1e3050', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' },
+  input:       { width: '100%', background: '#060c18', border: '1px solid #0e1826', color: '#c4d4e8', padding: '9px 11px', borderRadius: 7, fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' },
+  infoNote:    { background: '#05172e', border: '1px solid #1e3a5f', borderRadius: 8, padding: '10px 12px', fontSize: 11, color: '#3b82f6', lineHeight: 1.6, marginBottom: 18 },
+  summaryRow:  { display: 'flex', background: '#060c18', border: '1px solid #0e1826', borderRadius: 9, padding: '11px 14px', marginBottom: 16 },
+  summaryCell: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 },
+  summaryK:    { fontSize: 8, color: '#1e3050', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  summaryV:    { fontSize: 14, fontWeight: 800, color: '#c4d4e8' },
+  btnGenerate: { width: '100%', background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', border: 'none', color: '#fff', padding: '13px', borderRadius: 9, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btnDisabled: { opacity: 0.4, cursor: 'not-allowed' },
+
+  // Right panel
+  rightPanel:  { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 },
+
+  emptyState:  { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, padding: 40 },
+  emptyIcon:   { fontSize: 48, marginBottom: 4 },
+  emptyTitle:  { fontSize: 20, fontWeight: 800, color: '#c4d4e8' },
+  emptySub:    { fontSize: 13, color: '#1e3050', textAlign: 'center', maxWidth: 360, lineHeight: 1.7 },
+
+  logCard:     { padding: 28, maxWidth: 560, margin: '32px auto', width: '100%' },
+  logBox:      { background: '#05080f', border: '1px solid #0a0f1a', borderRadius: 9, padding: '14px 16px', fontFamily: 'monospace', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 200, overflowY: 'auto' },
+  logLine:     { color: '#c4d4e8', lineHeight: 1.5 },
+
+  // Results
+  resultTopbar: { display: 'flex', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid #0a0f1a', background: '#07090f', gap: 8, flexWrap: 'wrap' },
+  divTab:       { background: '#060c18', border: '1px solid #0a0f1a', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 },
+  divTabActive: { background: '#0d1e38', borderColor: '#2563eb' },
+  metricChip:   { background: '#05172e', border: '1px solid #1e3a5f', color: '#60a5fa', padding: '4px 10px', borderRadius: 20, fontSize: 11, fontFamily: 'monospace' },
+  btnPublish:   { background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', border: 'none', color: '#fff', padding: '6px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  btnPublished: { background: 'linear-gradient(135deg,#065f46,#059669)' },
+  conflictBanner: { padding: '7px 16px', background: '#1a0e05', borderBottom: '1px solid #2d1800', fontSize: 11, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
+
+  // Table
+  table:   { width: '100%', borderCollapse: 'collapse', minWidth: 820 },
+  thTime:  { width: 110, padding: '11px 14px', background: '#06090e', color: '#1e3050', fontSize: 8, fontWeight: 800, letterSpacing: '1.5px', borderBottom: '1px solid #0a0f1a', textAlign: 'left', position: 'sticky', top: 0, zIndex: 10 },
+  th:      { padding: '11px 7px', background: '#06090e', color: '#2563eb', fontSize: 9, fontWeight: 800, letterSpacing: '1.5px', borderBottom: '1px solid #0a0f1a', textAlign: 'center', position: 'sticky', top: 0, zIndex: 10 },
+  tdTime:  { padding: '8px 8px 8px 14px', background: '#07090f', borderRight: '1px solid #0a0f1a', borderBottom: '1px solid #060b14', verticalAlign: 'top', minWidth: 110 },
+  timeLabel: { fontSize: 10, color: '#374151', fontFamily: 'monospace', lineHeight: 1.4 },
+  slotBadge: { fontSize: 7, fontWeight: 700, padding: '1px 6px', borderRadius: 3, display: 'inline-block', marginTop: 3, textTransform: 'uppercase' },
+  td:      { padding: 5, borderBottom: '1px solid #060b14', verticalAlign: 'top', minWidth: 142 },
+  tdOver:  { background: '#0a1e38', outline: '2px dashed #1d4ed8', outlineOffset: -2 },
+  dropHint:{ height: 52, border: '2px dashed #1a3a6e', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1e3050', fontSize: 10 },
+
+  // Modal
+  modalBg:    { position: 'fixed', inset: 0, background: '#000000bb', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  modal:      { background: '#090f1c', border: '1px solid #1a2d4a', borderRadius: 14, padding: 26, maxWidth: 430, width: '100%', boxShadow: '0 32px 80px #000000cc' },
+  modalClose: { background: '#060c18', border: '1px solid #0e1826', color: '#374151', width: 26, height: 26, borderRadius: 6, cursor: 'pointer', fontSize: 12 },
+
+  toast: { position: 'fixed', bottom: 22, right: 22, zIndex: 9999, padding: '11px 18px', borderRadius: 9, fontSize: 12, fontWeight: 600, border: '1px solid', boxShadow: '0 8px 30px #00000055', animation: 'slideUp 0.3s ease' },
+};
+
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-thumb { background:#0e1826; border-radius:3px; }
+  .session-card { transition: transform 0.14s, box-shadow 0.14s; }
+  .session-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px #00000055; }
+  .generate-btn:not([disabled]):hover { opacity: 0.9; transform: translateY(-1px); transition: all 0.15s; }
+  .fade-in { animation: fadeIn 0.35s ease; }
+  .modal-in { animation: modalIn 0.22s ease; }
+  .spin-sm { width:16px; height:16px; border-radius:50%; border:2px solid #0e1826; border-top-color:#2563eb; animation:spin 0.7s linear infinite; flex-shrink:0; }
+  .spin-lg { width:28px; height:28px; border-radius:50%; border:3px solid #0e1826; border-top-color:#2563eb; animation:spin 0.8s linear infinite; }
+  @keyframes spin    { to { transform:rotate(360deg); } }
+  @keyframes fadeIn  { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes modalIn { from { opacity:0; transform:scale(0.96); } to { opacity:1; transform:scale(1); } }
+  @keyframes slideUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  select option { background: #090f1c; color: #c4d4e8; }
+  details summary::-webkit-details-marker { display:none; }
+`;
+
+const tick = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export default TimetableGenerationPage;

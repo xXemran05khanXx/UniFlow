@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Calendar, Clock, Users, Search, Plus, ChevronDown, Loader2 } from 'lucide-react';
+import { Calendar, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { dataManagementService } from '../../services/dataManagementService';
-
+import { useNavigate } from 'react-router-dom';
+import Button from '../../components/ui/Button';
 interface Teacher {
   id: string;
   name: string;
@@ -27,7 +28,6 @@ interface Room {
   building: string;
   capacity: number;
 }
-
 interface ScheduleMeetingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -182,6 +182,7 @@ const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
 };
 
 const AdminMyTeachersPage: React.FC = () => {
+  const navigate = useNavigate();
   // State for Scheduling Assistant
   const [selectedTeachers, setSelectedTeachers] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -410,259 +411,16 @@ const AdminMyTeachersPage: React.FC = () => {
         
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            My Teachers
-          </h1>
+           <Button variant="outline" className="flex items-center justify-center p-4 h-auto"
+    onClick={() => navigate('/admin/master-timetable')}>
+    <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+    Master Timetables
+  </Button> 
           <p className="text-gray-600 mt-2 text-lg">
             Manage teacher schedules and find common availability slots
           </p>
         </div>
 
-        {/* Scheduling Assistant Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex items-center mb-6">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl">
-              <Calendar className="h-6 w-6 text-white" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 ml-4">Scheduling Assistant</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Teacher selection */}
-            <div className="space-y-4">
-              <label className="block text-sm font-medium text-gray-700">Select Teachers *</label>
-
-              {/* Quick filters */}
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { id: 'all', label: 'All' },
-                  { id: 'today', label: 'Only Available Today' },
-                  { id: 'recent', label: 'Recently Selected' }
-                ].map((filter) => (
-                  <button
-                    key={filter.id}
-                    onClick={() => setActiveFilter(filter.id as any)}
-                    className={`filter-pill px-3 py-1 rounded-full text-sm border transition ${activeFilter === filter.id ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Searchable dropdown */}
-              <div className="relative" onKeyDown={(e) => {
-                if (!isDropdownOpen && (e.key === 'ArrowDown' || e.key === 'Enter')) {
-                  setIsDropdownOpen(true);
-                  return;
-                }
-                if (!isDropdownOpen) return;
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setHighlightIndex((prev) => Math.min(prev + 1, filteredTeachers.length - 1));
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setHighlightIndex((prev) => Math.max(prev - 1, 0));
-                } else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const targetTeacher = filteredTeachers[highlightIndex];
-                  if (targetTeacher) toggleTeacherSelection(targetTeacher.id);
-                } else if (e.key === 'Escape') {
-                  setIsDropdownOpen(false);
-                }
-              }}>
-                <div
-                  className="flex items-center rounded-lg border border-gray-300 px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-indigo-500 cursor-text"
-                  onClick={() => setIsDropdownOpen(true)}
-                  role="combobox"
-                  aria-expanded={isDropdownOpen}
-                  aria-haspopup="listbox"
-                >
-                  <Search className="h-4 w-4 text-gray-400" />
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => { setSearchTerm(e.target.value); setHighlightIndex(0); setIsDropdownOpen(true); }}
-                    placeholder="Search teachers by name, department, designation"
-                    className="ml-2 flex-1 bg-transparent focus:outline-none text-sm text-gray-800"
-                    aria-label="Search teachers"
-                  />
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                </div>
-
-                {isDropdownOpen && (
-                  <div
-                    ref={listRef}
-                    className="absolute z-20 mt-1 w-full max-h-72 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
-                    role="listbox"
-                  >
-                    {teachersLoading ? (
-                      <div className="p-3 text-sm text-gray-500">Loading teachers...</div>
-                    ) : filteredTeachers.length === 0 ? (
-                      <div className="p-3 text-sm text-gray-500">No teachers match your search.</div>
-                    ) : (
-                      filteredTeachers.map((teacher, idx) => {
-                        const selected = selectedTeachers.includes(teacher.id);
-                        const highlight = idx === highlightIndex;
-                        const deptName = typeof teacher.department === 'object' ? (teacher.department as any)?.name || (teacher.department as any)?.code : teacher.department;
-                        const availabilitySummary = teacher.availability?.length
-                          ? teacher.availability.map(a => `${a.dayOfWeek} ${a.startTime}-${a.endTime}`).join(', ')
-                          : 'No availability';
-                        return (
-                          <button
-                            type="button"
-                            key={teacher.id}
-                            className={`w-full text-left px-3 py-2 flex items-start gap-3 ${highlight ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
-                            onClick={() => toggleTeacherSelection(teacher.id)}
-                            role="option"
-                            aria-selected={selected}
-                            title={availabilitySummary}
-                            tabIndex={-1}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              readOnly
-                              className="mt-1 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium text-gray-900 truncate">{teacher.name}</span>
-                                <span className="text-xs text-gray-500">{deptName}</span>
-                              </div>
-                              <p className="text-xs text-gray-600 truncate">{availabilitySummary}</p>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Selected chips */}
-              {selectedTeachers.length > 0 && (
-                <div className="flex flex-wrap gap-2" aria-label="Selected teachers">
-                  {getSelectedTeachersData().map((teacher) => {
-                    const initials = teacher.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
-                    const deptName = typeof teacher.department === 'object' ? (teacher.department as any)?.name || (teacher.department as any)?.code : teacher.department;
-                    const availabilitySummary = teacher.availability?.length
-                      ? teacher.availability.map(a => `${a.dayOfWeek} ${a.startTime}-${a.endTime}`).join(', ')
-                      : 'No availability';
-                    return (
-                      <span
-                        key={teacher.id}
-                        className="group inline-flex items-center gap-2 rounded-full bg-indigo-100 text-indigo-700 px-3 py-1 text-sm shadow-sm"
-                        title={availabilitySummary}
-                      >
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold">
-                          {initials}
-                        </span>
-                        <span className="truncate max-w-[160px]">{teacher.name}</span>
-                        <span className="text-xs text-indigo-600/80">{deptName}</span>
-                        <button
-                          onClick={() => toggleTeacherSelection(teacher.id)}
-                          className="ml-1 text-indigo-600 hover:text-indigo-800 focus:outline-none"
-                          aria-label={`Remove ${teacher.name}`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Date + action */}
-            <div className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Date *</label>
-                  <input
-                    type="date"
-                    value={selectedDate.toISOString().split('T')[0]}
-                    onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    title="Select date for availability search"
-                    aria-label="Select date for availability search"
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={findCommonSlots}
-                disabled={selectedTeachers.length < 2 || loading || !selectedDate}
-                className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 shadow-sm"
-              >
-                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Clock className="h-5 w-5" />}
-                <span>{loading ? 'Searching...' : 'Find Common Slots'}</span>
-              </button>
-            </div>
-
-            {/* Results */}
-            <div className="md:col-span-2 bg-gray-50 rounded-xl p-6">
-              {!searchAttempted ? (
-                <div className="text-center py-8">
-                  <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 text-lg">
-                    Select teachers and a date to find common availability
-                  </p>
-                </div>
-              ) : loading ? (
-                <div className="text-center py-8 animate-pulse">
-                  <Loader2 className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-spin" />
-                  <p className="text-gray-600 text-lg">Searching for common slots...</p>
-                </div>
-              ) : commonSlots.length > 0 ? (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Users className="h-5 w-5 mr-2 text-green-600" />
-                    Available Common Slots
-                  </h3>
-                  <div className="space-y-3">
-                    {commonSlots.map((slot, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <Clock className="h-5 w-5 text-blue-600" />
-                          <span className="font-medium text-gray-900">
-                            {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => handleScheduleMeeting(slot)}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center space-x-2"
-                        >
-                          <Plus className="h-4 w-4" />
-                          <span>Schedule Meeting</span>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Clock className="h-12 w-12 text-red-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    No common slots found
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    No common slots found for the selected teachers on this date.
-                  </p>
-                  {nextAvailableSlot && (
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <p className="text-sm text-blue-700">
-                        <strong>Next available common slot:</strong><br />
-                        {nextAvailableSlot.date} at {formatTime(nextAvailableSlot.startTime)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
 
         {/* Teachers List Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
