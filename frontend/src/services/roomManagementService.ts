@@ -4,8 +4,9 @@
  */
 
 import axios, { AxiosResponse } from 'axios';
+import { getApiBaseUrl } from './apiConfig';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = getApiBaseUrl();
 
 // API client with request/response interceptors
 const apiClient = axios.create({
@@ -183,7 +184,7 @@ export interface PeakHourItem {
 }
 
 export interface RoomBookingPayload {
-  room: string;
+  roomId: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -192,7 +193,8 @@ export interface RoomBookingPayload {
 
 export interface RoomBooking {
   _id: string;
-  room: string | Room;
+  roomId?: string;
+  room?: string | Room;
   bookedBy?: {
     _id?: string;
     name?: string;
@@ -524,8 +526,11 @@ class RoomManagementService {
    */
   async getBuildings(): Promise<string[]> {
     try {
-      const response = await apiClient.get('/rooms/buildings');
-      return unwrapRoomData<string[]>(response.data);
+      const response = await apiClient.get('/rooms?page=1&limit=1000&sortBy=building&sortOrder=asc');
+      const payload = unwrapRoomData<any>(response.data);
+      const rooms = Array.isArray(payload) ? payload : payload.rooms || [];
+      const buildings = Array.from(new Set(rooms.map((room: Room) => room.building).filter(Boolean)));
+      return buildings as string[];
     } catch (error) {
       console.error('Error fetching buildings:', error);
       return [
@@ -549,9 +554,10 @@ class RoomManagementService {
   ): Promise<Room[]> {
     try {
       const response: AxiosResponse<any> = await apiClient.get(
-        `/rooms/building/${building}/floor/${floor}`
+        `/rooms?page=1&limit=1000&building=${encodeURIComponent(building)}&floor=${floor}`
       );
-      return unwrapRoomData<Room[]>(response.data);
+      const payload = unwrapRoomData<any>(response.data);
+      return (payload.rooms || payload || []) as Room[];
     } catch (error) {
       console.error('Error fetching rooms by building and floor:', error);
       throw new Error('Failed to fetch rooms');
@@ -576,10 +582,36 @@ class RoomManagementService {
     }>;
   }> {
     try {
-      const response = await apiClient.get(`/rooms/${roomId}/availability`, {
-        params: { date, startTime, endTime }
+      const response = await apiClient.get(`/rooms/${roomId}/bookings`, {
+        params: {
+          startDate: `${date}T00:00:00.000Z`,
+          endDate: `${date}T23:59:59.999Z`,
+          status: 'approved'
+        }
       });
-      return unwrapRoomData(response.data);
+      const payload = unwrapRoomData<any>(response.data);
+      const bookings = payload.bookings || [];
+
+      const requestedStart = new Date(`${date}T${startTime}:00`).getTime();
+      const requestedEnd = new Date(`${date}T${endTime}:00`).getTime();
+
+      const conflicts = bookings
+        .filter((booking: any) => {
+          const bookingStart = new Date(booking.startTime).getTime();
+          const bookingEnd = new Date(booking.endTime).getTime();
+          return requestedStart < bookingEnd && requestedEnd > bookingStart;
+        })
+        .map((booking: any) => ({
+          subject: booking.purpose || 'Booking',
+          startTime: new Date(booking.startTime).toISOString().slice(11, 16),
+          endTime: new Date(booking.endTime).toISOString().slice(11, 16),
+          teacher: booking.userId?.name || 'N/A'
+        }));
+
+      return {
+        available: conflicts.length === 0,
+        conflicts
+      };
     } catch (error) {
       console.error('Error checking room availability:', error);
       throw new Error('Failed to check room availability');
@@ -686,7 +718,17 @@ class RoomManagementService {
    */
   async createRoomBooking(payload: RoomBookingPayload): Promise<RoomBooking> {
     try {
-      const response: AxiosResponse<any> = await apiClient.post('/room-bookings', payload);
+      const startIso = new Date(`${payload.date}T${payload.startTime}:00`).toISOString();
+      const endIso = new Date(`${payload.date}T${payload.endTime}:00`).toISOString();
+
+      const response: AxiosResponse<any> = await apiClient.post(
+        `/rooms/${payload.roomId}/bookings`,
+        {
+          purpose: payload.purpose,
+          startTime: startIso,
+          endTime: endIso
+        }
+      );
       return unwrapRoomData<RoomBooking>(response.data);
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -702,9 +744,13 @@ class RoomManagementService {
    */
   async getRoomBookings(roomId?: string): Promise<RoomBooking[]> {
     try {
-      const params = roomId ? { room: roomId } : undefined;
-      const response: AxiosResponse<any> = await apiClient.get('/room-bookings', { params });
-      return unwrapRoomData<RoomBooking[]>(response.data);
+      if (!roomId) {
+        return [];
+      }
+
+      const response: AxiosResponse<any> = await apiClient.get(`/rooms/${roomId}/bookings`);
+      const payload = unwrapRoomData<any>(response.data);
+      return payload.bookings || [];
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const backendMsg = error.response?.data?.message || error.response?.data?.error;
@@ -717,9 +763,11 @@ class RoomManagementService {
   /**
    * Cancel a booking
    */
-  async cancelRoomBooking(id: string): Promise<RoomBooking> {
+  async cancelRoomBooking(id: string, roomId: string): Promise<RoomBooking> {
     try {
-      const response: AxiosResponse<any> = await apiClient.patch(`/room-bookings/${id}/cancel`);
+      const response: AxiosResponse<any> = await apiClient.patch(`/rooms/${roomId}/bookings/${id}`, {
+        status: 'cancelled'
+      });
       return unwrapRoomData<RoomBooking>(response.data);
     } catch (error) {
       if (axios.isAxiosError(error)) {

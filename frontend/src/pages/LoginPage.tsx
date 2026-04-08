@@ -1,15 +1,14 @@
+import { AlertCircle, Eye, EyeOff, GraduationCap } from 'lucide-react';
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAppDispatch } from '../hooks/redux';
-import { loginUser } from '../store/authSlice';
-import { useAuth } from '../hooks/useAuth';
+import AccountLockWarning from '../components/AccountLockWarning';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import Card from '../components/ui/Card';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useToast } from '../contexts/ToastContext';
-import AccountLockWarning from '../components/AccountLockWarning';
-import { Eye, EyeOff, LogIn } from 'lucide-react';
+import { useAppDispatch } from '../hooks/redux';
+import { useAuth } from '../hooks/useAuth';
+import { loginUser } from '../store/authSlice';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -19,7 +18,7 @@ const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockUntil, setLockUntil] = useState<Date | null>(null);
-  
+
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { isLoading, isAuthenticated } = useAuth();
@@ -27,85 +26,62 @@ const LoginPage: React.FC = () => {
   const { addToast } = useToast();
 
   React.useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/');
-    }
+    if (isAuthenticated) navigate('/');
   }, [isAuthenticated, navigate]);
+
+  React.useEffect(() => {
+    const remembered = localStorage.getItem('rememberedEmail');
+    if (remembered) {
+      setEmail(remembered);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    console.log('🚀 Form submitted, prevented default');
-    
+
     setError('');
 
     if (!email || !password) {
-      const errorMsg = 'Please fill in all fields';
-      setError(errorMsg);
-      addToast({ title: "Validation Error", message: errorMsg, type: "error" });
+      setError('Please fill in all fields');
       return;
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      const errorMsg = 'Please enter a valid email address';
-      setError(errorMsg);
-      addToast({ title: "Validation Error", message: errorMsg, type: "error" });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address');
       return;
     }
-
-    console.log('📝 Validation passed, attempting login...');
 
     try {
-      console.log('Attempting login with:', { email, password });
       const result = await dispatch(loginUser({ email, password })).unwrap();
-      console.log('Login successful, result:', result);
-      // Don't navigate immediately - let Redux handle it via useEffect
-      
-      // Save email if remember me is checked
+
       if (rememberMe) {
         localStorage.setItem('rememberedEmail', email);
       } else {
         localStorage.removeItem('rememberedEmail');
       }
-      
-      // Redirect based on user role
-      const userRole = result.user?.role || 'student';
-      console.log('User role:', userRole, 'Navigating to dashboard...');
-      switch (userRole) {
+
+      const role = result.user?.role || 'student';
+      switch (role) {
         case 'admin':
-          navigate('/dashboard?view=admin', { replace: true });
+          navigate('/dashboard', { replace: true });
           break;
         case 'teacher':
-          navigate('/dashboard?view=teacher', { replace: true });
-          break;
-        case 'student':
-          navigate('/dashboard?view=student', { replace: true });
+          navigate('/dashboard', { replace: true });
           break;
         default:
           navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
-      console.log('⚠️ Entered catch block');
-      console.error('=== Login Error Caught ===');
-      console.error('Full error object:', err);
-      console.error('Error type:', typeof err);
-      console.error('Error.message:', err?.message);
-      console.error('Error.response:', err?.response);
-      console.error('Error.response.data:', err?.response?.data);
-      
-      // Extract lock/attempt data from error response
       const errorData = err?.response?.data?.error?.data;
       if (errorData) {
         setFailedAttempts(errorData.failedAttempts || 0);
         setLockUntil(errorData.lockUntil ? new Date(errorData.lockUntil) : null);
       }
-      
-      // Extract error message from various possible formats
+
       let errorText = '';
-      
+
       if (typeof err === 'string') {
         errorText = err;
       } else if (err?.response?.data?.error) {
@@ -117,168 +93,177 @@ const LoginPage: React.FC = () => {
       } else {
         errorText = String(err);
       }
-      
-      console.log('Extracted error text:', errorText);
-      
+
       let friendly = 'Login failed. Please check your credentials.';
       let errorTitle = 'Login Failed';
+      const lower = errorText.toLowerCase();
 
-      const lowerError = errorText.toLowerCase();
-
-      // Handle different error types
-      if (lowerError.includes('locked') || lowerError.includes('try again')) {
+      if (lower.includes('locked') || lower.includes('try again')) {
         errorTitle = 'Account Locked';
-        friendly = errorText || 'Your account is temporarily locked due to too many failed login attempts. Please try again later.';
-      } else if (lowerError.includes('invalid credentials')) {
+        friendly = errorText || 'Your account is temporarily locked. Please try again later.';
+      } else if (lower.includes('invalid credentials')) {
         errorTitle = 'Invalid Credentials';
-        friendly = 'Invalid email or password. Please check your credentials and try again.';
-      } else if (lowerError.includes('user not found') || lowerError.includes('no user')) {
+        friendly = 'Invalid email or password. Please try again.';
+      } else if (lower.includes('user not found') || lower.includes('no user')) {
         errorTitle = 'User Not Found';
         friendly = 'No account found with that email. Please register first.';
-      } else if (lowerError.includes('network') || lowerError.includes('timeout')) {
+      } else if (lower.includes('network') || lower.includes('timeout')) {
         errorTitle = 'Network Error';
         friendly = 'Network error. Please check your connection and try again.';
       } else if (errorText) {
         friendly = errorText;
       }
 
-      console.log('Setting error state to:', friendly);
       setError(friendly);
-      
-      console.log('Calling addToast with:', { title: errorTitle, message: friendly, type: 'error' });
-      
-      // Show toast notification
       try {
-        addToast({
-          title: errorTitle,
-          message: friendly,
-          type: 'error',
-          duration: 6000
-        });
-        console.log('✅ Toast added successfully');
-      } catch (toastErr) {
-        console.error('❌ Failed to add toast:', toastErr);
+        addToast({ title: errorTitle, message: friendly, type: 'error', duration: 6000 });
+      } catch {
+        // no-op
       }
 
       try {
-        addNotification({
-          type: 'general',
-          title: errorTitle,
-          message: friendly,
-          timestamp: new Date(),
-          read: false,
-        });
-      } catch (notifyErr) {
-        console.warn('Notification failed:', notifyErr);
+        addNotification({ type: 'general', title: errorTitle, message: friendly, timestamp: new Date(), read: false });
+      } catch {
+        // no-op
       }
     }
   };
 
-  // Load remembered email on component mount
-  React.useEffect(() => {
-    const rememberedEmail = localStorage.getItem('rememberedEmail');
-    if (rememberedEmail) {
-      setEmail(rememberedEmail);
-      setRememberMe(true);
-    }
-  }, []);
-
   return (
-    <div className="min-h-screen bg-secondary-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600">UniFlow</h1>
-          <h2 className="mt-6 text-2xl font-semibold text-secondary-900">
-            Sign in to your account
-          </h2>
-          <p className="mt-2 text-sm text-secondary-600">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-primary-600 hover:text-primary-500 font-medium">
-              Sign up
-            </Link>
-          </p>
-        </div>
-
-        <Card>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Account Lock Warning */}
-            <AccountLockWarning 
-              failedAttempts={failedAttempts}
-              lockUntil={lockUntil}
-              maxAttempts={5}
-            />
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  {error}
+    <div className="min-h-screen flex">
+      <div className="hidden lg:flex lg:flex-1 flex-col items-center justify-center bg-gradient-to-br from-primary-700 via-primary-600 to-primary-500 px-12 py-16 relative overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)',
+            backgroundSize: '40px 40px'
+          }}
+        />
+        <div className="relative z-10 max-w-sm text-center text-white">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm mb-6 shadow-lg">
+            <GraduationCap className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3">UniFlow</h1>
+          <p className="text-lg text-primary-100 font-medium mb-8">Academic Suite</p>
+          <div className="space-y-4 text-left">
+            {[
+              { title: 'Smart Timetabling', desc: 'AI-powered conflict-free schedule generation' },
+              { title: 'Swap & Absence Management', desc: 'Seamless teacher substitution workflows' },
+              { title: 'Role-Based Access', desc: 'Tailored views for admin, teacher & student' },
+            ].map((feature) => (
+              <div key={feature.title} className="flex items-start gap-3">
+                <div className="w-2 h-2 rounded-full bg-primary-200 mt-2 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-white">{feature.title}</p>
+                  <p className="text-xs text-primary-200">{feature.desc}</p>
                 </div>
               </div>
-            )}
+            ))}
+          </div>
+        </div>
+      </div>
 
-            <Input
-              label="Email address"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              required
-            />
+      <div className="flex flex-1 items-center justify-center bg-secondary-50 px-4 py-12 sm:px-8">
+        <div className="w-full max-w-md">
+          <div className="lg:hidden text-center mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary-600 mb-3">
+              <GraduationCap className="w-7 h-7 text-white" />
+            </div>
+            <h1 className="text-2xl font-extrabold text-primary-600">UniFlow</h1>
+          </div>
 
-            <div className="relative">
+          <div className="bg-white rounded-2xl shadow-lg border border-secondary-100 p-8">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-secondary-900">Welcome back</h2>
+              <p className="text-sm text-secondary-500 mt-1">
+                Sign in to your account to continue
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+              <AccountLockWarning
+                failedAttempts={failedAttempts}
+                lockUntil={lockUntil}
+                maxAttempts={5}
+              />
+
+              {error && (
+                <div className="flex items-start gap-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+                  <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
+
               <Input
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                label="Email address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@university.edu"
+                autoComplete="email"
                 required
               />
-              <button
-                type="button"
-                className="absolute right-3 top-8 text-gray-400 hover:text-gray-600"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              <div className="relative">
+                <Input
+                  label="Password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  required
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                  Remember me
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute right-3 top-[2.15rem] text-secondary-400 hover:text-secondary-600 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
 
-              <div className="text-sm">
-                <Link to="/forgot-password" className="text-primary-600 hover:text-primary-500">
-                  Forgot your password?
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-4 w-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                  />
+                  <span className="text-sm text-secondary-600">Remember me</span>
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-sm font-medium text-primary-600 hover:text-primary-500 transition-colors"
+                >
+                  Forgot password?
                 </Link>
               </div>
-            </div>
 
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full flex items-center justify-center"
-              isLoading={isLoading}
-            >
-              <LogIn className="h-5 w-5 mr-2" />
-              Sign In
-            </Button>
-          </form>
-        </Card>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full mt-2"
+                isLoading={isLoading}
+              >
+                Sign in
+              </Button>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-secondary-500">
+              Don&apos;t have an account?{' '}
+              <Link
+                to="/register"
+                className="font-medium text-primary-600 hover:text-primary-500 transition-colors"
+              >
+                Create one
+              </Link>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -15,17 +15,17 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [
       process.env.FRONTEND_URL,
       'http://localhost:3000',
       'https://localhost:3000'
     ].filter(Boolean);
-    
+
     if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'production') {
       return callback(null, true);
     }
-    
+
     callback(null, true); // Allow all origins in development
   },
   credentials: true
@@ -35,17 +35,17 @@ app.use(express.urlencoded({ extended: true }));
 
 // Connect to MongoDB
 mongoose.connect(process.env.DATABASE_URL)
-.then(() => {
-  console.log('✅ Connected to MongoDB');
-})
-.catch((error) => {
-  console.error('❌ MongoDB connection error:', error.message);
-});
+  .then(() => {
+    console.log('✅ Connected to MongoDB');
+  })
+  .catch((error) => {
+    console.error('❌ MongoDB connection error:', error.message);
+  });
 
 // Basic health check route
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: 'UniFlow Backend API is running',
     timestamp: new Date().toISOString()
   });
@@ -62,6 +62,7 @@ const timeSlotRoutes = require('./src/routes/timeSlotRoutes');
 const departmentRoutes = require("./src/routes/departmentRoutes")
 const teacherRoutes = require("./src/routes/teacherRoutes");
 const meetingRoutes = require('./src/routes/Meetingroutes');
+const settingsRoutes = require('./src/routes/settingsRoutes');
 // Use routes
 console.log('🔧 Mounting API routes...');
 app.use('/api/auth', authRoutes);
@@ -71,23 +72,23 @@ app.use('/api/users', userRoutes);
 app.use('/api/Courses', CourseRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/timeslots', timeSlotRoutes);
-app.use('/api/departments', departmentRoutes);  
+app.use('/api/departments', departmentRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/meetings', meetingRoutes);
-app.use('/api/teachers', require('./src/routes/teacherRoutes'));
 app.use('/api/swaps', require('./src/routes/Swaproutes'));
 app.use('/api/absences', require('./src/routes/absence'));
+app.use('/api/settings', settingsRoutes);
 // Serve static files from React build (for production)
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'public')));
-  
+
   // Handle React routing, return all requests to React app
   app.get('/(.*)', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
 } else {
   // Development fallback
-  app.use( (req, res) => {
+  app.use((req, res) => {
     res.status(404).json({
       success: false,
       error: 'Route not found'
@@ -98,9 +99,14 @@ if (process.env.NODE_ENV === 'production') {
 // Global error handler
 app.use((error, req, res, next) => {
   console.error('Global error:', error);
-  res.status(error.status || 500).json({
+  const statusCode = error.statuscoursecode || error.status || 500;
+  const message = error.message || 'Internal server error';
+  res.status(statusCode).json({
     success: false,
-    error: error.message || 'Internal server error'
+    message,
+    error: {
+      status: statusCode
+    }
   });
 });
 

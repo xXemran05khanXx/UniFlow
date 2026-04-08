@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ArrowLeftRight, CheckCircle, XCircle, Clock, Search, AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeftRight, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const BASE_URL = '/api';
 
@@ -37,7 +37,7 @@ export default function AdminSwapsPage() {
 
   const handleAction = async (swapId: string, action: 'approve' | 'reject') => {
     if (!window.confirm(`Are you sure you want to ${action} this swap?`)) return;
-    
+
     try {
       setProcessingId(swapId);
       const res = await fetch(`${BASE_URL}/swaps/${swapId}/admin-action`, {
@@ -46,7 +46,7 @@ export default function AdminSwapsPage() {
         body: JSON.stringify({ action })
       });
       const json = await res.json();
-      
+
       if (json.success) {
         // Remove the processed swap from the list
         setSwaps(prev => prev.filter(s => s._id !== swapId));
@@ -61,7 +61,7 @@ export default function AdminSwapsPage() {
   };
 
   if (loading) return <div className="p-6 text-center text-gray-500">Loading pending swaps...</div>;
-  if (error) return <div className="p-6 text-center text-red-500"><AlertCircle className="mx-auto mb-2"/>{error}</div>;
+  if (error) return <div className="p-6 text-center text-red-500"><AlertCircle className="mx-auto mb-2" />{error}</div>;
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -87,7 +87,7 @@ export default function AdminSwapsPage() {
           {swaps.map((swap) => (
             <div key={swap._id} className="bg-white rounded-lg shadow p-5 border-l-4 border-orange-400">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                
+
                 {/* Requestor Info */}
                 <div className="flex-1 bg-gray-50 p-4 rounded-md">
                   <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Requestor</p>
@@ -133,7 +133,7 @@ export default function AdminSwapsPage() {
                 </div>
 
               </div>
-              
+
               {swap.reason && (
                 <div className="mt-4 pt-4 border-t border-gray-100 text-sm text-gray-600">
                   <span className="font-semibold text-gray-800">Reason: </span>

@@ -15,6 +15,11 @@
     "noFallthroughCasesInSwitch": true,
     "module": "esnext",
     "moduleResolution": "node",
+    "types": [
+      "jest",
+      "node"
+    ],
+    "ignoreDeprecations": "6.0",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -22,5 +27,5 @@
   },
   "include": [
     "src"
- ]
+  ]
 }

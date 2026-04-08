@@ -1,6 +1,6 @@
+import { LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LucideIcon, X } from 'lucide-react';
 
 export interface SidebarNavItem {
   name: string;
@@ -13,6 +13,7 @@ interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
   collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 const linkBaseClass =
@@ -22,7 +23,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   navigation,
   mobileOpen,
   onMobileClose,
-  collapsed
+  collapsed,
+  onToggleCollapse,
 }) => {
   return (
     <>
@@ -40,13 +42,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <div className="flex h-16 items-center justify-between px-5 border-b border-secondary-200">
             <div className="flex items-center">
-              <div className="h-8 w-8 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center font-extrabold text-sm shadow-sm">
-                UF
-              </div>
-              <div className="ml-2.5 leading-tight">
-                <h1 className="text-[1.05rem] font-extrabold tracking-tight text-primary-600">UniFlow</h1>
-                <p className="text-[10px] uppercase tracking-[0.08em] text-secondary-500">Academic Suite</p>
-              </div>
+              <img
+                src="/uniflow.jpeg"
+                alt="UniFlow"
+                className="h-8 w-auto object-contain"
+              />
             </div>
             <button
               onClick={onMobileClose}
@@ -60,15 +60,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           <nav className="h-[calc(100%-4rem)] overflow-y-auto px-4 py-5" aria-label="Primary navigation">
             <ul className="space-y-1.5">
               {navigation.map((item) => (
-                <li key={`mobile-${item.name}`}>
+                <li key={`mobile-${item.href}`}>
                   <NavLink
                     to={item.href}
                     onClick={onMobileClose}
                     className={({ isActive }) =>
-                      `${linkBaseClass} ${
-                        isActive
-                          ? 'bg-primary-50 text-primary-700 border-l-2 border-primary-500 pl-2.5 shadow-sm'
-                          : 'text-secondary-700 hover:bg-secondary-100 hover:text-secondary-900'
+                      `${linkBaseClass} ${isActive
+                        ? 'bg-primary-50 text-primary-700 border-l-2 border-primary-500 pl-2.5 shadow-sm'
+                        : 'text-secondary-700 hover:bg-secondary-100 hover:text-secondary-900'
                       }`
                     }
                     aria-label={item.name}
@@ -85,40 +84,50 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden lg:fixed lg:inset-y-0 lg:flex lg:flex-col bg-white/95 backdrop-blur-sm border-r border-secondary-200 shadow-sm transition-all duration-200 ${collapsed ? 'lg:w-20' : 'lg:w-64'}`}
+        className={`hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col bg-white/95 backdrop-blur-sm border-r border-secondary-200 shadow-sm transition-all duration-200 ${collapsed ? 'lg:w-20' : 'lg:w-64'}`}
         aria-label="Sidebar"
       >
         <div className="flex h-16 items-center justify-between px-4 border-b border-secondary-200">
           {collapsed ? (
-            <div className="h-8 w-8 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center font-extrabold text-sm shadow-sm">
-              UF
-            </div>
+            <img
+              src="/uniflow.jpeg"
+              alt="UniFlow"
+              className="h-8 w-8 rounded-md object-cover object-left"
+            />
           ) : (
-            <div className="flex items-center">
-              <div className="h-8 w-8 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center font-extrabold text-sm shadow-sm">
-                UF
-              </div>
-              <div className="ml-2.5 leading-tight">
-                <h1 className="text-[1.05rem] font-extrabold tracking-tight text-primary-600">UniFlow</h1>
-                <p className="text-[10px] uppercase tracking-[0.08em] text-secondary-500">Academic Suite</p>
-              </div>
-            </div>
+            <img
+              src="/uniflow.jpeg"
+              alt="UniFlow"
+              className="h-8 w-auto object-contain"
+            />
           )}
+
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleCollapse();
+            }}
+            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-secondary-500 transition-colors duration-200 hover:bg-secondary-100 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            <span className="sr-only">Toggle Sidebar</span>
+          </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Primary navigation">
           <ul className="space-y-1.5">
             {navigation.map((item) => (
-              <li key={`desktop-${item.name}`}>
+              <li key={`desktop-${item.href}`}>
                 <NavLink
                   to={item.href}
                   className={({ isActive }) =>
-                    `${linkBaseClass} ${
-                      collapsed ? 'justify-center' : ''
-                    } ${
-                      isActive
-                        ? 'bg-primary-50 text-primary-700 border-l-2 border-primary-500 shadow-sm'
-                        : 'text-secondary-700 hover:bg-secondary-100/90 hover:text-secondary-900'
+                    `${linkBaseClass} ${collapsed ? 'justify-center' : ''
+                    } ${isActive
+                      ? 'bg-primary-50 text-primary-700 border-l-2 border-primary-500 shadow-sm'
+                      : 'text-secondary-700 hover:bg-secondary-100/90 hover:text-secondary-900'
                     }`
                   }
                   aria-label={item.name}

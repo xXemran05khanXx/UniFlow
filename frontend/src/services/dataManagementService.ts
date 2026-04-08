@@ -6,8 +6,9 @@ import {
   SemesterType,
   TeacherDesignationType
 } from '../constants';
+import { getApiBaseUrl } from './apiConfig';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = getApiBaseUrl();
 
 // Create axios instance for data management
 const apiClient = axios.create({
@@ -134,6 +135,40 @@ export interface SubjectForm {
 }
 
 export type CourseForm = SubjectForm;
+
+const mapSubjectToCoursePayload = (subjectData: Partial<SubjectForm>) => ({
+  courseCode: subjectData.code,
+  name: subjectData.name,
+  department: subjectData.department,
+  semester: subjectData.semester,
+  year: subjectData.year,
+  courseType: subjectData.type === 'Practical' ? 'Lab' : subjectData.type,
+  credits: subjectData.credits,
+  hoursPerWeek: subjectData.hoursPerWeek,
+  isActive: subjectData.isActive,
+  syllabus: {
+    topics: subjectData.syllabus?.topics || [],
+    syllabusLink: subjectData.syllabus?.syllabusLink || ''
+  }
+});
+
+const mapCourseToSubject = (course: any): Subject => ({
+  _id: course._id,
+  code: course.courseCode || course.code,
+  name: course.name,
+  department: course.department,
+  semester: course.semester,
+  year: course.year || Math.ceil(Number(course.semester || 1) / 2),
+  type: (course.courseType === 'Lab' ? 'Practical' : course.courseType) as CourseType,
+  credits: Number(course.credits || 0),
+  hoursPerWeek: Number(course.hoursPerWeek || 0),
+  description: course.description || '',
+  isActive: course.isActive !== false,
+  syllabus: {
+    topics: course.syllabus?.topics || [],
+    syllabusLink: course.syllabus?.syllabusLink || ''
+  }
+});
 
 // Interface for paginated subjects response (like in subjectManagementService)
 export interface PaginatedSubjects {
@@ -321,18 +356,20 @@ export const dataManagementService = {
     try {
       console.log('🔍 DataManagement: Fetching subjects from /subjects endpoint...');
 
-      const response = await apiClient.get('/subjects');
+      const response = await apiClient.get('/Courses?page=1&limit=1000&sortBy=courseCode&sortOrder=asc');
 
       console.log('🔍 DataManagement: Raw subject response:', response.data);
 
       // Handle both correct and legacy ApiResponse shapes
       const unwrapped = unwrapApiData<any>(response.data);
-      const subjects = Array.isArray(unwrapped)
+      const courses = Array.isArray(unwrapped)
         ? unwrapped
-        : (unwrapped?.subjects
-          || response.data?.data?.subjects
-          || response.data?.message?.subjects
+        : (unwrapped?.courses
+          || response.data?.data?.courses
+          || response.data?.message?.courses
           || []);
+
+      const subjects = Array.isArray(courses) ? courses.map(mapCourseToSubject) : [];
 
       console.log('🔍 DataManagement: Extracted subjects:', subjects);
       console.log('🔍 DataManagement: Is array?', Array.isArray(subjects));
@@ -353,20 +390,9 @@ export const dataManagementService = {
 
   async addSubject(subjectData: SubjectForm): Promise<Subject> {
     try {
-      const payload = {
-        code: subjectData.code,
-        name: subjectData.name,
-        department: subjectData.department,
-        semester: subjectData.semester,
-        year: subjectData.year,
-        type: subjectData.type,
-        credits: subjectData.credits,
-        description: subjectData.description || '',
-        isActive: subjectData.isActive ?? true,
-        syllabus: subjectData.syllabus
-      };
-      const response = await apiClient.post('/subjects', payload);
-      return response.data.data || response.data;
+      const response = await apiClient.post('/Courses', mapSubjectToCoursePayload(subjectData));
+      const payload = response.data.data || response.data.message || response.data;
+      return mapCourseToSubject(payload);
     } catch (error) {
       console.error('Error adding subject:', error);
       throw error;
@@ -375,8 +401,9 @@ export const dataManagementService = {
 
   async updateSubject(id: string, subjectData: Partial<SubjectForm>): Promise<Subject> {
     try {
-      const response = await apiClient.put(`/subjects/${id}`, subjectData);
-      return response.data.data || response.data;
+      const response = await apiClient.put(`/Courses/${id}`, mapSubjectToCoursePayload(subjectData));
+      const payload = response.data.data || response.data.message || response.data;
+      return mapCourseToSubject(payload);
     } catch (error) {
       console.error('Error updating subject:', error);
       throw error;
@@ -385,7 +412,7 @@ export const dataManagementService = {
 
   async deleteSubject(id: string): Promise<void> {
     try {
-      await apiClient.delete(`/subjects/${id}`);
+      await apiClient.delete(`/Courses/${id}`);
     } catch (error) {
       console.error('Error deleting subject:', error);
       throw error;
@@ -416,8 +443,9 @@ export const dataManagementService = {
       formData.append('file', file);
 
       const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
+      const endpoint = normalizedType === 'subjects' ? '/Courses/import' : `/data/${normalizedType}/upload`;
 
-      const response = await apiClient.post(`/${normalizedType}/import`, formData, {
+      const response = await apiClient.post(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -434,7 +462,7 @@ export const dataManagementService = {
       const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
 
       const endpoint = normalizedType === 'subjects'
-        ? '/subjects/template'
+        ? '/Courses/template'
         : `/data/${normalizedType}/template`;
 
       const response = await apiClient.get(endpoint, {
@@ -462,7 +490,7 @@ export const dataManagementService = {
       const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
 
       const endpoint = normalizedType === 'subjects'
-        ? `/subjects/export?format=${format}`
+        ? `/Courses/export?format=${format}`
         : `/data/${normalizedType}/export?format=${format}`;
 
       const response = await apiClient.get(endpoint, {
@@ -489,12 +517,12 @@ export const dataManagementService = {
       const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
 
       const endpoint = normalizedType === 'subjects'
-        ? '/subjects/bulk-update'
+        ? '/Courses/bulk-update'
         : `/data/${normalizedType}/bulk`;
 
       if (normalizedType === 'subjects') {
         await apiClient.patch(endpoint, {
-          subjectIds: ids,
+          courseIds: ids,
           action: 'delete'
         });
         return;
@@ -513,6 +541,17 @@ export const dataManagementService = {
   async validateData(dataType: 'teachers' | 'rooms' | 'subjects' | 'courses', data: any[]): Promise<any> {
     try {
       const normalizedType = dataType === 'courses' ? 'subjects' : dataType;
+      if (normalizedType === 'subjects') {
+        return {
+          success: true,
+          data: {
+            valid: true,
+            errors: [],
+            warnings: []
+          }
+        };
+      }
+
       const response = await apiClient.post(`/data/${normalizedType}/validate`, { data });
       return response.data;
     } catch (error) {

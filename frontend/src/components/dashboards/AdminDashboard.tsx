@@ -1,18 +1,23 @@
-import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Users, Calendar, BookOpen, Settings, BarChart3,
-  BadgeAlert, CheckCircle2, Clock, AlertTriangle,
-  ArrowRight, RefreshCw, Send,
+  ArrowRight,
+  BadgeAlert,
+  BarChart3,
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  RefreshCw,
+  Settings,
+  Users,
 } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
-import { usersAPI, timetablesAPI } from '../../services/api';
-import { userManagementService, UserStats } from '../../services/userManagementService';
-import { User, Timetable } from '../../types';
-import './AdminDashboard.css';
+import { timetablesAPI, usersAPI } from '../../services/api';
+import { userManagementService } from '../../services/userManagementService';
+import { Timetable, User } from '../../types';
 import DailyOverridesPanel from '../dailyOverrides';
-import AdminMyTeachersPage from '../../pages/Admin/Adminmaster'
+import Button from '../ui/Button';
+import Card from '../ui/Card';
+import './AdminDashboard.css';
 // ─── Absence API helpers ──────────────────────────────────────────────────────
 
 const BASE = '/api';
@@ -60,7 +65,7 @@ function fmtDate(d: string) {
 function AbsencePanel() {
   const navigate = useNavigate();
   const [absences, setAbsences] = useState<AbsenceSummary[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,8 +76,8 @@ function AbsencePanel() {
 
   useEffect(() => { load(); }, [load]);
 
-  const total    = absences.length;
-  const urgent   = absences.filter(a => {
+  const total = absences.length;
+  const urgent = absences.filter(a => {
     const d = new Date(a.absenceDate);
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     return d <= tomorrow;
@@ -105,9 +110,9 @@ function AbsencePanel() {
       {/* Mini stats row */}
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[
-          { label: 'Pending',  value: total,  color: '#f59e0b', bg: '#fffbeb' },
-          { label: 'Urgent',   value: urgent, color: '#ef4444', bg: '#fef2f2' },
-          { label: 'Today',    value: absences.filter(a => new Date(a.absenceDate).toDateString() === new Date().toDateString()).length, color: '#6366f1', bg: '#eef2ff' },
+          { label: 'Pending', value: total, color: '#f59e0b', bg: '#fffbeb' },
+          { label: 'Urgent', value: urgent, color: '#ef4444', bg: '#fef2f2' },
+          { label: 'Today', value: absences.filter(a => new Date(a.absenceDate).toDateString() === new Date().toDateString()).length, color: '#6366f1', bg: '#eef2ff' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} style={{ background: bg, borderRadius: 10, padding: '8px 10px', textAlign: 'center' }}>
             <p style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1, marginBottom: 2 }}>{value}</p>
@@ -128,8 +133,8 @@ function AbsencePanel() {
       ) : (
         <div className="space-y-2">
           {absences.slice(0, 4).map(a => {
-            const pending  = a.affectedClasses?.filter(c => c.substituteStatus === 'pending').length ?? 0;
-            const total    = a.affectedClasses?.length ?? 0;
+            const pending = a.affectedClasses?.filter(c => c.substituteStatus === 'pending').length ?? 0;
+            const total = a.affectedClasses?.length ?? 0;
             const isUrgent = (() => {
               const d = new Date(a.absenceDate);
               const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -214,20 +219,12 @@ const AdminDashboard: React.FC = () => {
     activeUsers: 0, inactiveUsers: 0,
     adminUsers: 0, teacherUsers: 0, studentUsers: 0, recentSignups: 0,
   });
-  const [recentUsers,      setRecentUsers]      = useState<User[]>([]);
+  const [recentUsers, setRecentUsers] = useState<User[]>([]);
   const [recentTimetables, setRecentTimetables] = useState<Timetable[]>([]);
-  const [loading,          setLoading]          = useState(true);
-  const [departments,      setDepartments]      = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [departments, setDepartments] = useState<Department[]>([]);
 
-  const departmentColors: { [key: string]: string } = {
-    'Computer Science':          'from-blue-500 to-cyan-500',
-    'Information Technology':    'from-purple-500 to-pink-500',
-    'First Year Engineering':    'from-green-500 to-lime-500',
-    'IT': 'from-purple-500 to-pink-500',
-    'CS': 'from-blue-500 to-cyan-500',
-    'FE': 'from-green-500 to-lime-500',
-  };
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchDashboardData(); }, []);
 
   const fetchDashboardData = async () => {
@@ -250,13 +247,13 @@ const AdminDashboard: React.FC = () => {
           timetablesAPI.getAll(),
         ]);
         if (statsRes.success && statsRes.data) {
-          totalTimetables  = statsRes.data.totalTimetables  || 0;
+          totalTimetables = statsRes.data.totalTimetables || 0;
           activeTimetables = statsRes.data.activeTimetables || 0;
         }
         if (ttRes.success && ttRes.data) {
           const tts = ttRes.data;
           if (!statsRes.success || !statsRes.data) {
-            totalTimetables  = tts.length;
+            totalTimetables = tts.length;
             activeTimetables = tts.filter((t: Timetable) => String((t as any).status || '').toLowerCase() === 'published').length;
           }
           setRecentTimetables(tts.slice(-5).reverse());
@@ -264,15 +261,15 @@ const AdminDashboard: React.FC = () => {
       } catch { /* silent */ }
 
       setStats({
-        totalUsers:      userStatsData.totalUsers      || 0,
-        activeUsers:     userStatsData.activeUsers     || 0,
-        inactiveUsers:   userStatsData.inactiveUsers   || 0,
-        adminUsers:      userStatsData.roles?.admins   || 0,
-        totalTeachers:   userStatsData.roles?.teachers || 0,
-        totalStudents:   userStatsData.roles?.students || 0,
-        teacherUsers:    userStatsData.roles?.teachers || 0,
-        studentUsers:    userStatsData.roles?.students || 0,
-        recentSignups:   userStatsData.recentSignups   || 0,
+        totalUsers: userStatsData.totalUsers || 0,
+        activeUsers: userStatsData.activeUsers || 0,
+        inactiveUsers: userStatsData.inactiveUsers || 0,
+        adminUsers: userStatsData.roles?.admins || 0,
+        totalTeachers: userStatsData.roles?.teachers || 0,
+        totalStudents: userStatsData.roles?.students || 0,
+        teacherUsers: userStatsData.roles?.teachers || 0,
+        studentUsers: userStatsData.roles?.students || 0,
+        recentSignups: userStatsData.recentSignups || 0,
         totalTimetables,
         activeTimetables,
       });
@@ -303,9 +300,9 @@ const AdminDashboard: React.FC = () => {
     });
 
     const defaultDepts = [
-      { id: 'cs', name: 'Computer Science',       code: 'CS', color: 'from-blue-500 to-cyan-500'   },
+      { id: 'cs', name: 'Computer Science', code: 'CS', color: 'from-blue-500 to-cyan-500' },
       { id: 'it', name: 'Information Technology', code: 'IT', color: 'from-purple-500 to-pink-500' },
-      { id: 'fe', name: 'First Year Engineering', code: 'FE', color: 'from-green-500 to-lime-500'  },
+      { id: 'fe', name: 'First Year Engineering', code: 'FE', color: 'from-green-500 to-lime-500' },
     ];
 
     setDepartments(defaultDepts.map(dept => {
@@ -324,10 +321,10 @@ const AdminDashboard: React.FC = () => {
   };
 
   const statCards = [
-    { title: 'Total Users',        value: stats.totalUsers,        icon: Users,     color: 'bg-blue-500',   subtitle: `${stats.activeUsers} active` },
-    { title: 'Teachers',           value: stats.totalTeachers,     icon: BookOpen,  color: 'bg-green-500',  subtitle: 'Faculty members' },
-    { title: 'Students',           value: stats.totalStudents,     icon: Users,     color: 'bg-purple-500', subtitle: `${stats.recentSignups} new (30 days)` },
-    { title: 'Active Timetables',  value: stats.activeTimetables,  icon: Calendar,  color: 'bg-orange-500', subtitle: `${stats.totalTimetables} total` },
+    { title: 'Total Users', value: stats.totalUsers, icon: Users, color: 'bg-blue-500', subtitle: `${stats.activeUsers} active` },
+    { title: 'Teachers', value: stats.totalTeachers, icon: BookOpen, color: 'bg-green-500', subtitle: 'Faculty members' },
+    { title: 'Students', value: stats.totalStudents, icon: Users, color: 'bg-purple-500', subtitle: `${stats.recentSignups} new (30 days)` },
+    { title: 'Active Timetables', value: stats.activeTimetables, icon: Calendar, color: 'bg-orange-500', subtitle: `${stats.totalTimetables} total` },
   ];
 
   if (loading) {
@@ -354,8 +351,8 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       <div className="mt-8">
-  <DailyOverridesPanel />
-</div>
+        <DailyOverridesPanel />
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -374,11 +371,11 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             </Card>
-            
+
           );
         })}
       </div>
-      
+
 
 
       {/* Department Overview */}
@@ -464,11 +461,10 @@ const AdminDashboard: React.FC = () => {
                     <p className="text-sm text-gray-500">{user.email}</p>
                   </div>
                 </div>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  user.role === 'admin'   ? 'bg-red-100 text-red-800' :
-                  user.role === 'teacher' ? 'bg-green-100 text-green-800' :
-                  'bg-blue-100 text-blue-800'
-                }`}>{user.role}</span>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${user.role === 'admin' ? 'bg-red-100 text-red-800' :
+                    user.role === 'teacher' ? 'bg-green-100 text-green-800' :
+                      'bg-blue-100 text-blue-800'
+                  }`}>{user.role}</span>
               </div>
             ))}
           </div>
@@ -495,11 +491,10 @@ const AdminDashboard: React.FC = () => {
                     })()}
                   </p>
                 </div>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  String((tt as any)?.status || '').toLowerCase() === 'published' ? 'bg-green-100 text-green-800' :
-                  String((tt as any)?.status || '').toLowerCase() === 'draft'     ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>{tt.status}</span>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${String((tt as any)?.status || '').toLowerCase() === 'published' ? 'bg-green-100 text-green-800' :
+                    String((tt as any)?.status || '').toLowerCase() === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                  }`}>{tt.status}</span>
               </div>
             ))}
           </div>
@@ -513,35 +508,35 @@ const AdminDashboard: React.FC = () => {
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-  <Button variant="outline" className="flex items-center justify-center p-4 h-auto"
-    onClick={() => navigate('/user-management')}>
-    <Users className="h-5 w-5 mr-2" />Manage Users
-  </Button>
+          <Button variant="outline" className="flex items-center justify-center p-4 h-auto"
+            onClick={() => navigate('/user-management')}>
+            <Users className="h-5 w-5 mr-2" />Manage Users
+          </Button>
 
-  <Button variant="outline" className="flex items-center justify-center p-4 h-auto"
-    onClick={() => navigate('/timetable-generation')}>
-    <Calendar className="h-5 w-5 mr-2" />Create Timetable
-  </Button>
+          <Button variant="outline" className="flex items-center justify-center p-4 h-auto"
+            onClick={() => navigate('/timetable-generation')}>
+            <Calendar className="h-5 w-5 mr-2" />Create Timetable
+          </Button>
 
-  <Button variant="outline" className="flex items-center justify-center p-4 h-auto"
-    onClick={() => navigate('/substitute-schedule')}>
-    <BookOpen className="h-5 w-5 mr-2" />Sub Schedule
-  </Button>
+          <Button variant="outline" className="flex items-center justify-center p-4 h-auto"
+            onClick={() => navigate('/substitute-schedule')}>
+            <BookOpen className="h-5 w-5 mr-2" />Sub Schedule
+          </Button>
 
-  {/* ✅ ADD THIS */}
-  <Button variant="outline" className="flex items-center justify-center p-4 h-auto"
-    onClick={() => navigate('/admin/master-timetable')}>
-    <Calendar className="h-5 w-5 mr-2 text-blue-600" />
-    Master Timetables
-  </Button>
+          {/* ✅ ADD THIS */}
+          <Button variant="outline" className="flex items-center justify-center p-4 h-auto"
+            onClick={() => navigate('/admin/master-timetable')}>
+            <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+            Master Timetables
+          </Button>
 
-  {/* Existing */}
-  <Button
-    className="flex items-center justify-center p-4 h-auto bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 border-0"
-    onClick={() => navigate('/admin/absences')}>
-    <BadgeAlert className="h-5 w-5 mr-2" />Manage Absences
-  </Button>
-</div>
+          {/* Existing */}
+          <Button
+            className="flex items-center justify-center p-4 h-auto bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 border-0"
+            onClick={() => navigate('/admin/absences')}>
+            <BadgeAlert className="h-5 w-5 mr-2" />Manage Absences
+          </Button>
+        </div>
       </Card>
     </div>
   );

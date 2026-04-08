@@ -1,73 +1,86 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
-  Calendar, Search, User, BookOpen,
-  ChevronDown, ChevronRight, Users, Bell,
-  Plus, X, Send, Loader2,
-  CalendarCheck, AlertCircle, Check, Clock,
+  AlertCircle,
+  Bell,
+  BookOpen,
+  Calendar,
+  CalendarCheck,
+  Check,
+  ChevronDown, ChevronRight,
+  Clock,
+  Loader2,
+  Plus,
+  Search,
+  Send,
+  User,
+  Users,
+  X,
 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { getApiBaseUrl } from '../../services/apiConfig';
 import TeacherFreeSlots from '../Teacher/TeacherFree';
-const API = 'http://localhost:5000/api';
+
+const API = getApiBaseUrl();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 interface ScheduleEntry {
-  _id?:        string;
-  courseCode:  string;
+  _id?: string;
+  courseCode: string;
   courseName?: string;
   teacherName: string;
-  teacher?:    string | { _id: string };
-  roomNumber:  string;
-  dayOfWeek:   string;
-  startTime:   string;
-  endTime:     string;
-  type:        'Theory' | 'Lab';
-  division:    string;
-  batch?:      string | null;
+  teacher?: string | { _id: string };
+  roomNumber: string;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  type: 'Theory' | 'Lab';
+  division: string;
+  batch?: string | null;
 }
 
 interface Timetable {
-  _id:          string;
-  name:         string;
-  status:       string;
+  _id: string;
+  name: string;
+  status: string;
   academicYear?: number;
   studentGroup: {
     department?: { _id: string; name?: string; code?: string } | string;
-    semester:    number | string;
-    division:    string;
+    semester: number | string;
+    division: string;
   };
   schedule: ScheduleEntry[];
 }
 
 interface Teacher {
-  _id:          string;
-  id?:          string;
-  name?:        string;
-  email?:       string;
+  _id: string;
+  id?: string;
+  name?: string;
+  email?: string;
   designation?: string;
   user?: { _id: string; name: string; email: string };
 }
 
 interface MeetingInvitee {
   teacher: { _id?: string; name?: string; user?: { name: string } } | string;
-  status:  'pending' | 'accepted' | 'declined';
+  status: 'pending' | 'accepted' | 'declined';
 }
 
 interface Meeting {
-  _id:       string;
-  title:     string;
+  _id: string;
+  title: string;
   dayOfWeek: string;
   startTime: string;
-  endTime:   string;
-  venue?:    string;
-  status:    'scheduled' | 'cancelled' | 'completed';
-  invitees:  MeetingInvitee[];
+  endTime: string;
+  venue?: string;
+  status: 'scheduled' | 'cancelled' | 'completed';
+  invitees: MeetingInvitee[];
 }
 
 interface SelectedSlot {
-  day:   string;
+  day: string;
   start: string;
-  end:   string;
+  end: string;
   label: string;
 }
 
@@ -80,10 +93,10 @@ type BusyMap = Record<string, BusyEntry[]>;
 
 interface FreeSlotTeacherStatus {
   teacherId: string;
-  name:      string;
-  free:      boolean;
-  clash:     string | null;
-  source:    'timetable' | 'meeting' | null;
+  name: string;
+  free: boolean;
+  clash: string | null;
+  source: 'timetable' | 'meeting' | null;
 }
 
 interface FreeSlotEntry {
@@ -98,7 +111,7 @@ type FreeSlotData = Record<string, FreeSlotEntry[]>;
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const ALL_SLOTS = [
-  { id: 1, start: '08:10', end: '10:00', label: '8:10–10:00',  kind: 'lab'    },
+  { id: 1, start: '08:10', end: '10:00', label: '8:10–10:00', kind: 'lab' },
   { id: 2, start: '10:20', end: '11:15', label: '10:20–11:15', kind: 'theory' },
   { id: 3, start: '11:15', end: '12:10', label: '11:15–12:10', kind: 'theory' },
   { id: 4, start: '12:10', end: '13:05', label: '12:10–13:05', kind: 'theory' },
@@ -123,8 +136,8 @@ const teacherDisplayName = (t: Teacher | undefined): string =>
 // AVATAR
 // ─────────────────────────────────────────────────────────────────────────────
 const AVATAR_COLORS: [string, string][] = [
-  ['#EFF6FF','#1D4ED8'], ['#F0FDF4','#15803D'], ['#FDF4FF','#7E22CE'],
-  ['#FFF7ED','#C2410C'], ['#FFF1F2','#BE123C'], ['#F0FDFA','#0F766E'],
+  ['#EFF6FF', '#1D4ED8'], ['#F0FDF4', '#15803D'], ['#FDF4FF', '#7E22CE'],
+  ['#FFF7ED', '#C2410C'], ['#FFF1F2', '#BE123C'], ['#F0FDFA', '#0F766E'],
 ];
 const avatarColor = (name = '') => AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 
@@ -151,9 +164,9 @@ function Avatar({ name = '', size = 28, selected = false }: { name?: string; siz
 type StatusKey = 'pending' | 'accepted' | 'declined' | 'scheduled' | 'cancelled';
 function StatusPill({ status }: { status: string }) {
   const map: Record<StatusKey, { bg: string; color: string; label: string }> = {
-    pending:   { bg: '#FFFBEB', color: '#A16207', label: 'Pending'   },
-    accepted:  { bg: '#F0FDF4', color: '#15803D', label: 'Accepted'  },
-    declined:  { bg: '#FFF1F2', color: '#BE123C', label: 'Declined'  },
+    pending: { bg: '#FFFBEB', color: '#A16207', label: 'Pending' },
+    accepted: { bg: '#F0FDF4', color: '#15803D', label: 'Accepted' },
+    declined: { bg: '#FFF1F2', color: '#BE123C', label: 'Declined' },
     scheduled: { bg: '#EFF6FF', color: '#1D4ED8', label: 'Scheduled' },
     cancelled: { bg: '#F1F5F9', color: '#64748B', label: 'Cancelled' },
   };
@@ -180,7 +193,7 @@ function Toast({ toast }: { toast: ToastState | null }) {
       boxShadow: '0 4px 20px rgba(0,0,0,.12)',
       display: 'flex', alignItems: 'center', gap: 8, animation: 'slideUp .3s ease',
     }}>
-      {toast.ok ? <Check size={14}/> : <AlertCircle size={14}/>}
+      {toast.ok ? <Check size={14} /> : <AlertCircle size={14} />}
       {toast.msg}
     </div>
   );
@@ -190,11 +203,11 @@ function Toast({ toast }: { toast: ToastState | null }) {
 // FREE SLOT GRID  (used inside both MeetingScheduler and TeacherFreeSlots tab)
 // ─────────────────────────────────────────────────────────────────────────────
 interface FreeSlotGridProps {
-  freeData:         FreeSlotData;
+  freeData: FreeSlotData;
   selectedTeachers: Teacher[];
-  onSelectSlot:     (slot: SelectedSlot) => void;
-  selectedSlot:     SelectedSlot | null;
-  compact?:         boolean;
+  onSelectSlot: (slot: SelectedSlot) => void;
+  selectedSlot: SelectedSlot | null;
+  compact?: boolean;
 }
 
 function FreeSlotGrid({ freeData, selectedTeachers, onSelectSlot, selectedSlot, compact = false }: FreeSlotGridProps) {
@@ -218,30 +231,34 @@ function FreeSlotGrid({ freeData, selectedTeachers, onSelectSlot, selectedSlot, 
                 {slot.label}
               </td>
               {DAYS.map(day => {
-                const slotData   = freeData[day]?.find(s => s.start === slot.start);
-                const allFree    = slotData?.allFree;
-                const partFree   = slotData && !allFree && slotData.teacherStatuses.some(t => t.free);
+                const slotData = freeData[day]?.find(s => s.start === slot.start);
+                const allFree = slotData?.allFree;
+                const partFree = slotData && !allFree && slotData.teacherStatuses.some(t => t.free);
                 const isSelected = selectedSlot?.day === day && selectedSlot?.start === slot.start;
-                const freeCount  = slotData?.teacherStatuses.filter(t => t.free).length ?? 0;
+                const freeCount = slotData?.teacherStatuses.filter(t => t.free).length ?? 0;
 
                 return (
                   <td key={day} style={{ padding: compact ? 3 : 4, borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
                     {allFree ? (
                       <button onClick={() => onSelectSlot({ day, start: slot.start, end: slot.end, label: slot.label })}
-                        style={{ width: '100%', padding: compact ? '4px 2px' : '6px 4px', borderRadius: 7,
+                        style={{
+                          width: '100%', padding: compact ? '4px 2px' : '6px 4px', borderRadius: 7,
                           background: isSelected ? '#6366F1' : '#F0FDF4',
                           border: isSelected ? '2px solid #6366F1' : '1.5px solid #86EFAC',
                           color: isSelected ? '#fff' : '#15803D',
-                          fontSize: 9, fontWeight: 700, cursor: 'pointer', transition: 'all .12s', fontFamily: 'inherit' }}>
+                          fontSize: 9, fontWeight: 700, cursor: 'pointer', transition: 'all .12s', fontFamily: 'inherit'
+                        }}>
                         {isSelected ? '✓ Sel' : '✓ Free'}
                       </button>
                     ) : partFree ? (
                       <button onClick={() => onSelectSlot({ day, start: slot.start, end: slot.end, label: slot.label })}
                         title={slotData?.teacherStatuses.filter(t => !t.free).map(t => `${t.name}: ${t.clash}`).join('\n')}
-                        style={{ width: '100%', padding: compact ? '4px 2px' : '6px 4px', borderRadius: 7,
+                        style={{
+                          width: '100%', padding: compact ? '4px 2px' : '6px 4px', borderRadius: 7,
                           background: isSelected ? '#FEF9C3' : '#FFFBEB',
                           border: isSelected ? '2px solid #EAB308' : '1.5px solid #FDE68A',
-                          color: '#A16207', fontSize: 9, fontWeight: 600, cursor: 'pointer', transition: 'all .12s', fontFamily: 'inherit' }}>
+                          color: '#A16207', fontSize: 9, fontWeight: 600, cursor: 'pointer', transition: 'all .12s', fontFamily: 'inherit'
+                        }}>
                         {freeCount}/{selectedTeachers.length}
                       </button>
                     ) : (
@@ -260,10 +277,10 @@ function FreeSlotGrid({ freeData, selectedTeachers, onSelectSlot, selectedSlot, 
 
       <div style={{ display: 'flex', gap: 12, padding: '8px 12px', fontSize: 9, color: '#6B7280', flexWrap: 'wrap' }}>
         {[
-          { color: '#86EFAC', bg: '#F0FDF4', label: 'All free'    },
-          { color: '#FDE68A', bg: '#FFFBEB', label: 'Partial'     },
-          { color: '#FECACA', bg: '#FFF1F2', label: 'Busy'        },
-          { color: '#6366F1', bg: '#6366F1', label: 'Selected'    },
+          { color: '#86EFAC', bg: '#F0FDF4', label: 'All free' },
+          { color: '#FDE68A', bg: '#FFFBEB', label: 'Partial' },
+          { color: '#FECACA', bg: '#FFF1F2', label: 'Busy' },
+          { color: '#6366F1', bg: '#6366F1', label: 'Selected' },
         ].map(({ color, bg, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: bg, border: `1.5px solid ${color}` }} />
@@ -279,31 +296,31 @@ function FreeSlotGrid({ freeData, selectedTeachers, onSelectSlot, selectedSlot, 
 // TEACHER FREE SLOTS TAB  (embedded in right panel)
 // Fetches from /api/meetings/free-slots which now pulls BOTH timetable + meetings
 // ─────────────────────────────────────────────────────────────────────────────
-interface TeacherFreeSlotsTabProps {
-  teachers:         Teacher[];
-  onOpenScheduler:  (preselectedTeachers: Teacher[], preselectedSlot: SelectedSlot | null) => void;
+export interface TeacherFreeSlotsTabProps {
+  teachers: Teacher[];
+  onOpenScheduler: (preselectedTeachers: Teacher[], preselectedSlot: SelectedSlot | null) => void;
 }
 
-function TeacherFreeSlotsTab({ teachers, onOpenScheduler }: TeacherFreeSlotsTabProps) {
-  const [searchQ,          setSearchQ]          = useState('');
+export function TeacherFreeSlotsTab({ teachers, onOpenScheduler }: TeacherFreeSlotsTabProps) {
+  const [searchQ, setSearchQ] = useState('');
   const [selectedTeachers, setSelectedTeachers] = useState<Teacher[]>([]);
-  const [freeData,         setFreeData]         = useState<FreeSlotData | null>(null);
-  const [loading,          setLoading]          = useState(false);
-  const [selectedSlot,     setSelectedSlot]     = useState<SelectedSlot | null>(null);
-  const [viewMode,         setViewMode]         = useState<'combined' | 'individual'>('combined');
-  const [error,            setError]            = useState('');
+  const [freeData, setFreeData] = useState<FreeSlotData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
+  const [viewMode, setViewMode] = useState<'combined' | 'individual'>('combined');
+  const [error, setError] = useState('');
 
   const filteredTeachers = useMemo(() =>
     teachers.filter(t => !searchQ || teacherDisplayName(t).toLowerCase().includes(searchQ.toLowerCase())),
-  [teachers, searchQ]);
+    [teachers, searchQ]);
 
   const fetchFreeSlots = useCallback(async (selected: Teacher[]) => {
     if (!selected.length) { setFreeData(null); return; }
     setLoading(true);
     setError('');
     try {
-      const ids  = selected.map(t => t._id || t.id).join(',');
-      const res  = await fetch(`${API}/meetings/free-slots?teacherIds=${ids}`, { headers: authHdr() });
+      const ids = selected.map(t => t._id || t.id).join(',');
+      const res = await fetch(`${API}/meetings/free-slots?teacherIds=${ids}`, { headers: authHdr() });
       const data = await res.json();
       if (data.success) setFreeData(data.data);
       else setError(data.message || 'Failed to load availability');
@@ -356,10 +373,10 @@ function TeacherFreeSlotsTab({ teachers, onOpenScheduler }: TeacherFreeSlotsTabP
                 </td>
                 {DAYS.map(day =>
                   selectedTeachers.map(t => {
-                    const entry  = freeData[day]?.find(s => s.start === slot.start);
-                    const ts     = entry?.teacherStatuses.find(x => x.teacherId === (t._id || t.id));
+                    const entry = freeData[day]?.find(s => s.start === slot.start);
+                    const ts = entry?.teacherStatuses.find(x => x.teacherId === (t._id || t.id));
                     const isFree = ts?.free ?? true;
-                    const isMtg  = ts?.source === 'meeting';
+                    const isMtg = ts?.source === 'meeting';
                     const isSelected = selectedSlot?.day === day && selectedSlot?.start === slot.start;
                     return (
                       <td key={`${day}-${t._id}`} style={{ padding: 2, borderBottom: '1px solid #F1F5F9' }}>
@@ -367,10 +384,12 @@ function TeacherFreeSlotsTab({ teachers, onOpenScheduler }: TeacherFreeSlotsTabP
                           <div title={ts?.clash || ''} style={{ padding: '3px 2px', borderRadius: 5, background: '#EEF2FF', border: '1px solid #C7D2FE', fontSize: 8, color: '#4F46E5', textAlign: 'center' }}>Mtg</div>
                         ) : isFree ? (
                           <button onClick={() => handleSelectSlot({ day, start: slot.start, end: slot.end, label: slot.label })}
-                            style={{ width: '100%', padding: '3px 2px', borderRadius: 5, fontSize: 8, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid',
+                            style={{
+                              width: '100%', padding: '3px 2px', borderRadius: 5, fontSize: 8, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid',
                               background: isSelected ? '#6366F1' : '#F0FDF4',
                               borderColor: isSelected ? '#6366F1' : '#86EFAC',
-                              color: isSelected ? '#fff' : '#15803D' }}>✓</button>
+                              color: isSelected ? '#fff' : '#15803D'
+                            }}>✓</button>
                         ) : (
                           <div title={ts?.clash || ''} style={{ padding: '3px 2px', borderRadius: 5, background: '#FFF1F2', border: '1px solid #FECACA', fontSize: 8, color: '#EF4444', textAlign: 'center' }}>✕</div>
                         )}
@@ -412,7 +431,7 @@ function TeacherFreeSlotsTab({ teachers, onOpenScheduler }: TeacherFreeSlotsTabP
         {/* Teacher grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, maxHeight: 140, overflowY: 'auto' }}>
           {filteredTeachers.map(t => {
-            const name       = teacherDisplayName(t);
+            const name = teacherDisplayName(t);
             const isSelected = !!selectedTeachers.find(x => x._id === t._id);
             return (
               <button key={t._id} onClick={() => toggleTeacher(t)} style={{
@@ -438,7 +457,7 @@ function TeacherFreeSlotsTab({ teachers, onOpenScheduler }: TeacherFreeSlotsTabP
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9CA3AF', padding: '32px 16px', textAlign: 'center' }}>
             <Users size={28} style={{ marginBottom: 8, color: '#D1D5DB' }} />
             <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Select teachers</div>
-            <div style={{ fontSize: 11, marginTop: 3 }}>Availability is pulled from<br/>timetables + scheduled meetings</div>
+            <div style={{ fontSize: 11, marginTop: 3 }}>Availability is pulled from<br />timetables + scheduled meetings</div>
           </div>
         ) : loading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '32px 0', color: '#6B7280', fontSize: 12 }}>
@@ -480,7 +499,7 @@ function TeacherFreeSlotsTab({ teachers, onOpenScheduler }: TeacherFreeSlotsTabP
                 <div style={{ fontSize: 10, color: '#6366F1', marginBottom: 8 }}>
                   {(() => {
                     const entry = freeData[selectedSlot.day]?.find(s => s.start === selectedSlot.start);
-                    const free  = entry?.teacherStatuses.filter(ts => ts.free).length ?? 0;
+                    const free = entry?.teacherStatuses.filter(ts => ts.free).length ?? 0;
                     return `${free}/${selectedTeachers.length} teacher${selectedTeachers.length > 1 ? 's' : ''} free`;
                   })()}
                 </div>
@@ -502,24 +521,24 @@ function TeacherFreeSlotsTab({ teachers, onOpenScheduler }: TeacherFreeSlotsTabP
 // MEETING SCHEDULER MODAL
 // ─────────────────────────────────────────────────────────────────────────────
 interface MeetingSchedulerProps {
-  allTeachers:         Teacher[];
-  onClose:             () => void;
-  onCreated:           (meeting: Meeting) => void;
+  allTeachers: Teacher[];
+  onClose: () => void;
+  onCreated: (meeting: Meeting) => void;
   preselectedTeachers?: Teacher[];
-  preselectedSlot?:     SelectedSlot | null;
+  preselectedSlot?: SelectedSlot | null;
 }
 type FormKey = 'title' | 'description' | 'venue' | 'meetingDate';
 
 function MeetingScheduler({ allTeachers, onClose, onCreated, preselectedTeachers = [], preselectedSlot = null }: MeetingSchedulerProps) {
-  const [step,             setStep]         = useState<number>(preselectedSlot ? 3 : 1);
-  const [selectedTeachers, setSelected]     = useState<Teacher[]>(preselectedTeachers);
-  const [freeData,         setFreeData]     = useState<FreeSlotData | null>(null);
-  const [loadingSlots,     setLoadingSlots] = useState(false);
-  const [selectedSlot,     setSelectedSlot] = useState<SelectedSlot | null>(preselectedSlot);
-  const [form,             setForm]         = useState<Record<FormKey, string>>({ title: '', description: '', venue: '', meetingDate: '' });
-  const [saving,           setSaving]       = useState(false);
-  const [toast,            setToast]        = useState<ToastState | null>(null);
-  const [searchQ,          setSearchQ]      = useState('');
+  const [step, setStep] = useState<number>(preselectedSlot ? 3 : 1);
+  const [selectedTeachers, setSelected] = useState<Teacher[]>(preselectedTeachers);
+  const [freeData, setFreeData] = useState<FreeSlotData | null>(null);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(preselectedSlot);
+  const [form, setForm] = useState<Record<FormKey, string>>({ title: '', description: '', venue: '', meetingDate: '' });
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const [searchQ, setSearchQ] = useState('');
 
   const flash = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000); };
 
@@ -536,8 +555,8 @@ function MeetingScheduler({ allTeachers, onClose, onCreated, preselectedTeachers
     if (!selectedTeachers.length) return;
     setLoadingSlots(true);
     try {
-      const ids  = selectedTeachers.map(t => t._id).join(',');
-      const res  = await fetch(`${API}/meetings/free-slots?teacherIds=${ids}`, { headers: authHdr() });
+      const ids = selectedTeachers.map(t => t._id).join(',');
+      const res = await fetch(`${API}/meetings/free-slots?teacherIds=${ids}`, { headers: authHdr() });
       const data = await res.json();
       if (data.success) { setFreeData(data.data); setStep(2); }
       else flash(data.message || 'Failed to fetch slots', false);
@@ -572,8 +591,6 @@ function MeetingScheduler({ allTeachers, onClose, onCreated, preselectedTeachers
   const stepLabel = preselectedSlot && step === 3
     ? 'Add meeting details'
     : step === 1 ? 'Select teachers' : step === 2 ? 'Pick a free slot' : 'Add meeting details';
-  const totalSteps = preselectedSlot ? 1 : 3;
-
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 860, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,.2)', animation: 'modalIn .2s ease' }}>
@@ -701,10 +718,10 @@ function MeetingScheduler({ allTeachers, onClose, onCreated, preselectedTeachers
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {([
-                  { label: 'Meeting Title *', key: 'title'       as FormKey, type: 'text',     placeholder: 'e.g. Curriculum Review' },
-                  { label: 'Description',     key: 'description' as FormKey, type: 'textarea',  placeholder: 'Agenda, notes...' },
-                  { label: 'Venue / Room',    key: 'venue'       as FormKey, type: 'text',     placeholder: 'e.g. Room 201 or Zoom link' },
-                  { label: 'Meeting Date',    key: 'meetingDate' as FormKey, type: 'date',     placeholder: '' },
+                  { label: 'Meeting Title *', key: 'title' as FormKey, type: 'text', placeholder: 'e.g. Curriculum Review' },
+                  { label: 'Description', key: 'description' as FormKey, type: 'textarea', placeholder: 'Agenda, notes...' },
+                  { label: 'Venue / Room', key: 'venue' as FormKey, type: 'text', placeholder: 'e.g. Room 201 or Zoom link' },
+                  { label: 'Meeting Date', key: 'meetingDate' as FormKey, type: 'date', placeholder: '' },
                 ]).map(({ label, key, type, placeholder }) => (
                   <div key={key}>
                     <label style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, display: 'block', marginBottom: 5 }}>{label}</label>
@@ -774,7 +791,7 @@ function MeetingsList({ meetings, onCancel, loading }: { meetings: Meeting[]; on
       {meetings.map(m => {
         const accepted = m.invitees?.filter(i => i.status === 'accepted').length ?? 0;
         const declined = m.invitees?.filter(i => i.status === 'declined').length ?? 0;
-        const total    = m.invitees?.length ?? 0;
+        const total = m.invitees?.length ?? 0;
         return (
           <div key={m._id} style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 12, padding: '12px 14px', borderLeft: m.status === 'cancelled' ? '3px solid #D1D5DB' : '3px solid #6366F1' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
@@ -826,8 +843,8 @@ function TeacherWeekGrid({ teacher, allTimetables, meetings }: { teacher: Teache
   allTimetables.forEach(tt => {
     (tt.schedule || []).forEach(slot => {
       const slotTeacherId = typeof slot.teacher === 'object' ? slot.teacher?._id : slot.teacher;
-      const nameMatches   = slot.teacherName?.toLowerCase().includes(name.toLowerCase().trim());
-      const idMatches     = slotTeacherId === teacher._id || slotTeacherId === teacher.id;
+      const nameMatches = slot.teacherName?.toLowerCase().includes(name.toLowerCase().trim());
+      const idMatches = slotTeacherId === teacher._id || slotTeacherId === teacher.id;
       if ((idMatches || nameMatches) && busyMap[slot.dayOfWeek]) {
         busyMap[slot.dayOfWeek].push({ start: slot.startTime, end: slot.endTime, code: slot.courseCode, type: slot.type, room: slot.roomNumber });
       }
@@ -838,7 +855,7 @@ function TeacherWeekGrid({ teacher, allTimetables, meetings }: { teacher: Teache
     if (m.status === 'cancelled') return;
     const inv = m.invitees?.find(i => {
       const tObj = i.teacher as { _id?: string };
-      const tid  = tObj?._id || (i.teacher as string);
+      const tid = tObj?._id || (i.teacher as string);
       return tid === teacher._id || tid === teacher.id;
     });
     if (inv && busyMap[m.dayOfWeek]) {
@@ -848,16 +865,16 @@ function TeacherWeekGrid({ teacher, allTimetables, meetings }: { teacher: Teache
 
   const allBusy = Object.values(busyMap).flat();
   const totalSlots = DAYS.length * ALL_SLOTS.length;
-  const freeCount  = totalSlots - allBusy.length;
+  const freeCount = totalSlots - allBusy.length;
   const workingDays = new Set(Object.entries(busyMap).filter(([, v]) => (v as BusyEntry[]).length > 0).map(([k]) => k)).size;
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         {[
-          { label: 'Sessions',     val: allBusy.length, color: '#4F46E5', bg: '#EEF2FF' },
-          { label: 'Free slots',   val: freeCount,       color: '#15803D', bg: '#F0FDF4' },
-          { label: 'Working days', val: workingDays,     color: '#A16207', bg: '#FFFBEB' },
+          { label: 'Sessions', val: allBusy.length, color: '#4F46E5', bg: '#EEF2FF' },
+          { label: 'Free slots', val: freeCount, color: '#15803D', bg: '#F0FDF4' },
+          { label: 'Working days', val: workingDays, color: '#A16207', bg: '#FFFBEB' },
         ].map(({ label, val, color, bg }) => (
           <div key={label} style={{ background: bg, borderRadius: 10, padding: '7px 14px', border: `1px solid ${color}20` }}>
             <div style={{ fontSize: 18, fontWeight: 800, color, lineHeight: 1 }}>{val}</div>
@@ -883,16 +900,18 @@ function TeacherWeekGrid({ teacher, allTimetables, meetings }: { teacher: Teache
                 <td style={{ padding: '5px 10px', fontSize: 10, fontWeight: 600, color: '#374151', borderBottom: '1px solid #F1F5F9', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{slot.label}</td>
                 {DAYS.map(day => {
                   const sessions = (busyMap[day] as BusyEntry[])?.filter(b => overlaps(slot.start, slot.end, b.start, b.end)) || [];
-                  const isBusy    = sessions.length > 0;
+                  const isBusy = sessions.length > 0;
                   const isMeeting = sessions.some(s => s.type === 'Meeting');
                   return (
                     <td key={day} style={{ padding: 4, borderBottom: '1px solid #F1F5F9', verticalAlign: 'top' }}>
                       {isBusy ? sessions.map((s, i) => (
-                        <div key={i} style={{ padding: '4px 6px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                        <div key={i} style={{
+                          padding: '4px 6px', borderRadius: 6, fontSize: 10, fontWeight: 600,
                           background: isMeeting ? '#EEF2FF' : s.type === 'Lab' ? '#FFF7ED' : '#F0F9FF',
-                          color:      isMeeting ? '#4F46E5' : s.type === 'Lab' ? '#C2410C' : '#0369A1',
-                          border:     `1px solid ${isMeeting ? '#C7D2FE' : s.type === 'Lab' ? '#FED7AA' : '#BAE6FD'}`,
-                          marginBottom: 2, lineHeight: 1.4 }}>
+                          color: isMeeting ? '#4F46E5' : s.type === 'Lab' ? '#C2410C' : '#0369A1',
+                          border: `1px solid ${isMeeting ? '#C7D2FE' : s.type === 'Lab' ? '#FED7AA' : '#BAE6FD'}`,
+                          marginBottom: 2, lineHeight: 1.4
+                        }}>
                           {s.code}
                           {s.room && <div style={{ fontSize: 9, fontWeight: 400, opacity: 0.75, marginTop: 1 }}>🚪 {s.room}</div>}
                         </div>
@@ -937,32 +956,32 @@ function NotificationBell({ count, onClick }: { count: number; onClick: () => vo
 type RightTab = 'teacher' | 'freeslots' | 'meetings';
 
 const AdminMasterTimetable: React.FC = () => {
-  const [allTimetables,      setAllTimetables]      = useState<Timetable[]>([]);
-  const [selectedTT,         setSelectedTT]         = useState<Timetable | null>(null);
-  const [teachers,           setTeachers]           = useState<Teacher[]>([]);
-  const [meetings,           setMeetings]           = useState<Meeting[]>([]);
-  const [selectedTeacherId,  setSelectedTeacherId]  = useState<string>('');
-  const [loading,            setLoading]            = useState(true);
-  const [loadingMeetings,    setLoadingMeetings]    = useState(false);
-  const [semFilter,          setSemFilter]          = useState('all');
-  const [divFilter,          setDivFilter]          = useState('all');
-  const [searchTerm,         setSearchTerm]         = useState('');
-  const [expandedSems,       setExpandedSems]       = useState<Set<string>>(new Set(['1','2','3','4','5','6','7','8']));
-  const [rightTab,           setRightTab]           = useState<RightTab>('teacher');
-  const [showScheduler,      setShowScheduler]      = useState(false);
-  const [schedulerTeachers,  setSchedulerTeachers]  = useState<Teacher[]>([]);
-  const [schedulerSlot,      setSchedulerSlot]      = useState<SelectedSlot | null>(null);
-  const [toast,              setToast]              = useState<ToastState | null>(null);
+  const [allTimetables, setAllTimetables] = useState<Timetable[]>([]);
+  const [selectedTT, setSelectedTT] = useState<Timetable | null>(null);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [loadingMeetings, setLoadingMeetings] = useState(false);
+  const [semFilter, setSemFilter] = useState('all');
+  const [divFilter, setDivFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedSems, setExpandedSems] = useState<Set<string>>(new Set(['1', '2', '3', '4', '5', '6', '7', '8']));
+  const [rightTab, setRightTab] = useState<RightTab>('teacher');
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [schedulerTeachers, setSchedulerTeachers] = useState<Teacher[]>([]);
+  const [schedulerSlot, setSchedulerSlot] = useState<SelectedSlot | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   const flash = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000); };
 
   const loadMeetings = useCallback(async () => {
     setLoadingMeetings(true);
     try {
-      const res  = await fetch(`${API}/meetings`, { headers: authHdr() });
+      const res = await fetch(`${API}/meetings`, { headers: authHdr() });
       const data = await res.json();
       if (data.success) setMeetings(data.data || []);
-    } catch (_) {}
+    } catch (_) { }
     finally { setLoadingMeetings(false); }
   }, []);
 
@@ -972,9 +991,9 @@ const AdminMasterTimetable: React.FC = () => {
       try {
         const [ttRes, teacherRes] = await Promise.all([
           fetch(`${API}/timetable/all-published`, { headers: authHdr() }),
-          fetch(`${API}/teachers`,                { headers: authHdr() }),
+          fetch(`${API}/teachers`, { headers: authHdr() }),
         ]);
-        const ttData      = await ttRes.json();
+        const ttData = await ttRes.json();
         const teacherData = await teacherRes.json();
         setAllTimetables(ttData.success ? ttData.data : []);
         setTeachers(teacherData.success ? (teacherData.data || []) : []);
@@ -986,7 +1005,7 @@ const AdminMasterTimetable: React.FC = () => {
 
   const handleCancelMeeting = async (id: string) => {
     try {
-      const res  = await fetch(`${API}/meetings/${id}/cancel`, { method: 'PATCH', headers: authHdr() });
+      const res = await fetch(`${API}/meetings/${id}/cancel`, { method: 'PATCH', headers: authHdr() });
       const data = await res.json();
       if (data.success) {
         setMeetings(prev => prev.map(m => m._id === id ? { ...m, status: 'cancelled' as const } : m));
@@ -1006,8 +1025,8 @@ const AdminMasterTimetable: React.FC = () => {
     const ttSem = String(tt.studentGroup?.semester || '');
     const ttDiv = String(tt.studentGroup?.division || '');
     return (semFilter === 'all' || ttSem === semFilter)
-        && (divFilter === 'all' || ttDiv.toLowerCase() === divFilter.toLowerCase())
-        && (searchTerm === '' || tt.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      && (divFilter === 'all' || ttDiv.toLowerCase() === divFilter.toLowerCase())
+      && (searchTerm === '' || tt.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }), [allTimetables, semFilter, divFilter, searchTerm]);
 
   const timetablesBySemester = useMemo(() => {
@@ -1036,9 +1055,9 @@ const AdminMasterTimetable: React.FC = () => {
   const pendingMeetings = meetings.filter(m => m.status === 'scheduled').length;
 
   const RIGHT_TABS: { id: RightTab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: 'teacher',   label: 'Teacher',   icon: <User size={12} /> },
+    { id: 'teacher', label: 'Teacher', icon: <User size={12} /> },
     { id: 'freeslots', label: 'Free Slots', icon: <Clock size={12} /> },
-    { id: 'meetings',  label: 'Meetings',  icon: <Bell size={12} />, badge: pendingMeetings > 0 ? pendingMeetings : undefined },
+    { id: 'meetings', label: 'Meetings', icon: <Bell size={12} />, badge: pendingMeetings > 0 ? pendingMeetings : undefined },
   ];
 
   return (
@@ -1092,12 +1111,12 @@ const AdminMasterTimetable: React.FC = () => {
               <select value={semFilter} onChange={e => setSemFilter(e.target.value)}
                 style={{ flex: 1, border: '1px solid #E5E7EB', borderRadius: 7, fontSize: 10, padding: '5px 6px', outline: 'none', cursor: 'pointer', fontFamily: 'inherit', background: '#F9FAFB' }}>
                 <option value="all">All Sems</option>
-                {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={String(s)}>Sem {s}</option>)}
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(s => <option key={s} value={String(s)}>Sem {s}</option>)}
               </select>
               <select value={divFilter} onChange={e => setDivFilter(e.target.value)}
                 style={{ flex: 1, border: '1px solid #E5E7EB', borderRadius: 7, fontSize: 10, padding: '5px 6px', outline: 'none', cursor: 'pointer', fontFamily: 'inherit', background: '#F9FAFB' }}>
                 <option value="all">All Divs</option>
-                {['A','B','C'].map(d => <option key={d} value={d}>Div {d}</option>)}
+                {['A', 'B', 'C'].map(d => <option key={d} value={d}>Div {d}</option>)}
               </select>
             </div>
           </div>
@@ -1224,7 +1243,7 @@ const AdminMasterTimetable: React.FC = () => {
             {RIGHT_TABS.map(({ id, label, icon, badge }) => (
               <button key={id} onClick={() => setRightTab(id)} style={{
                 flex: 1, padding: '10px 4px', fontSize: 11, fontWeight: 600,
-                color:      rightTab === id ? '#6366F1' : '#6B7280',
+                color: rightTab === id ? '#6366F1' : '#6B7280',
                 background: rightTab === id ? '#F5F3FF' : 'transparent',
                 border: 'none', borderBottom: rightTab === id ? '2px solid #6366F1' : '2px solid transparent',
                 cursor: 'pointer', fontFamily: 'inherit',
@@ -1276,16 +1295,16 @@ const AdminMasterTimetable: React.FC = () => {
 
           {/* Free Slots tab */}
           {rightTab === 'freeslots' && (
-  <TeacherFreeSlots
-  embedded={true}
-  onOpenScheduler={(teachers: Teacher[], slot: any) => { 
-    // This hooks directly into your existing Adminmaster state
-    setSchedulerTeachers(teachers);      
-    setSchedulerSlot(slot);
-      setShowScheduler(true);
-    }}
-  />
-)}
+            <TeacherFreeSlots
+              embedded={true}
+              onOpenScheduler={(teachers: Teacher[], slot: any) => {
+                // This hooks directly into your existing Adminmaster state
+                setSchedulerTeachers(teachers);
+                setSchedulerSlot(slot);
+                setShowScheduler(true);
+              }}
+            />
+          )}
 
           {/* Meetings tab */}
           {rightTab === 'meetings' && (

@@ -14,13 +14,16 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const timetableRoutes = require('./routes/timetable');
-const timetableSimpleRoutes = require('./routes/timetableSimple');
 const roomRoutes = require('./routes/roomRoutes');
 const timeSlotRoutes = require('./routes/timeSlotRoutes');
 const CourseRoutes = require('./routes/CourseRoutes');
 const dataManagementRoutes = require('./routes/dataManagement');
 const departmentRoutes = require('./routes/departmentRoutes');
 const meetingRoutes = require('./routes/Meetingroutes');
+const teacherRoutes = require('./routes/teacherRoutes');
+const swapRoutes = require('./routes/Swaproutes');
+const absenceRoutes = require('./routes/absence');
+const settingsRoutes = require('./routes/settingsRoutes');
 
 // Import config
 const config = require('./config/config');
@@ -86,16 +89,19 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/timetable', timetableRoutes);
-app.use('/api/timetable', timetableSimpleRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/timeslots', timeSlotRoutes);
 app.use('/api/Courses', CourseRoutes);
 app.use('/api/data', dataManagementRoutes);
 app.use('/api/meetings', meetingRoutes);
+app.use('/api/teachers', teacherRoutes);
+app.use('/api/swaps', swapRoutes);
+app.use('/api/absences', absenceRoutes);
+app.use('/api/settings', settingsRoutes);
 console.log(' All routes mounted successfully');
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: 'Route not found',

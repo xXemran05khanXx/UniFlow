@@ -1,14 +1,15 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Clock, CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getApiBaseUrl } from '../../services/apiConfig';
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
-const API = 'http://localhost:5000/api';
+const API = getApiBaseUrl();
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const ALL_SLOTS = [
-  { start: '08:10', end: '10:00', label: '8:10–10:00',  kind: 'Lab'    },
+  { start: '08:10', end: '10:00', label: '8:10–10:00', kind: 'Lab' },
   { start: '10:20', end: '11:15', label: '10:20–11:15', kind: 'Theory' },
   { start: '11:15', end: '12:10', label: '11:15–12:10', kind: 'Theory' },
   { start: '12:10', end: '13:05', label: '12:10–13:05', kind: 'Theory' },
@@ -48,57 +49,57 @@ const palette = (name = '') => PALETTES[(name.charCodeAt(0) || 65) % PALETTES.le
 const Icon = {
   Search: () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
   ),
   Check: ({ size = 12 }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12"/>
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   ),
   X: ({ size = 11 }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
   Users: () => (
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   ),
   Calendar: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2"/>
-      <line x1="16" y1="2" x2="16" y2="6"/>
-      <line x1="8" y1="2" x2="8" y2="6"/>
-      <line x1="3" y1="10" x2="21" y2="10"/>
-      <polyline points="9 16 11 18 15 14"/>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+      <polyline points="9 16 11 18 15 14" />
     </svg>
   ),
   Loader: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ animation: 'fspin .8s linear infinite' }}>
-      <line x1="12" y1="2" x2="12" y2="6"/>
-      <line x1="12" y1="18" x2="12" y2="22"/>
-      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
-      <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
-      <line x1="2" y1="12" x2="6" y2="12"/>
-      <line x1="18" y1="12" x2="22" y2="12"/>
+      <line x1="12" y1="2" x2="12" y2="6" />
+      <line x1="12" y1="18" x2="12" y2="22" />
+      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+      <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+      <line x1="2" y1="12" x2="6" y2="12" />
+      <line x1="18" y1="12" x2="22" y2="12" />
     </svg>
   ),
   Clock: () => (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="12" cy="12" r="10"/>
-      <polyline points="12 6 12 12 16 14"/>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
     </svg>
   ),
   Alert: () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="12" y1="8" x2="12" y2="12"/>
-      <line x1="12" y1="16" x2="12.01" y2="16"/>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
     </svg>
   ),
 };
@@ -126,16 +127,15 @@ function Avatar({ name = '', size = 28, selected = false }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SLOT CELL — single availability cell in the grid
 // ─────────────────────────────────────────────────────────────────────────────
-function SlotCell({ status, freeCount, total, selected, onClick, tooltip }) {
+export function SlotCell({ status, freeCount, total, selected, onClick, tooltip }) {
   const [showTip, setShowTip] = useState(false);
-  const tipRef = useRef(null);
 
   const styles = {
-    free:    { bg: '#EAF3DE', border: '#639922', color: '#27500A' },
+    free: { bg: '#EAF3DE', border: '#639922', color: '#27500A' },
     partial: { bg: '#FAEEDA', border: '#BA7517', color: '#633806' },
-    busy:    { bg: '#FCEBEB', border: '#A32D2D', color: '#501313' },
+    busy: { bg: '#FCEBEB', border: '#A32D2D', color: '#501313' },
     meeting: { bg: '#E6F1FB', border: '#185FA5', color: '#042C53' },
-    sel:     { bg: '#EEEDFE', border: '#534AB7', color: '#26215C' },
+    sel: { bg: '#EEEDFE', border: '#534AB7', color: '#26215C' },
   };
 
   const s = selected ? styles.sel : styles[status] || styles.busy;
@@ -176,7 +176,7 @@ function SlotCell({ status, freeCount, total, selected, onClick, tooltip }) {
           transform: 'translateX(-50%)', zIndex: 999,
           background: '#1E1B2E', color: '#E8E6FF',
           padding: '6px 10px', borderRadius: 7, fontSize: 10, lineHeight: 1.5,
-          whiteSpace: 'pre', pointerEvents: 'none',
+          pointerEvents: 'none',
           boxShadow: '0 4px 16px rgba(0,0,0,.25)',
           maxWidth: 220, whiteSpace: 'normal',
         }}>
@@ -192,18 +192,18 @@ function SlotCell({ status, freeCount, total, selected, onClick, tooltip }) {
 // ─────────────────────────────────────────────────────────────────────────────
 const CombinedGrid = ({ freeData, selectedTeachers, selectedSlot, onSelectSlot, bigView = false }) => {
   return (
-    <div style={{ 
+    <div style={{
       overflowX: 'auto', // Enables horizontal scrolling
-      background: '#fff', 
-      borderRadius: '12px', 
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+      background: '#fff',
+      borderRadius: '12px',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
       border: '1px solid #e5e7eb',
       margin: '0 auto', // Centers the container
-      width: '100%' 
+      width: '100%'
     }}>
       {/* Increased minWidth to 1400px and added tableLayout: 'fixed' to prevent squishing */}
       <table style={{ width: '100%', minWidth: '1400px', borderCollapse: 'collapse', tableLayout: 'fixed', textAlign: 'left' }}>
-        
+
         {/* TABLE HEADER */}
         <thead>
           <tr>
@@ -225,7 +225,7 @@ const CombinedGrid = ({ freeData, selectedTeachers, selectedSlot, onSelectSlot, 
         <tbody>
           {DAYS.map(day => (
             <tr key={day} style={{ borderBottom: '1px solid #e5e7eb' }}>
-              
+
               {/* Day Label (Left Column) */}
               <td style={{ padding: '16px', background: '#fff', fontWeight: '600', color: '#111827', position: 'sticky', left: 0, borderRight: '1px solid #e5e7eb', zIndex: 5 }}>
                 {day}
@@ -239,11 +239,11 @@ const CombinedGrid = ({ freeData, selectedTeachers, selectedSlot, onSelectSlot, 
                 return (
                   <td key={idx} style={{ padding: '8px', verticalAlign: 'top' }}>
                     <div
-  onClick={() => onSelectSlot(day, slot)}
-  title={slot.teacherStatuses
-    .map(t => `${t.name}: ${t.free ? 'Free' : 'Busy'}`)
-    .join('\n')
-  }
+                      onClick={() => onSelectSlot(day, slot)}
+                      title={slot.teacherStatuses
+                        .map(t => `${t.name}: ${t.free ? 'Free' : 'Busy'}`)
+                        .join('\n')
+                      }
                       style={{
                         padding: '12px 8px',
                         borderRadius: '8px',
@@ -263,27 +263,27 @@ const CombinedGrid = ({ freeData, selectedTeachers, selectedSlot, onSelectSlot, 
                       onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                     >
                       {/* Status Badge */}
-                      <div style={{ 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', 
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                         fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px',
-                        color: isAllFree ? '#059669' : '#dc2626', 
-                        paddingBottom: '8px', 
-                        borderBottom: `1px solid ${isAllFree ? '#a7f3d0' : '#fca5a5'}` 
+                        color: isAllFree ? '#059669' : '#dc2626',
+                        paddingBottom: '8px',
+                        borderBottom: `1px solid ${isAllFree ? '#a7f3d0' : '#fca5a5'}`
                       }}>
                         {isAllFree ? <CheckCircle size={14} /> : <XCircle size={14} />}
                         {isAllFree ? 'All Free' : 'Busy'}
                       </div>
 
                       {/* Teacher Status List */}
-                        {bigView && (
+                      {bigView && (
                         <div style={{ marginTop: 6, maxHeight: 80, overflowY: 'auto' }}>
-                            {slot.teacherStatuses.map(ts => (
+                          {slot.teacherStatuses.map(ts => (
                             <div key={ts.teacherId} style={{ fontSize: '11px' }}>
-                                {ts.name} {ts.free ? '✅' : '❌'}
+                              {ts.name} {ts.free ? '✅' : '❌'}
                             </div>
-                            ))}
+                          ))}
                         </div>
-                        )}
+                      )}
                     </div>
                   </td>
                 );
@@ -413,7 +413,6 @@ function Legend() {
 // ─────────────────────────────────────────────────────────────────────────────
 function ActionBanner({ slot, freeData, selectedTeachers, onSchedule, onClear }) {
   if (!slot) return null;
-  const slotIdx = ALL_SLOTS.findIndex(s => s.start === slot.start);
   const slotData = freeData?.[slot.day]?.find(s => s.start === slot.start);
   const freeTeachers = slotData
     ? selectedTeachers.filter(t => slotData.teacherStatuses.find(ts => ts.teacherId === (t._id || t.id) && ts.free))
@@ -516,22 +515,22 @@ function ActionBanner({ slot, freeData, selectedTeachers, onSchedule, onClear })
 //   embedded — if true, renders in compact panel mode (no outer card)
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TeacherFreeSlots({ onOpenScheduler, embedded = false }) {
-  const [allTeachers,      setAllTeachers]      = useState([]);
+  const [allTeachers, setAllTeachers] = useState([]);
   const [selectedTeachers, setSelectedTeachers] = useState([]);
-  const [freeData,         setFreeData]         = useState(null);
-  const [loading,          setLoading]          = useState(false);
-  const [loadingTeachers,  setLoadingTeachers]  = useState(true);
-  const [error,            setError]            = useState('');
-  const [searchQ,          setSearchQ]          = useState('');
-  const [selectedSlot,     setSelectedSlot]     = useState(null);
-  const [viewMode,         setViewMode]         = useState('combined'); // 'combined' | 'individual'
-  const fetchController    = useRef(null);
-const [fullScreen, setFullScreen] = useState(false);
+  const [freeData, setFreeData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingTeachers, setLoadingTeachers] = useState(true);
+  const [error, setError] = useState('');
+  const [searchQ, setSearchQ] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [viewMode, setViewMode] = useState('combined'); // 'combined' | 'individual'
+  const fetchController = useRef(null);
+  const [fullScreen, setFullScreen] = useState(false);
   // ── Load all teachers once ─────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
-        const res  = await fetch(`${API}/teachers`, { headers: authHdr() });
+        const res = await fetch(`${API}/teachers`, { headers: authHdr() });
         const data = await res.json();
         if (data.success) setAllTeachers(data.data || []);
         else setError(data.message || 'Could not load teachers');
@@ -555,8 +554,8 @@ const [fullScreen, setFullScreen] = useState(false);
     setError('');
 
     try {
-      const ids  = teachers.map(t => t._id || t.id).join(',');
-      const res  = await fetch(`${API}/meetings/free-slots?teacherIds=${ids}`, {
+      const ids = teachers.map(t => t._id || t.id).join(',');
+      const res = await fetch(`${API}/meetings/free-slots?teacherIds=${ids}`, {
         headers: authHdr(),
         signal: fetchController.current.signal,
       });
@@ -611,7 +610,7 @@ const [fullScreen, setFullScreen] = useState(false);
     allTeachers.filter(t =>
       !searchQ || teacherName(t).toLowerCase().includes(searchQ.toLowerCase())
     ),
-  [allTeachers, searchQ]);
+    [allTeachers, searchQ]);
 
   // ── Stats from free data ───────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -637,13 +636,13 @@ const [fullScreen, setFullScreen] = useState(false);
   const outerStyle = embedded
     ? { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }
     : {
-        display: 'grid', gridTemplateColumns: '240px 1fr',
-        border: '1px solid #E5E7EB', borderRadius: 16,
-        overflow: 'hidden', background: '#fff',
-        boxShadow: '0 2px 16px rgba(0,0,0,.06)',
-        fontFamily: "'Outfit', 'DM Sans', system-ui, sans-serif",
-        minHeight: 540,
-      };
+      display: 'grid', gridTemplateColumns: '240px 1fr',
+      border: '1px solid #E5E7EB', borderRadius: 16,
+      overflow: 'hidden', background: '#fff',
+      boxShadow: '0 2px 16px rgba(0,0,0,.06)',
+      fontFamily: "'Outfit', 'DM Sans', system-ui, sans-serif",
+      minHeight: 540,
+    };
 
   return (
     <>
@@ -665,7 +664,7 @@ const [fullScreen, setFullScreen] = useState(false);
         }}>
           {/* Header */}
           <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #F1F5F9', flexShrink: 0 }}>
-            
+
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 10, letterSpacing: '-.2px' }}>
               Faculty
             </div>
@@ -766,19 +765,19 @@ const [fullScreen, setFullScreen] = useState(false);
                 Availability
               </div>
               <button
-                    onClick={() => setFullScreen(true)}
-                    style={{
-                        padding: '6px 12px',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        border: '1px solid #E5E7EB',
-                        background: '#fff',
-                        cursor: 'pointer'
-                    }}
-                    >
-                    Expand View
-                    </button>
+                onClick={() => setFullScreen(true)}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  borderRadius: 6,
+                  border: '1px solid #E5E7EB',
+                  background: '#fff',
+                  cursor: 'pointer'
+                }}
+              >
+                Expand View
+              </button>
               {selectedTeachers.length > 0 && (
                 <div style={{ fontSize: 10, color: '#6B7280', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Icon.Clock />
@@ -879,12 +878,12 @@ const [fullScreen, setFullScreen] = useState(false);
               <div style={{ animation: 'fadein .2s ease' }}>
                 {viewMode === 'combined' ? (
                   <CombinedGrid
-  freeData={freeData}
-  selectedTeachers={selectedTeachers}
-  selectedSlot={selectedSlot}
-  onSelectSlot={handleSelectSlot}
-  bigView={true} 
-/>
+                    freeData={freeData}
+                    selectedTeachers={selectedTeachers}
+                    selectedSlot={selectedSlot}
+                    onSelectSlot={handleSelectSlot}
+                    bigView={true}
+                  />
                 ) : (
                   <IndividualGrid
                     freeData={freeData}
@@ -910,42 +909,42 @@ const [fullScreen, setFullScreen] = useState(false);
         </div>
       </div>
       {fullScreen && (
-  <div style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100vw',
-    height: '100vh',
-    background: '#fff',
-    zIndex: 9999,
-    padding: 20,
-    overflow: 'auto'
-  }}>
-    
-    {/* Close Button */}
-    <button
-      onClick={() => setFullScreen(false)}
-      style={{
-        marginBottom: 10,
-        padding: '6px 12px',
-        border: '1px solid #E5E7EB',
-        borderRadius: 6,
-        cursor: 'pointer'
-      }}
-    >
-      Close
-    </button>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: '#fff',
+          zIndex: 9999,
+          padding: 20,
+          overflow: 'auto'
+        }}>
 
-    {/* BIG GRID */}
-    <CombinedGrid
-      freeData={freeData}
-      selectedTeachers={selectedTeachers}
-      selectedSlot={selectedSlot}
-      onSelectSlot={handleSelectSlot}
-      bigView={true}
-    />
-  </div>
-)}
+          {/* Close Button */}
+          <button
+            onClick={() => setFullScreen(false)}
+            style={{
+              marginBottom: 10,
+              padding: '6px 12px',
+              border: '1px solid #E5E7EB',
+              borderRadius: 6,
+              cursor: 'pointer'
+            }}
+          >
+            Close
+          </button>
+
+          {/* BIG GRID */}
+          <CombinedGrid
+            freeData={freeData}
+            selectedTeachers={selectedTeachers}
+            selectedSlot={selectedSlot}
+            onSelectSlot={handleSelectSlot}
+            bigView={true}
+          />
+        </div>
+      )}
     </>
   );
 }

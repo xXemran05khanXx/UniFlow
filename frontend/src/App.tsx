@@ -1,50 +1,48 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import { store } from './store';
-import { useAuth } from './hooks/useAuth';
-import { toast } from "react-toastify";
-import { initializeAuth } from './store/authSlice';
-import { NotificationProvider } from './contexts/NotificationContext';
-import { ToastProvider } from './contexts/ToastContext';
-import Layout from './components/Layout';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import TimetablePage from './pages/Timetable/TimetablePage';
-import StudentTimetablePage from './pages/Student/StudentTimetablePage';
-import StudentNotificationsPage from './pages/Student/StudentNotificationsPage';
-import StudentProfilePage from './pages/Student/StudentProfilePage';
-import StudentMyTeachersPage from './pages/Student/StudentMyTeachersPage';
-import AdminMyTeachersPage from './pages/Admin/AdminMyTeachersPage';
-import DataManagementPage from './pages/Admin/DataManagementPage';
-import UserManagementPage from './pages/Admin/UserManagementPage';
-import SubjectManagementPage from './pages/Admin/SubjectManagementPage';
-import RoomManagementPage from './pages/Admin/RoomManagementPage';
-import TimeSlotsPage from './pages/Timetable/TimeSlotsPage';
-import TimetableGenerationPage from './pages/Timetable/TimetableGenerationPage';
-import AdminSettingsPage from './pages/Admin/AdminSettingsPage';
-import LoadingSpinner from './components/ui/LoadingSpinner';
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Layout from './components/Layout';
+import LoadingSpinner from './components/ui/LoadingSpinner';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { useAuth } from './hooks/useAuth';
+import AdminMyTeachersPage from './pages/Admin/AdminMyTeachersPage';
+import AdminSettingsPage from './pages/Admin/AdminSettingsPage';
 import AdminSwapsPage from './pages/Admin/adminswap';
+import DataManagementPage from './pages/Admin/DataManagementPage';
+import RoomManagementPage from './pages/Admin/RoomManagementPage';
+import SubjectManagementPage from './pages/Admin/SubjectManagementPage';
+import UserManagementPage from './pages/Admin/UserManagementPage';
+import DashboardPage from './pages/DashboardPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import StudentMyTeachersPage from './pages/Student/StudentMyTeachersPage';
+import StudentNotificationsPage from './pages/Student/StudentNotificationsPage';
+import StudentProfilePage from './pages/Student/StudentProfilePage';
+import StudentTimetablePage from './pages/Student/StudentTimetablePage';
+import TimeSlotsPage from './pages/Timetable/TimeSlotsPage';
+import TimetableGenerationPage from './pages/Timetable/TimetableGenerationPage';
+import TimetablePage from './pages/Timetable/TimetablePage';
+import { store } from './store';
+import { initializeAuth } from './store/authSlice';
 // ── Teacher portal ────────────────────────────────────────────────────────────
-import TeacherLayout       from './pages/Teacher/Teacherlayout';
-import TeacherDashboard    from './components/dashboards/TeacherDashboard';
+import TeacherDashboard from './components/dashboards/TeacherDashboard';
+import TeacherAbsencePage from './pages/Teacher/Teacherabsencepage';
+import TeacherClassesPage from './pages/Teacher/TeacherClassesPage';
+import TeacherLayout from './pages/Teacher/Teacherlayout';
+import TeacherProfilePage from './pages/Teacher/Teacherprofile';
 import TeacherSchedulePage from './pages/Teacher/Teacherschedule';
 import TeacherSettingsPage from './pages/Teacher/TeacherSetting';
-import TeacherClassesPage  from './pages/Teacher/TeacherClassesPage';
-import TeacherProfilePage  from './pages/Teacher/Teacherprofile';
-import TeacherSwapPage     from './pages/Teacher/Teacherswappage';         // ← your existing swap page
-import TeacherAbsencePage  from './pages/Teacher/Teacherabsencepage';
+import TeacherSwapPage from './pages/Teacher/Teacherswappage'; // ← your existing swap page
 // ── Admin portal ──────────────────────────────────────────────────────────────
-import AdminAbsencePage       from './pages/Admin/Adminabsence';
+import AdminAbsencePage from './pages/Admin/Adminabsence';
 // ── Shared / Student ──────────────────────────────────────────────────────────
 import DaySubstituteTimetable from './pages/Timetable/Daysubstitute';
 // ─────────────────────────────────────────────────────────────────────────────
 import AdminMasterTimetable from './pages/Admin/Adminmaster';
 // Any logged-in user
-import { useParams, useNavigate } from 'react-router-dom';
 import TeacherFreeSlots from './pages/Teacher/TeacherFreeslot';
 import TimetableEditorPage from './pages/Timetable/TimetableEdit';
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -55,16 +53,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // Admin-only guard
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
-  if (!isAuthenticated)        return <Navigate to="/login" />;
-  if (user?.role !== 'admin')  return <Navigate to="/dashboard" />;
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (user?.role !== 'admin') return <Navigate to="/dashboard" />;
   return <>{children}</>;
 };
 
 // Teacher-only guard
 const TeacherRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
-  if (!isAuthenticated)          return <Navigate to="/login" />;
-  if (user?.role !== 'teacher')  return <Navigate to="/dashboard" />;
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (user?.role !== 'teacher') return <Navigate to="/dashboard" />;
   return <>{children}</>;
 };
 
@@ -76,7 +74,7 @@ const AppContent: React.FC = () => {
     store.dispatch(initializeAuth());
   }, []);
 
- 
+
 
   return (
     <NotificationProvider>
@@ -90,7 +88,7 @@ const AppContent: React.FC = () => {
           <Router>
             <Routes>
               {/* ── Public ───────────────────────────────────────────────── */}
-              <Route path="/login"    element={<LoginPage />} />
+              <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
 
               {/* ── Substitute schedule — visible to all logged-in users ── */}
@@ -124,28 +122,28 @@ const AppContent: React.FC = () => {
               } />
 
               <Route path="/admin/master-timetable" element={
-                  <AdminRoute>
+                <AdminRoute>
+                  <Layout>
+                    <AdminMasterTimetable />
+                  </Layout>
+                </AdminRoute>
+              } />
+
+
+
+
+              <Route
+                path="/admin/timetable/edit/:id"
+                element={
+                  <ProtectedRoute>
                     <Layout>
-                      <AdminMasterTimetable />
+                      <TimetableEditorPage />
                     </Layout>
-                  </AdminRoute>
-                } />
+                  </ProtectedRoute>
+                }
+              />
 
-               
 
-
-<Route 
-  path="/admin/timetable/edit/:id" 
-  element={
-    <ProtectedRoute>
-      <Layout>
-        <TimetableEditorPage />
-      </Layout>
-    </ProtectedRoute>
-  } 
-/>
-              
-                
 
               <Route path="/admin/free-slots" element={<TeacherFreeSlots />} />
 
@@ -213,23 +211,23 @@ const AppContent: React.FC = () => {
                   </TeacherRoute>
                 }
               >
-                <Route index           element={<TeacherDashboard />} />
+                <Route index element={<TeacherDashboard />} />
                 <Route path="dashboard" element={<TeacherDashboard />} />
-                <Route path="schedule"  element={<TeacherSchedulePage />} />
-                <Route path="profile"   element={<TeacherProfilePage />} />
-                <Route path="classes"   element={<TeacherClassesPage />} />
-                <Route path="settings"  element={<TeacherSettingsPage />} />
+                <Route path="schedule" element={<TeacherSchedulePage />} />
+                <Route path="profile" element={<TeacherProfilePage />} />
+                <Route path="classes" element={<TeacherClassesPage />} />
+                <Route path="settings" element={<TeacherSettingsPage />} />
                 {/* ✅ Swap & Absence now INSIDE TeacherLayout — sidebar visible */}
-                <Route path="swaps"     element={<TeacherSwapPage />} />
-                <Route path="absences"  element={<TeacherAbsencePage />} />
+                <Route path="swaps" element={<TeacherSwapPage />} />
+                <Route path="absences" element={<TeacherAbsencePage />} />
               </Route>
 
               {/* 404 fallback */}
-              
+
               <Route path="*" element={<Navigate to="/" />} />
-        
+
             </Routes>
-            
+
           </Router>
         )}
       </ToastProvider>

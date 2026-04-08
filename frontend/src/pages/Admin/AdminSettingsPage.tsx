@@ -15,6 +15,7 @@ import React, { useEffect, useState } from 'react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
+import { getApiBaseUrl } from '../../services/apiConfig';
 
 interface AdminSettingsProps { }
 
@@ -35,6 +36,7 @@ interface BackupSettings {
 }
 
 const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
+  const apiBaseUrl = getApiBaseUrl();
   // State management
   const [activeSection, setActiveSection] = useState<'application' | 'backup'>('application');
   const [loading, setLoading] = useState(false);
@@ -68,7 +70,7 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/settings', {
+      const response = await fetch(`${apiBaseUrl}/settings`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -76,6 +78,10 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          setMessage({ type: 'info', text: 'Settings API is unavailable, showing local defaults.' });
+          return;
+        }
         throw new Error('Failed to load settings');
       }
 
@@ -96,7 +102,7 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/settings', {
+      const response = await fetch(`${apiBaseUrl}/settings`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -141,7 +147,7 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/settings/backup', {
+      const response = await fetch(`${apiBaseUrl}/settings/backup`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -220,8 +226,8 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
           {/* Message display */}
           {message && (
             <div className={`mt-4 p-3 rounded-md ${message.type === 'success' ? 'bg-green-50 border border-green-200' :
-                message.type === 'error' ? 'bg-red-50 border border-red-200' :
-                  'bg-blue-50 border border-blue-200'
+              message.type === 'error' ? 'bg-red-50 border border-red-200' :
+                'bg-blue-50 border border-blue-200'
               }`}>
               <div className="flex items-center">
                 {message.type === 'success' && <Save className="h-5 w-5 text-green-400 mr-2" />}
@@ -263,8 +269,8 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
                     key={item.id}
                     onClick={() => handleSectionClick(item.id as any)}
                     className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${activeSection === item.id
-                        ? 'bg-gradient-to-r ' + item.gradient + ' text-white shadow-lg transform scale-105'
-                        : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:shadow-md'
+                      ? 'bg-gradient-to-r ' + item.gradient + ' text-white shadow-lg transform scale-105'
+                      : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:shadow-md'
                       }`}
                   >
                     <div className="flex items-start space-x-4">
@@ -427,8 +433,8 @@ const AdminSettingsPage: React.FC<AdminSettingsProps> = () => {
                     </h3>
                     <div className="space-y-6">
                       <div className={`p-6 rounded-xl border-2 transition-all ${appConfig.maintenanceMode
-                          ? 'bg-red-100 border-red-300 shadow-lg'
-                          : 'bg-white border-gray-200'
+                        ? 'bg-red-100 border-red-300 shadow-lg'
+                        : 'bg-white border-gray-200'
                         }`}>
                         <div className="flex items-center justify-between mb-4">
                           <div>

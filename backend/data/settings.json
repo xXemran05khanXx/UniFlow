@@ -1,0 +1,18 @@
+{
+  "application": {
+    "collegeName": "A.P Shah Institute of Technology",
+    "collegeLogo": "",
+    "enableEmailNotifications": true,
+    "enableSMSNotifications": false,
+    "maintenanceMode": false,
+    "maintenanceMessage": "System is under maintenance. Please check back later."
+  },
+  "backup": {
+    "autoBackupEnabled": true,
+    "backupFrequency": "weekly",
+    "retentionDays": 30,
+    "lastBackupDate": null
+  },
+  "updatedAt": null,
+  "updatedBy": null
+}

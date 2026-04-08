@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { getApiBaseUrl, getApiErrorMessage } from './apiConfig';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = getApiBaseUrl();
 
 // Create axios instance for user management
 const apiClient = axios.create({
@@ -277,14 +278,59 @@ export const userManagementService = {
       });
       params.append('format', format);
 
-      const response = await apiClient.get(`/users/export?${params.toString()}`, {
-        responseType: 'blob',
-      });
+      try {
+        const response = await apiClient.get(`/users/export?${params.toString()}`, {
+          responseType: 'blob',
+        });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `users_export.${format}`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      } catch {
+        // Fallback to client-side export when backend export endpoint is unavailable.
+      }
+
+      const fallback = await this.getUsers({ ...filters, page: 1, limit: 5000 });
+      const rows = fallback.users || [];
+
+      if (format === 'json') {
+        const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'users_export.json');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+
+      const header = ['name', 'email', 'role', 'department', 'semester', 'isActive'];
+      const csvRows = rows.map((user) => [
+        user.name || '',
+        user.email || '',
+        user.role || '',
+        typeof user.department === 'string' ? user.department : user.department?.name || '',
+        user.semester?.toString() || '',
+        user.isActive ? 'true' : 'false'
+      ]);
+
+      const csv = [header, ...csvRows]
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `users_export.${format}`);
+      link.setAttribute('download', 'users_export.csv');
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -309,18 +355,39 @@ export const userManagementService = {
       return response.data;
     } catch (error) {
       console.error('Error importing users:', error);
-      throw error;
+      throw new Error(getApiErrorMessage(error, 'Bulk import API is not available yet for users'));
     }
   },
 
   // Template download
   async downloadUserTemplate(): Promise<void> {
     try {
-      const response = await apiClient.get('/users/template', {
-        responseType: 'blob',
-      });
+      try {
+        const response = await apiClient.get('/users/template', {
+          responseType: 'blob',
+        });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'users_template.csv');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      } catch {
+        // Fallback to local template generation when backend template endpoint is unavailable.
+      }
+
+      const csv = [
+        'name,email,password,role,department,semester,isActive',
+        'Jane Doe,jane@example.com,Pass@123,teacher,CS,,true',
+        'John Student,john@example.com,Pass@123,student,IT,3,true'
+      ].join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'users_template.csv');

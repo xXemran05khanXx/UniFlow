@@ -1,0 +1,133 @@
+
+> frontend@0.1.0 build
+> react-scripts build
+
+Creating an optimized production build...
+Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Compiled with warnings.
+
+[eslint] 
+src\App.tsx
+  Line 6:10:   'toast' is defined but never used        @typescript-eslint/no-unused-vars
+  Line 47:10:  'useParams' is defined but never used    @typescript-eslint/no-unused-vars
+  Line 47:21:  'useNavigate' is defined but never used  @typescript-eslint/no-unused-vars
+
+src\components\dashboards\AdminDashboard.tsx
+  Line 4:29:    'Clock' is defined but never used                                                                                      @typescript-eslint/no-unused-vars
+  Line 4:36:    'AlertTriangle' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+  Line 5:26:    'Send' is defined but never used                                                                                       @typescript-eslint/no-unused-vars
+  Line 11:33:   'UserStats' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+  Line 15:8:    'AdminMyTeachersPage' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+  Line 222:9:   'departmentColors' is assigned a value but never used                                                                  @typescript-eslint/no-unused-vars
+  Line 231:46:  React Hook useEffect has a missing dependency: 'fetchDashboardData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\components\dashboards\StudentDashboard.tsx
+  Line 144:6:  React Hook useCallback has an unnecessary dependency: 'user'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\components\dashboards\TeacherDashboard.tsx
+  Line 13:11:  'Plus' is defined but never used  @typescript-eslint/no-unused-vars
+
+src\pages\Admin\AdminMyTeachersPage.tsx
+  Line 188:24:  'setSelectedDate' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  Line 189:10:  'commonSlots' is assigned a value but never used             @typescript-eslint/no-unused-vars
+  Line 190:10:  'loading' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+  Line 191:10:  'searchAttempted' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  Line 192:10:  'nextAvailableSlot' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  Line 200:10:  'teachersLoading' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  Line 201:10:  'isDropdownOpen' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  Line 201:26:  'setIsDropdownOpen' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  Line 202:22:  'setSearchTerm' is assigned a value but never used           @typescript-eslint/no-unused-vars
+  Line 204:24:  'setActiveFilter' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  Line 205:10:  'highlightIndex' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  Line 205:26:  'setHighlightIndex' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  Line 206:9:   'listRef' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+  Line 267:9:   'findCommonSlots' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  Line 330:9:   'handleScheduleMeeting' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  Line 357:9:   'formatTime' is assigned a value but never used              @typescript-eslint/no-unused-vars
+  Line 365:9:   'toggleTeacherSelection' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  Line 384:9:   'filteredTeachers' is assigned a value but never used        @typescript-eslint/no-unused-vars
+
+src\pages\Admin\AdminSettingsPage.tsx
+  Line 65:6:  React Hook useEffect has a missing dependency: 'loadSettings'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\pages\Admin\Adminabsence.tsx
+  Line 22:3:   'BookOpen' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+  Line 22:13:  'Users' is defined but never used                                                                           @typescript-eslint/no-unused-vars
+  Line 646:6:  React Hook useCallback has a missing dependency: 'toast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\pages\Admin\Adminmaster.tsx
+  Line 287:10:  'TeacherFreeSlotsTab' is defined but never used  @typescript-eslint/no-unused-vars
+  Line 575:9:   'totalSteps' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+src\pages\Admin\adminswap.tsx
+  Line 2:55:  'Search' is defined but never used  @typescript-eslint/no-unused-vars
+
+src\pages\Teacher\TeacherFree.jsx
+  Line 129:10:  'SlotCell' is defined but never used          no-unused-vars
+  Line 131:9:   'tipRef' is assigned a value but never used   no-unused-vars
+  Line 181:26:  Duplicate key 'whiteSpace'                    no-dupe-keys
+  Line 416:9:   'slotIdx' is assigned a value but never used  no-unused-vars
+
+src\pages\Teacher\TeacherSetting.tsx
+  Line 8:3:   'Award' is defined but never used      @typescript-eslint/no-unused-vars
+  Line 10:3:  'BookOpen' is defined but never used   @typescript-eslint/no-unused-vars
+  Line 11:3:  'Building2' is defined but never used  @typescript-eslint/no-unused-vars
+  Line 14:3:  'Mail' is defined but never used       @typescript-eslint/no-unused-vars
+  Line 15:3:  'Moon' is defined but never used       @typescript-eslint/no-unused-vars
+
+src\pages\Teacher\Teacherprofile.tsx
+  Line 20:26:  'DayOfWeek' is defined but never used  @typescript-eslint/no-unused-vars
+
+src\pages\Teacher\Teacherschedule.tsx
+  Line 21:3:  'Users' is defined but never used  @typescript-eslint/no-unused-vars
+
+src\pages\Teacher\Teacherswappage.tsx
+  Line 26:33:  'BookOpen' is defined but never used                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  Line 26:43:  'MapPin' is defined but never used                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  Line 254:6:  React Hook useEffect has missing dependencies: 'onClose' and 'onCreated'. Either include them or remove the dependency array. If 'onCreated' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
+src\pages\Timetable\Daysubstitute.tsx
+  Line 15:30:  'BookOpen' is defined but never used  @typescript-eslint/no-unused-vars
+  Line 16:17:  'Clock' is defined but never used     @typescript-eslint/no-unused-vars
+
+src\pages\Timetable\TimetableEdit.tsx
+  Line 17:27:   'useRef' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+  Line 160:40:  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+  Line 195:6:   React Hook useEffect has a missing dependency: 'saveAll'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\pages\Timetable\TimetableGenerationPage.tsx
+  Line 14:17:  'useCallback' is defined but never used     @typescript-eslint/no-unused-vars
+  Line 94:7:   'toMin' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+src\pages\Timetable\TimetablePage.tsx
+  Line 360:6:  React Hook useCallback has a missing dependency: 'activeId'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\store\timetableSlice.ts
+  Line 3:21:  'TimetableGeneration' is defined but never used  @typescript-eslint/no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+File sizes after gzip:
+
+  237.53 kB  build\static\js\main.d3246409.js
+  15.87 kB   build\static\css\main.98008384.css
+
+The project was built assuming it is hosted at /.
+You can control this with the homepage field in your package.json.
+
+The build folder is ready to be deployed.
+You may serve it with a static server:
+
+  npm install -g serve
+  serve -s build
+
+Find out more about deployment here:
+
+  https://cra.link/deployment
+

@@ -17,8 +17,7 @@ const departmentSchema = new Schema({
     enum: {
       values: ['IT', 'CS', 'FE'],
       message: 'Department coursecode must be IT, CS, or FE'
-    },
-    index: true
+    }
   },
   name: {
     type: String,
@@ -68,39 +67,39 @@ departmentSchema.virtual('teacherCount', {
 });
 
 // Static method to get department by coursecode
-departmentSchema.statics.getBycoursecode = async function(coursecode) {
+departmentSchema.statics.getBycoursecode = async function (coursecode) {
   return this.findOne({ coursecode: coursecode.toUpperCase(), isActive: true });
 };
 
 // Static method to get all active departments
-departmentSchema.statics.getActive = async function() {
+departmentSchema.statics.getActive = async function () {
   return this.find({ isActive: true }).sort({ coursecode: 1 });
 };
 
 // Instance method to deactivate department
-departmentSchema.methods.deactivate = async function() {
+departmentSchema.methods.deactivate = async function () {
   this.isActive = false;
   return this.save();
 };
 
 // Instance method to activate department
-departmentSchema.methods.activate = async function() {
+departmentSchema.methods.activate = async function () {
   this.isActive = true;
   return this.save();
 };
 
 // Pre-save validation to ensure coursecode and name match
-departmentSchema.pre('save', function(next) {
+departmentSchema.pre('save', function (next) {
   const coursecodeNameMap = {
     'IT': 'Information Technology',
     'CS': 'Computer Science',
     'FE': 'First Year Engineering'
   };
-  
+
   if (this.coursecode && this.name && coursecodeNameMap[this.coursecode] !== this.name) {
     return next(new Error('Department coursecode and name do not match'));
   }
-  
+
   next();
 });
 

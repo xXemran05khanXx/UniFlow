@@ -424,7 +424,7 @@ const RoomManagementPage: React.FC = () => {
     try {
       setBookingLoading(true);
       await roomManagementService.createRoomBooking({
-        room: selectedRoom._id,
+        roomId: selectedRoom._id,
         ...bookingData,
       });
       toast.success('Room booked successfully');
@@ -1043,6 +1043,31 @@ const RoomManagementPage: React.FC = () => {
                   <option key={dept._id} value={dept._id}>{dept.name} ({dept.code || (dept as any).coursecode || '-'})</option>
                 ))}
               </select>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={filters.type === 'seminar_room' ? 'primary' : 'outline'}
+                onClick={() => handleFilterChange('type', filters.type === 'seminar_room' ? '' : 'seminar_room')}
+              >
+                Seminar Rooms Only
+              </Button>
+              {(filters.type || filters.building || filters.department || searchTerm) && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setFilters({});
+                    setSearchTerm('');
+                    setCurrentPage(1);
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              )}
             </div>
 
             {/* Bulk Actions */}

@@ -1,12 +1,13 @@
+import { AlertCircle, CheckCircle2, Eye, EyeOff, GraduationCap } from 'lucide-react';
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, UserPlus } from 'lucide-react';
-import { useAppDispatch } from '../hooks/redux';
-import { registerUser } from '../store/authSlice';
-import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import Card from '../components/ui/Card';
+import { useAppDispatch } from '../hooks/redux';
+import { useAuth } from '../hooks/useAuth';
+import { registerUser } from '../store/authSlice';
+
+const DEPARTMENTS = ['Computer Science', 'Information Technology', 'Artificial Intelligence', 'Data Science'];
 
 const RegisterPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -14,7 +15,7 @@ const RegisterPage: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'student' as 'admin' | 'teacher' | 'student',
+    role: 'student' as 'teacher' | 'student',
     department: '',
     semester: '',
     employeeId: '',
@@ -24,23 +25,19 @@ const RegisterPage: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { isLoading, isAuthenticated } = useAuth();
 
   React.useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/');
-    }
+    if (isAuthenticated) navigate('/');
   }, [isAuthenticated, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (error) setError('');
   };
 
   const validateForm = () => {
@@ -49,8 +46,9 @@ const RegisterPage: React.FC = () => {
       return false;
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
       return false;
     }
 
@@ -59,9 +57,8 @@ const RegisterPage: React.FC = () => {
       return false;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError('Please enter a valid email address');
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
       return false;
     }
 
@@ -87,7 +84,7 @@ const RegisterPage: React.FC = () => {
     }
 
     try {
-      const userData = {
+      await dispatch(registerUser({
         name: formData.name,
         email: formData.email,
         password: formData.password,
@@ -96,190 +93,202 @@ const RegisterPage: React.FC = () => {
         semester: formData.semester ? parseInt(formData.semester) : undefined,
         employeeId: formData.employeeId || undefined,
         studentId: formData.studentId || undefined,
-      };
+      })).unwrap();
 
-      await dispatch(registerUser(userData)).unwrap();
       setSuccess('Account created successfully! Redirecting to login...');
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err: any) {
-      setError(err || 'Registration failed');
+      setError(err || 'Registration failed. Please try again.');
     }
   };
 
+  const selectClass =
+    'w-full px-3 py-2 text-sm border border-secondary-300 rounded-xl text-secondary-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus:border-primary-400 transition-colors duration-150 bg-white';
+
   return (
-    <div className="min-h-screen bg-secondary-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600">UniFlow</h1>
-          <h2 className="mt-6 text-2xl font-semibold text-secondary-900">
-            Create your account
-          </h2>
-          <p className="mt-2 text-sm text-secondary-600">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary-600 hover:text-primary-500 font-medium">
-              Sign in
-            </Link>
+    <div className="min-h-screen flex">
+      <div className="hidden lg:flex lg:flex-1 flex-col items-center justify-center bg-gradient-to-br from-primary-700 via-primary-600 to-primary-500 px-12 py-16 relative overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
+          }}
+        />
+        <div className="relative z-10 max-w-sm text-center text-white">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm mb-6 shadow-lg">
+            <GraduationCap className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3">UniFlow</h1>
+          <p className="text-lg text-primary-100 font-medium mb-8">Academic Suite</p>
+          <p className="text-primary-200 text-sm leading-relaxed">
+            Join your university's academic management platform. Access timetables, manage swaps,
+            and stay on top of your schedule.
           </p>
         </div>
+      </div>
 
-        <Card>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  {error}
-                </div>
-              </div>
-            )}
+      <div className="flex flex-1 items-start justify-center bg-secondary-50 px-4 py-12 sm:px-8 overflow-y-auto">
+        <div className="w-full max-w-md">
+          <div className="lg:hidden text-center mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary-600 mb-3">
+              <GraduationCap className="w-7 h-7 text-white" />
+            </div>
+            <h1 className="text-2xl font-extrabold text-primary-600">UniFlow</h1>
+          </div>
 
-            {success && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  {success}
-                </div>
-              </div>
-            )}
-
-            <Input
-              label="Full Name"
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              placeholder="Enter your full name"
-              required
-            />
-
-            <Input
-              label="Email Address"
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="Enter your email"
-              required
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Role
-              </label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                title="Select your role"
-                required
-              >
-                <option value="student">Student</option>
-                <option value="teacher">Teacher</option>
-                <option value="admin">Administrator</option>
-              </select>
+          <div className="bg-white rounded-2xl shadow-lg border border-secondary-100 p-8">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-secondary-900">Create your account</h2>
+              <p className="text-sm text-secondary-500 mt-1">
+                Already have an account?{' '}
+                <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500 transition-colors">
+                  Sign in
+                </Link>
+              </p>
             </div>
 
-            <Input
-              label="Department"
-              type="text"
-              name="department"
-              value={formData.department}
-              onChange={handleInputChange}
-              placeholder="e.g., Computer Science"
-            />
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              {error && (
+                <div className="flex items-start gap-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+                  <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
+              {success && (
+                <div className="flex items-start gap-3 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-emerald-700">{success}</p>
+                </div>
+              )}
 
-            {formData.role === 'student' && (
-              <>
+              <Input
+                label="Full Name"
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Your full name"
+                autoComplete="name"
+                required
+              />
+
+              <Input
+                label="Email Address"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="you@university.edu"
+                autoComplete="email"
+                required
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1.5">
+                  Role
+                </label>
+                <select name="role" value={formData.role} onChange={handleInputChange} className={selectClass} required>
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1.5">
+                  Department
+                </label>
+                <select name="department" value={formData.department} onChange={handleInputChange} className={selectClass}>
+                  <option value="">Select department (optional)</option>
+                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+
+              {formData.role === 'student' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Student ID"
+                    type="text"
+                    name="studentId"
+                    value={formData.studentId}
+                    onChange={handleInputChange}
+                    placeholder="e.g., STU2024001"
+                    required
+                  />
+                  <Input
+                    label="Semester"
+                    type="number"
+                    name="semester"
+                    value={formData.semester}
+                    onChange={handleInputChange}
+                    placeholder="1-8"
+                    min="1"
+                    max="8"
+                  />
+                </div>
+              )}
+
+              {formData.role === 'teacher' && (
                 <Input
-                  label="Student ID"
+                  label="Employee ID"
                   type="text"
-                  name="studentId"
-                  value={formData.studentId}
+                  name="employeeId"
+                  value={formData.employeeId}
                   onChange={handleInputChange}
-                  placeholder="Enter your student ID"
+                  placeholder="e.g., EMP001"
                   required
                 />
+              )}
+
+              <div className="relative">
                 <Input
-                  label="Semester"
-                  type="number"
-                  name="semester"
-                  value={formData.semester}
+                  label="Password"
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
                   onChange={handleInputChange}
-                  placeholder="Current semester"
-                  min="1"
-                  max="8"
+                  placeholder="At least 6 characters"
+                  autoComplete="new-password"
+                  required
                 />
-              </>
-            )}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-[2.15rem] text-secondary-400 hover:text-secondary-600 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
 
-            {formData.role === 'teacher' && (
-              <Input
-                label="Employee ID"
-                type="text"
-                name="employeeId"
-                value={formData.employeeId}
-                onChange={handleInputChange}
-                placeholder="Enter your employee ID"
-                required
-              />
-            )}
+              <div className="relative">
+                <Input
+                  label="Confirm Password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  placeholder="Repeat your password"
+                  autoComplete="new-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  className="absolute right-3 top-[2.15rem] text-secondary-400 hover:text-secondary-600 transition-colors"
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
 
-            <div className="relative">
-              <Input
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder="Enter your password"
-                required
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-8 text-gray-400 hover:text-gray-600"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-
-            <div className="relative">
-              <Input
-                label="Confirm Password"
-                type={showConfirmPassword ? 'text' : 'password'}
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                placeholder="Confirm your password"
-                required
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-8 text-gray-400 hover:text-gray-600"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full flex items-center justify-center"
-              isLoading={isLoading}
-            >
-              <UserPlus className="h-5 w-5 mr-2" />
-              Create Account
-            </Button>
-          </form>
-        </Card>
+              <Button type="submit" size="lg" className="w-full mt-2" isLoading={isLoading}>
+                Create Account
+              </Button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );

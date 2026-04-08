@@ -74,6 +74,54 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(true, `Booking ${req.body.status}`, booking, 200));
 });
 
+const getRoomBookings = asyncHandler(async (req, res) => {
+  const { status, startDate, endDate } = req.query;
+
+  const room = await Room.findById(req.params.id)
+    .populate('bookings.userId', 'name email')
+    .lean();
+
+  if (!room) {
+    throw new ApiError(404, 'Room not found');
+  }
+
+  let bookings = room.bookings || [];
+
+  if (status) {
+    const allowedStatus = ['pending', 'approved', 'rejected', 'cancelled'];
+    if (!allowedStatus.includes(status)) {
+      throw new ApiError(400, 'Invalid booking status');
+    }
+    bookings = bookings.filter((booking) => booking.status === status);
+  }
+
+  if (startDate || endDate) {
+    const start = startDate ? new Date(startDate) : new Date(0);
+    const end = endDate ? new Date(endDate) : new Date();
+
+    bookings = bookings.filter((booking) => {
+      return new Date(booking.startTime) >= start && new Date(booking.endTime) <= end;
+    });
+  }
+
+  bookings.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+
+  res.status(200).json(
+    new ApiResponse(
+      true,
+      'Room bookings retrieved successfully',
+      {
+        roomId: room._id,
+        roomName: room.name,
+        roomNumber: room.roomNumber,
+        totalBookings: bookings.length,
+        bookings
+      },
+      200
+    )
+  );
+});
+
 const getSchedulingDimensions = async () => {
   const activeSlots = await TimeSlot.find({ isActive: true })
     .select('dayOfWeek startTime endTime')
@@ -158,13 +206,13 @@ const getAllRooms = asyncHandler(async (req, res) => {
   const query = {};
 
   // Text search across multiple fields
- if (search) {
-  query.$or = [
-    { roomNumber: { $regex: search, $options: 'i' } },
-    { name: { $regex: search, $options: 'i' } },
-    { building: { $regex: search, $options: 'i' } }
-  ];
-}
+  if (search) {
+    query.$or = [
+      { roomNumber: { $regex: search, $options: 'i' } },
+      { name: { $regex: search, $options: 'i' } },
+      { building: { $regex: search, $options: 'i' } }
+    ];
+  }
 
   // Filter by building
   if (building) {
@@ -183,20 +231,20 @@ const getAllRooms = asyncHandler(async (req, res) => {
 
   // Filter by department
   if (department) {
-  if (department.match(/^[0-9a-fA-F]{24}$/)) {
-    query.department = department;
-  } else {
-    const dept = await Department.findOne({
-      $or: [
-        { coursecode: department },
-        { name: department }
-      ]
-    });
+    if (department.match(/^[0-9a-fA-F]{24}$/)) {
+      query.department = department;
+    } else {
+      const dept = await Department.findOne({
+        $or: [
+          { coursecode: department },
+          { name: department }
+        ]
+      });
 
-    if (dept) query.department = dept._id;
-    else query.department = null; // returns empty result
+      if (dept) query.department = dept._id;
+      else query.department = null; // returns empty result
+    }
   }
-}
 
   // Filter by status
   if (isActive !== undefined) {
@@ -233,19 +281,19 @@ const getAllRooms = asyncHandler(async (req, res) => {
   try {
     // Get total count for pagination
     // Execute query with pagination + count in parallel
-const [rooms, totalRooms] = await Promise.all([
-  Room.find(query)
-    .populate('department', 'coursecode name')
-    .populate('createdBy', 'name email')
-    .populate('updatedBy', 'name email')
-    .sort(sortObj)
-    .skip(skip)
-    .limit(limitNum)
-    .lean(),
-  Room.countDocuments(query)
-]);
+    const [rooms, totalRooms] = await Promise.all([
+      Room.find(query)
+        .populate('department', 'coursecode name')
+        .populate('createdBy', 'name email')
+        .populate('updatedBy', 'name email')
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Room.countDocuments(query)
+    ]);
 
-  const totalPages = Math.ceil(totalRooms / limitNum);
+    const totalPages = Math.ceil(totalRooms / limitNum);
 
     res.status(200).json(new ApiResponse(
       true,
@@ -296,7 +344,7 @@ const getRoomById = asyncHandler(async (req, res) => {
 const createRoom = asyncHandler(async (req, res) => {
   console.log('Creating room with data:', req.body);
   console.log('User creating room:', req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'No user');
-  
+
   // Prepare room data
   const roomData = {
     ...req.body,
@@ -321,8 +369,8 @@ const createRoom = asyncHandler(async (req, res) => {
   console.log('Final room data:', roomData);
 
   // Check if room number already exists
-  const existingRoom = await Room.findOne({ 
-    roomNumber: roomData.roomNumber.toUpperCase() 
+  const existingRoom = await Room.findOne({
+    roomNumber: roomData.roomNumber.toUpperCase()
   });
 
   if (existingRoom) {
@@ -360,7 +408,7 @@ const updateRoom = asyncHandler(async (req, res) => {
 
   // Check if updating room number to one that already exists
   if (req.body.roomNumber && req.body.roomNumber !== room.roomNumber) {
-    const existingRoom = await Room.findOne({ 
+    const existingRoom = await Room.findOne({
       roomNumber: req.body.roomNumber.toUpperCase(),
       _id: { $ne: req.params.id }
     });
@@ -391,13 +439,13 @@ const updateRoom = asyncHandler(async (req, res) => {
 
   await room.save();
   await room.populate([
-  { path: 'createdBy', select: 'name email' },
-  { path: 'updatedBy', select: 'name email' }
-]);
+    { path: 'createdBy', select: 'name email' },
+    { path: 'updatedBy', select: 'name email' }
+  ]);
 
   res.status(200).json(
-  new ApiResponse(true, 'Room updated successfully', room, 200)
-);
+    new ApiResponse(true, 'Room updated successfully', room, 200)
+  );
 });
 
 /**
@@ -435,12 +483,12 @@ const deleteRoom = asyncHandler(async (req, res) => {
  */
 const toggleRoomStatus = asyncHandler(async (req, res) => {
   const { isActive } = req.body;
-  
+
   const room = await Room.findByIdAndUpdate(
     req.params.id,
-    { 
+    {
       isActive,
-      updatedBy: req.user._id 
+      updatedBy: req.user._id
     },
     { new: true }
   ).populate('createdBy updatedBy', 'name email');
@@ -450,13 +498,13 @@ const toggleRoomStatus = asyncHandler(async (req, res) => {
   }
 
   res.status(200).json(
-  new ApiResponse(
-    true,
-    `Room ${isActive ? 'activated' : 'deactivated'} successfully`,
-    room,
-    200
-  )
-);
+    new ApiResponse(
+      true,
+      `Room ${isActive ? 'activated' : 'deactivated'} successfully`,
+      room,
+      200
+    )
+  );
 });
 
 /**
@@ -466,12 +514,12 @@ const toggleRoomStatus = asyncHandler(async (req, res) => {
  */
 const toggleRoomAvailability = asyncHandler(async (req, res) => {
   const { isAvailable } = req.body;
-  
+
   const room = await Room.findByIdAndUpdate(
     req.params.id,
-    { 
+    {
       isAvailable,
-      updatedBy: req.user._id 
+      updatedBy: req.user._id
     },
     { new: true }
   ).populate('createdBy updatedBy', 'name email');
@@ -481,13 +529,13 @@ const toggleRoomAvailability = asyncHandler(async (req, res) => {
   }
 
   res.status(200).json(
-  new ApiResponse(
-    true,
-    `Room marked as ${isAvailable ? 'available' : 'unavailable'} successfully`,
-    room,
-    200
-  )
-);
+    new ApiResponse(
+      true,
+      `Room marked as ${isAvailable ? 'available' : 'unavailable'} successfully`,
+      room,
+      200
+    )
+  );
 });
 
 /**
@@ -535,13 +583,13 @@ const bulkUpdateRooms = asyncHandler(async (req, res) => {
 
       await Room.deleteMany({ _id: { $in: roomIds } });
       return res.status(200).json(
-  new ApiResponse(
-    true,
-    'Rooms deleted successfully',
-    { deletedCount: roomIds.length },
-    200
-  )
-);
+        new ApiResponse(
+          true,
+          'Rooms deleted successfully',
+          { deletedCount: roomIds.length },
+          200
+        )
+      );
     default:
       if (data) {
         updateData = { ...updateData, ...data };
@@ -554,13 +602,13 @@ const bulkUpdateRooms = asyncHandler(async (req, res) => {
   );
 
   return res.status(200).json(
-  new ApiResponse(
-    true,
-    'Rooms deleted successfully',
-    { deletedCount: roomIds.length },
-    200
-  )
-);
+    new ApiResponse(
+      true,
+      'Rooms deleted successfully',
+      { deletedCount: roomIds.length },
+      200
+    )
+  );
 });
 
 /**
@@ -571,7 +619,7 @@ const bulkUpdateRooms = asyncHandler(async (req, res) => {
 const getRoomStats = asyncHandler(async (req, res) => {
   try {
     const stats = await Room.getRoomStats();
-    
+
     // Process the aggregation result
     const processedStats = {
       totalRooms: stats[0].totalRooms[0]?.count || 0,
@@ -596,13 +644,13 @@ const getRoomStats = asyncHandler(async (req, res) => {
     });
 
     res.status(200).json(
-  new ApiResponse(
-    true,
-    'Room statistics retrieved successfully',
-    processedStats,
-    200
-  )
-);
+      new ApiResponse(
+        true,
+        'Room statistics retrieved successfully',
+        processedStats,
+        200
+      )
+    );
   } catch (error) {
     throw new ApiError(500, 'Error retrieving room statistics');
   }
@@ -640,13 +688,13 @@ const findAvailableRooms = asyncHandler(async (req, res) => {
     const availableRooms = await Room.findAvailableRooms(start, end, filters);
 
     res.status(200).json(
-  new ApiResponse(
-    true,
-    'Available rooms retrieved successfully',
-    availableRooms,
-    200
-  )
-);
+      new ApiResponse(
+        true,
+        'Available rooms retrieved successfully',
+        availableRooms,
+        200
+      )
+    );
   } catch (error) {
     throw new ApiError(500, 'Error finding available rooms');
   }
@@ -774,56 +822,6 @@ const getRoomHeatmap = asyncHandler(async (_req, res) => {
       }
     ])
   ]);
-  const getRoomBookings = asyncHandler(async (req, res) => {
-  const { status, startDate, endDate } = req.query;
-
-  const room = await Room.findById(req.params.id)
-    .populate('bookings.userId', 'name email')
-    .lean();
-
-  if (!room) {
-    throw new ApiError(404, 'Room not found');
-  }
-
-  let bookings = room.bookings || [];
-
-  // 🔍 Filter by status (optional)
-  if (status) {
-    const allowedStatus = ['pending', 'approved', 'rejected', 'cancelled'];
-    if (!allowedStatus.includes(status)) {
-      throw new ApiError(400, 'Invalid booking status');
-    }
-    bookings = bookings.filter(b => b.status === status);
-  }
-
-  // 📅 Filter by date range (optional)
-  if (startDate || endDate) {
-    const start = startDate ? new Date(startDate) : new Date(0);
-    const end = endDate ? new Date(endDate) : new Date();
-
-    bookings = bookings.filter(b => {
-      return new Date(b.startTime) >= start && new Date(b.endTime) <= end;
-    });
-  }
-
-  // ⏳ Sort by latest booking first
-  bookings.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-
-  res.status(200).json(
-    new ApiResponse(
-      true,
-      'Room bookings retrieved successfully',
-      {
-        roomId: room._id,
-        roomName: room.name,
-        roomNumber: room.roomNumber,
-        totalBookings: bookings.length,
-        bookings
-      },
-      200
-    )
-  );
-});
 
   const days = dimensions.days;
   const timeSlots = dimensions.timeSlots;
@@ -984,13 +982,13 @@ const getMaintenanceSchedule = asyncHandler(async (req, res) => {
     const schedule = await Room.getMaintenanceSchedule(start, end);
 
     res.status(200).json(
-  new ApiResponse(
-    true,
-    'Maintenance schedule retrieved successfully',
-    schedule,
-    200
-  )
-);
+      new ApiResponse(
+        true,
+        'Maintenance schedule retrieved successfully',
+        schedule,
+        200
+      )
+    );
   } catch (error) {
     throw new ApiError(500, 'Error retrieving maintenance schedule');
   }
@@ -1111,17 +1109,17 @@ const importRooms = asyncHandler(async (req, res) => {
     fs.unlinkSync(filePath);
 
     res.status(200).json(
-  new ApiResponse(
-    true,
-    `Import completed. ${imported} rooms imported, ${failed} failed.`,
-    {
-      imported,
-      failed,
-      errors: errors.slice(0, 10)
-    },
-    200
-  )
-);
+      new ApiResponse(
+        true,
+        `Import completed. ${imported} rooms imported, ${failed} failed.`,
+        {
+          imported,
+          failed,
+          errors: errors.slice(0, 10)
+        },
+        200
+      )
+    );
 
   } catch (error) {
     // Clean up uploaded file
@@ -1142,8 +1140,8 @@ const exportRooms = asyncHandler(async (req, res) => {
 
   try {
     const rooms = await Room.find({})
-  .populate('department', 'coursecode name')
-  .lean();
+      .populate('department', 'coursecode name')
+      .lean();
 
     if (format === 'json') {
       res.setHeader('Content-Type', 'application/json');
@@ -1287,7 +1285,7 @@ module.exports = {
   importRooms,
   exportRooms,
   getRoomTemplate,
-  updateBookingStatus ,
+  updateBookingStatus,
   createRoomBooking,
   getRoomBookings
 };
